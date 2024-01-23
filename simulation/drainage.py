@@ -1,5 +1,5 @@
 from equations import OIL
-from simulation.simulation_base import SimulationBase, PcIncrementer
+from simulation.simulation_base import SimulationBase
 
 
 def run_drainage(network, pc_incrementer, debug=False):

@@ -1,5 +1,3 @@
-from math import sqrt
-
 from numba import njit
 
 from .common_equations import CIRCLE, SQUARE, TRIANGLE

@@ -1,18 +1,11 @@
-import math
 from parameters.parameter_manager import DEFAULT_PARAMETERS, ParameterManager
 
 from equations import (
     calculate_beta,
     calculate_C,
     calculate_drainage_b,
-    calculate_drainage_displacement,
     calculate_drainage_pc,
-    calculate_hinging_contact_angle,
-    calculate_multiphase_oil_conductance,
-    calculate_multiphase_water_conductance,
-    calculate_singlephase_conductance,
     calculate_shape,
-    calculate_sw_total,
     WATER,
     OIL,
 )

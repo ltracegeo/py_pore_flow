@@ -1,5 +1,5 @@
 from abc import abstractmethod
-import math
+
 
 import numpy as np
 import openpnm

@@ -3,7 +3,7 @@ from equations import (
     calculate_imbibition_piston_like_displacement_pc,
     WATER,
 )
-from simulation.simulation_base import BorderElements, TrapChecker, SimulationBase, PcIncrementer
+from simulation.simulation_base import SimulationBase
 
 
 def run_imbibition(network, pc_incrementer, debug=False):

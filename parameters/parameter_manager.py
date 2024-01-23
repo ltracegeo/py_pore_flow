@@ -1,5 +1,5 @@
 import math
-from math import exp, pi
+from math import pi
 
 import numpy as np
 from scipy.stats import weibull_min
