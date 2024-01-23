@@ -1,0 +1,6 @@
+TRIANGLE = 0
+SQUARE = 1
+CIRCLE = 2
+
+WATER = 0
+OIL = 1
