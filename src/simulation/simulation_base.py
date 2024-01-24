@@ -405,41 +405,11 @@ class SimulationBase:
         self.saturation_calculator = SaturationCalculator(self.pores_dict, self.throats_dict)
 
     def update_pc(self, pc):
-        current_border_throats_ids = self.border_elements.get_throats_ids()
-        for throat_id in current_border_throats_ids:
-            if not self.throats_dict[throat_id].is_filled(self.phase):
-                self.apply_oil_pressure_to_throat(self.throats_dict[throat_id], pc)
-
-        current_border_pores_ids = self.border_elements.get_pores_ids()
-        for pore_id in current_border_pores_ids:
-            if not self.pores_dict[pore_id].is_filled(self.phase):
-                self.apply_oil_pressure_to_pore(self.pores_dict[pore_id], pc)
+        self._update_invasions(pc)
 
         self.trap_checker.update_trapped_pores()
 
-        self.update_hinging_contact_angles(pc)
-
-    def apply_oil_pressure_to_throat(self, throat, pc):
-        if self._check_invasion_condition(pc, throat):
-            throat.set_filled(self.phase, True)
-            self.border_elements.remove_throat(throat.get_id())
-
-            neighbor_pore_list = self.network.get_neighbor_pores(throat.get_id())
-            for neighbor_pore in neighbor_pore_list:
-                if not neighbor_pore.is_filled(self.phase):
-                    self.border_elements.add_pore(neighbor_pore.get_id())
-                    self.apply_oil_pressure_to_pore(neighbor_pore, pc)
-
-    def apply_oil_pressure_to_pore(self, pore, pc):
-        if not pore.is_trapped() and self._check_invasion_condition(pc, pore):
-            pore.set_filled(self.phase, True)
-            self.border_elements.remove_pore(pore.get_id())
-
-            neighbor_throat_list = self.network.get_neighbor_throats(pore.get_id())
-            for neighbor_throat in neighbor_throat_list:
-                if not neighbor_throat.is_filled(self.phase):
-                    self.border_elements.add_throat(neighbor_throat.get_id())
-                    self.apply_oil_pressure_to_throat(neighbor_throat, pc)
+        self.__update_hinging_contact_angles(pc)
 
     def calculate_sw_total(self, pc):
         return self.saturation_calculator.calculate_sw_total(pc)
@@ -457,7 +427,44 @@ class SimulationBase:
 
         return pores_filled, total_pores, int((pores_filled / total_pores) * 100)
 
-    def update_hinging_contact_angles(self, pc):
+    @abstractmethod
+    def _check_invasion_condition(self, pc, element):
+        pass
+
+    def _update_invasions(self, pc):
+        current_border_throats_ids = self.border_elements.get_throats_ids()
+        for throat_id in current_border_throats_ids:
+            if not self.throats_dict[throat_id].is_filled(self.phase):
+                self.__apply_oil_pressure_to_throat(self.throats_dict[throat_id], pc)
+
+        current_border_pores_ids = self.border_elements.get_pores_ids()
+        for pore_id in current_border_pores_ids:
+            if not self.pores_dict[pore_id].is_filled(self.phase):
+                self.__apply_oil_pressure_to_pore(self.pores_dict[pore_id], pc)
+
+    def __apply_oil_pressure_to_throat(self, throat, pc):
+        if self._check_invasion_condition(pc, throat):
+            throat.set_filled(self.phase, True)
+            self.border_elements.remove_throat(throat.get_id())
+
+            neighbor_pore_list = self.network.get_neighbor_pores(throat.get_id())
+            for neighbor_pore in neighbor_pore_list:
+                if not neighbor_pore.is_filled(self.phase):
+                    self.border_elements.add_pore(neighbor_pore.get_id())
+                    self.__apply_oil_pressure_to_pore(neighbor_pore, pc)
+
+    def __apply_oil_pressure_to_pore(self, pore, pc):
+        if not pore.is_trapped() and self._check_invasion_condition(pc, pore):
+            pore.set_filled(self.phase, True)
+            self.border_elements.remove_pore(pore.get_id())
+
+            neighbor_throat_list = self.network.get_neighbor_throats(pore.get_id())
+            for neighbor_throat in neighbor_throat_list:
+                if not neighbor_throat.is_filled(self.phase):
+                    self.border_elements.add_throat(neighbor_throat.get_id())
+                    self.__apply_oil_pressure_to_throat(neighbor_throat, pc)
+
+    def __update_hinging_contact_angles(self, pc):
         for pore in self.network.get_pore_list():
             hinging_contact_angle = calculate_hinging_contact_angle(pc, pore.beta, pore.b)
             hinging_contact_angle = np.clip(
@@ -471,10 +478,6 @@ class SimulationBase:
                 hinging_contact_angle, throat.receding_contact_angle, throat.advancing_contact_angle
             )
             throat.theta_h = hinging_contact_angle
-
-    @abstractmethod
-    def _check_invasion_condition(self, pc, element):
-        pass
 
 
 class TrapChecker:
