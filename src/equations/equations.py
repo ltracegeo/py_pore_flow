@@ -287,7 +287,7 @@ def calculate_pore_body_filling_pc(r, theta_a, K, oil_filled_throats_n, h):
         if i == 0:
             lamb[i] = 0
         else:
-            0.03 / sqrt(K / (1.01325 * 10**15))
+            lamb[i] = 0.03 / sqrt(K / (1.01325 * 10**15))
 
     for i in range(oil_filled_throats_n):
         lambda_sum = lamb[i] * x[i] - (pw - po) * g * h
