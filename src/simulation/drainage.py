@@ -25,7 +25,7 @@ def run_drainage(network, pc_incrementer, debug=False):
 
         if debug:
             print(
-                f"Pc: {Pc:5.2f}, Sw: {Sw:.6f}, Krw: {Krw:.6f}, Kro: {Kro:.6f}, Filled: {pores_filled:4}/{total_pores} ({percentage:2}%)."
+                f"Pc: {Pc:8.2f}, Sw: {Sw:.6f}, Krw: {Krw:.6f}, Kro: {Kro:.6f}, Filled: {pores_filled:4}/{total_pores} ({percentage:2}%)."
             )
 
         Pc = pc_incrementer.increment(Sw)
