@@ -234,7 +234,10 @@ class KrelCalculator:
         network_clone.update(self.network.pn.copy())
         pore_id_to_remove_list = np.where(network_clone["pore.oil_saturation"] == 0)[0]
         throat_id_to_remove_list = np.where(network_clone["throat.oil_saturation"] == 0)[0]
-        if not self.__trim(network_clone, pores=pore_id_to_remove_list, throats=throat_id_to_remove_list):
+        if len(pore_id_to_remove_list) > 0 or len(throat_id_to_remove_list) > 0:
+            if not self.__trim(network_clone, pores=pore_id_to_remove_list, throats=throat_id_to_remove_list):
+                return 0
+        if len(network_clone.throats()) == 0 or len(network_clone.pores()) == 0:
             return 0
         new_network = Network(network_clone)
         if len(new_network.get_inlets_ids()) == 0 or len(new_network.get_outlets_ids()) == 0:
@@ -248,7 +251,10 @@ class KrelCalculator:
         network_clone.update(self.network.pn.copy())
         pore_id_to_remove_list = np.where(network_clone["pore.water_saturation"] == 0)[0]
         throat_id_to_remove_list = np.where(network_clone["throat.water_saturation"] == 0)[0]
-        if not self.__trim(network_clone, pores=pore_id_to_remove_list, throats=throat_id_to_remove_list):
+        if len(pore_id_to_remove_list) > 0 or len(throat_id_to_remove_list) > 0:
+            if not self.__trim(network_clone, pores=pore_id_to_remove_list, throats=throat_id_to_remove_list):
+                return 0
+        if len(network_clone.throats()) == 0 or len(network_clone.pores()) == 0:
             return 0
         new_network = Network(network_clone)
         if len(new_network.get_inlets_ids()) == 0 or len(new_network.get_outlets_ids()) == 0:
@@ -271,8 +277,11 @@ class KrelCalculator:
         if len(throats) == len(pn.throats()):
             return False
         openpnm.topotools.trim(pn, pores=pores, throats=throats)
-        pn.add_model(propname="pore.cluster_number", model=openpnm.models.network.cluster_number)
-        pn.add_model(propname="pore.cluster_size", model=openpnm.models.network.cluster_size)
+        try:
+            pn.add_model(propname="pore.cluster_number", model=openpnm.models.network.cluster_number)
+            pn.add_model(propname="pore.cluster_size", model=openpnm.models.network.cluster_size)
+        except:
+            return True
 
         clustered_pores = pn["pore.cluster_size"] < pn["pore.cluster_size"].max()
         openpnm.topotools.trim(network=pn, pores=clustered_pores)
