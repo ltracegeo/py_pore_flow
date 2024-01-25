@@ -248,21 +248,24 @@ def calculate_drainage_b(beta, theta_r, Pc_max):
 
 @njit
 def calculate_imbibition_pc(
-    shape_factor, radius, advancing_contact_angle, shape, C, height_above_datum, number_of_oil_filled_neighbors, K
+    shape_factor, radius, advancing_contact_angle, shape, C, pc, height_above_datum, number_of_oil_filled_neighbors, K
 ):
     if number_of_oil_filled_neighbors > 1:
         return calculate_pore_body_filling_pc(radius, advancing_contact_angle, K, number_of_oil_filled_neighbors, 0)
     else:
         return calculate_imbibition_piston_like_displacement_pc(
-            shape_factor, radius, advancing_contact_angle, shape, C, height_above_datum
+            shape_factor, radius, advancing_contact_angle, shape, C, pc, height_above_datum
         )
 
 
 @njit
 def calculate_imbibition_piston_like_displacement_pc(
-    shape_factor, radius, advancing_contact_angle, shape, C, height_above_datum
+    shape_factor, radius, advancing_contact_angle, shape, C, pc, height_above_datum
 ):
-    theta = pi - advancing_contact_angle
+    if pc < 0:
+        theta = pi - advancing_contact_angle
+    else:
+        theta = advancing_contact_angle
     return calculate_pc(shape_factor, radius, theta, shape, C, height_above_datum)
 
 

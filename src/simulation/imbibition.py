@@ -54,12 +54,13 @@ class ImbibitionSimulation(SimulationBase):
                 element.advancing_contact_angle,
                 element.shape,
                 element.C,
+                pc,
                 0,
                 number_of_oil_filled_neighbors,
                 K,
             )
         else:
             element_pc = calculate_imbibition_piston_like_displacement_pc(
-                element.G, element.r, element.advancing_contact_angle, element.shape, element.C, 0
+                element.G, element.r, element.advancing_contact_angle, element.shape, element.C, pc, 0
             )
         return element_pc > pc
