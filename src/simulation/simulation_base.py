@@ -473,7 +473,7 @@ class SimulationBase:
                     self.__apply_oil_pressure_to_pore(neighbor_pore, pc)
 
     def __apply_oil_pressure_to_pore(self, pore, pc):
-        if not pore.is_trapped() and self._check_invasion_condition(pc, pore):
+        if not pore.trapped and self._check_invasion_condition(pc, pore):
             pore.set_filled(self.phase, True)
             self.border_elements.remove_pore(pore.get_id())
 
@@ -508,8 +508,8 @@ class TrapChecker:
 
     def update_trapped_pores(self):
         for pore_id, is_trapped in enumerate(self.get_pore_trap_status()):
-            if is_trapped:
-                self.pores_dict[pore_id].set_trapped()
+            if is_trapped and not self.pores_dict[pore_id].is_oil_filled():
+                self.pores_dict[pore_id].trapped = True
 
     def get_pore_trap_status(self):
         pore_trap_status_list = [True] * self.network.get_number_of_pores()

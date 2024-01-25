@@ -35,6 +35,7 @@ def initialize_pn(pn):
         pn[f"{element_type}.oil_singlephase_conductance"] = 0.0
         pn[f"{element_type}.water_singlephase_conductance"] = 0.0
         pn[f"{element_type}.shape"] = 0
+        pn[f"{element_type}.trapped"] = False
 
 
 class Network:
@@ -118,6 +119,7 @@ class PnElement:
         self._receding_contact_angle = None
         self._C = None
         self._shape = None
+        self._trapped = None
         self._beta = None
         self._theta_h = None
         self._b = None
@@ -125,7 +127,6 @@ class PnElement:
         self.pc = None
         self.oil_filled = False
         self.water_filled = True
-        self.trapped = False
 
     @property
     def G(self):
@@ -186,6 +187,12 @@ class PnElement:
         if self._shape is None:
             self._shape = self.pn[f"{self.type_name}.shape"][self.id]
         return self._shape
+
+    @property
+    def trapped(self):
+        if self._trapped is None:
+            self._trapped = self.pn[f"{self.type_name}.trapped"][self.id]
+        return self._trapped
 
     @property
     def beta(self):
@@ -259,6 +266,11 @@ class PnElement:
         self._shape = shape
         self.pn[f"{self.type_name}.shape"][self.id] = shape
 
+    @trapped.setter
+    def trapped(self, trapped):
+        self._trapped = trapped
+        self.pn[f"{self.type_name}.trapped"][self.id] = trapped
+
     @beta.setter
     def beta(self, beta):
         self._beta = beta
@@ -313,13 +325,6 @@ class PnElement:
 
     def set_pc(self, pc):
         self.pc = pc
-
-    def is_trapped(self):
-        return self.trapped
-
-    def set_trapped(self, trapped=True):
-        if not self.is_oil_filled():
-            self.trapped = trapped
 
     @abstractmethod
     def is_pore(self):
