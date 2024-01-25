@@ -1,6 +1,7 @@
 from abc import abstractmethod
 
-
+import numba as nb
+from numba.experimental import jitclass
 import numpy as np
 import openpnm
 
@@ -271,7 +272,8 @@ class KrelCalculator:
         qtsp = self.singlephase_flow_rate[WATER]
         return calculate_absolute_permeability(WATER, qtsp, A, L, 101325, 0)
 
-    def __trim(self, pn, pores=[], throats=[]):
+    @staticmethod
+    def __trim(pn, pores=[], throats=[]):
         if len(pores) == len(pn.pores()):
             return False
         if len(throats) == len(pn.throats()):
@@ -287,7 +289,8 @@ class KrelCalculator:
         openpnm.topotools.trim(network=pn, pores=clustered_pores)
         return True
 
-    def __get_network_size(self, pn):
+    @staticmethod
+    def __get_network_size(pn):
         dimension_list = [0, 1, 2]
         element_max = [0.0] * len(dimension_list)
         element_min = [0.0] * len(dimension_list)
@@ -358,14 +361,21 @@ class SaturationCalculator:
         element.So = So
 
 
+spec = [
+    ("throats_ids", nb.types.ListType(nb.types.int64)),
+    ("pores_ids", nb.types.ListType(nb.types.int64)),
+]
+
+
+@jitclass(spec)
 class BorderElements:
     """
     Class to keep track of empty elements that are in contact with filled elements
     """
 
     def __init__(self):
-        self.throats_ids = []
-        self.pores_ids = []
+        self.throats_ids = nb.typed.List.empty_list(nb.types.int64)
+        self.pores_ids = nb.typed.List.empty_list(nb.types.int64)
 
     def set_throats_ids(self, throats_ids):
         self.throats_ids = throats_ids
@@ -374,10 +384,10 @@ class BorderElements:
         self.pores_ids = pores_ids
 
     def get_throats_ids(self):
-        return self.throats_ids
+        return np.asarray(self.throats_ids)
 
     def get_pores_ids(self):
-        return self.pores_ids
+        return np.asarray(self.pores_ids)
 
     def add_throat(self, throat_id):
         if throat_id not in self.throats_ids:
@@ -407,7 +417,7 @@ class SimulationBase:
         self.krel_calculator = KrelCalculator(self.network)
 
         self.border_elements = BorderElements()
-        self.border_elements.set_pores_ids(self.network.get_inlets_ids())
+        self.border_elements.set_pores_ids(nb.typed.List(self.network.get_inlets_ids()))
 
         self.trap_checker = TrapChecker(network, self.pores_dict, self.phase)
 
