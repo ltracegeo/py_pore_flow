@@ -1,6 +1,7 @@
 import math
 from math import pi
 
+from numba import njit
 import numpy as np
 from scipy.stats import weibull_min
 
@@ -139,6 +140,7 @@ class ParameterManager:
         return contact_angles
 
     @staticmethod
+    @njit
     def __calculate_cas(intrinsic_ca_array, model_class, separation_angle):
         if model_class == 1:
             advancing_ca_array = intrinsic_ca_array
@@ -149,45 +151,25 @@ class ParameterManager:
             advancing_ca_array = np.minimum(pi, growth * intrinsic_ca_array)
         else:
             receding_ca_array = np.empty(len(intrinsic_ca_array), dtype=np.float64)
-            receding_ca_array[intrinsic_ca_array < 0.38349] = 0.0
-            receding_ca_array[(0.38349 < intrinsic_ca_array) & (intrinsic_ca_array < 1.5289)] = (
-                (
-                    0.5
-                    * np.exp(
-                        0.05
-                        * intrinsic_ca_array[(0.38349 < intrinsic_ca_array) & (intrinsic_ca_array < 1.5289)]
-                        * 180.0
-                        / pi
-                    )
-                    - 1.5
-                )
-                * pi
-                / 180.0
-            )
-            receding_ca_array[(1.5289 < intrinsic_ca_array) & (intrinsic_ca_array < 2.7646)] = 2.0 * (
-                intrinsic_ca_array[(1.5289 < intrinsic_ca_array) & (intrinsic_ca_array < 2.7646)] - 1.19680
-            )
-            receding_ca_array[2.7646 < intrinsic_ca_array] = pi
+            mask = intrinsic_ca_array < 0.38349
+            receding_ca_array[mask] = 0.0
+            mask = (0.38349 < intrinsic_ca_array) & (intrinsic_ca_array < 1.5289)
+            receding_ca_array[mask] = (0.5 * np.exp(0.05 * intrinsic_ca_array[mask] * 180.0 / pi) - 1.5) * pi / 180.0
+            mask = (1.5289 < intrinsic_ca_array) & (intrinsic_ca_array < 2.7646)
+            receding_ca_array[mask] = 2.0 * (intrinsic_ca_array[mask] - 1.19680)
+            mask = 2.7646 < intrinsic_ca_array
+            receding_ca_array[mask] = pi
 
             advancing_ca_array = np.empty(len(intrinsic_ca_array), dtype=np.float64)
-            advancing_ca_array[intrinsic_ca_array < 0.38349] = 0.0
-            advancing_ca_array[(0.38349 < intrinsic_ca_array) & (intrinsic_ca_array < 1.61268)] = 2.0 * (
-                intrinsic_ca_array[(0.38349 < intrinsic_ca_array) & (intrinsic_ca_array < 1.61268)] - 0.38349
+            mask = intrinsic_ca_array < 0.38349
+            advancing_ca_array[mask] = 0.0
+            mask = (0.38349 < intrinsic_ca_array) & (intrinsic_ca_array < 1.61268)
+            advancing_ca_array[mask] = 2.0 * (intrinsic_ca_array[mask] - 0.38349)
+            mask = (1.61268 < intrinsic_ca_array) & (intrinsic_ca_array < 2.75805)
+            advancing_ca_array[mask] = (
+                (181.5 - 4051.0 * np.exp(-0.05 * intrinsic_ca_array[mask] * 180.0 / pi)) * pi / 180.0
             )
-            advancing_ca_array[(1.61268 < intrinsic_ca_array) & (intrinsic_ca_array < 2.75805)] = (
-                (
-                    181.5
-                    - 4051.0
-                    * np.exp(
-                        -0.05
-                        * intrinsic_ca_array[(1.61268 < intrinsic_ca_array) & (intrinsic_ca_array < 2.75805)]
-                        * 180.0
-                        / pi
-                    )
-                )
-                * pi
-                / 180.0
-            )
-            advancing_ca_array[2.75805 < intrinsic_ca_array] = pi
+            mask = 2.75805 < intrinsic_ca_array
+            advancing_ca_array[mask] = pi
 
         return advancing_ca_array, receding_ca_array
