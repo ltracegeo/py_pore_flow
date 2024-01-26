@@ -115,6 +115,7 @@ class ParameterManager:
             model_class,
             separation_angle,
         )
+        # ParameterManager.show_points(intrinsic_ca_array, receding_ca_array, advancing_ca_array)
         return advancing_ca_array, receding_ca_array
 
     @staticmethod
@@ -125,6 +126,7 @@ class ParameterManager:
         reference_ca_array[reference_ca_array < 0] = 0
         reference_ca_array[reference_ca_array > pi] = pi
 
+        # ParameterManager.show_histogram(np.degrees(reference_ca_array))
         contact_angles = np.empty(size, dtype=np.float64)
         if correlation == UNCORRELATED:
             contact_angles = reference_ca_array
@@ -173,3 +175,51 @@ class ParameterManager:
             advancing_ca_array[mask] = pi
 
         return advancing_ca_array, receding_ca_array
+
+    @staticmethod
+    def show_points(intrinsic, receding, advancing):
+        from PyQt6 import QtWidgets, QtGui
+        import pyqtgraph as pg
+
+        pg.setConfigOption("background", "w")
+        pg.setConfigOption("foreground", "k")
+
+        app = QtWidgets.QApplication([])
+        win = pg.GraphicsLayoutWidget()
+        plot_item = win.addPlot(left="Krel", bottom="Sw")
+
+        curve_item0 = pg.ScatterPlotItem(
+            intrinsic, advancing, stepMode=False, pen=pg.mkPen(QtGui.QColor(0, 255, 255), width=2)
+        )
+        curve_item1 = pg.ScatterPlotItem(
+            intrinsic, receding, stepMode=False, pen=pg.mkPen(QtGui.QColor(255, 0, 255), width=2)
+        )
+        plot_item.addItem(curve_item0)
+        plot_item.addItem(curve_item1)
+
+        win.show()
+        app.exec()
+        exit()
+
+    @staticmethod
+    def show_histogram(data):
+        from PyQt6 import QtWidgets, QtGui
+        import pyqtgraph as pg
+
+        pg.setConfigOption("background", "w")
+        pg.setConfigOption("foreground", "k")
+
+        app = QtWidgets.QApplication([])
+        win = pg.GraphicsLayoutWidget()
+        plot_item = win.addPlot(left="quant", bottom="angle")
+
+        hist, edges = np.histogram(data, bins=20)
+        curve_item0 = pg.PlotCurveItem(edges, hist, stepMode=True, pen=pg.mkPen(QtGui.QColor(0, 255, 255), width=2))
+        # hist, edges = np.histogram(data2, bins=50)
+        # curve_item1 = pg.PlotCurveItem(edges, hist, stepMode=True, pen=pg.mkPen(QtGui.QColor(255, 0, 255), width=2))
+        plot_item.addItem(curve_item0)
+        # plot_item.addItem(curve_item1)
+
+        win.show()
+        app.exec()
+        exit()
