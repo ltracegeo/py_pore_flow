@@ -15,6 +15,7 @@ NEGATIVE_RADIUS = 2
 
 
 DEFAULT_PARAMETERS = {
+    "seed": 0,
     "water_viscosity": 0.00105,
     "water_density": 1000,
     "oil_viscosity": 0.00139,
@@ -49,6 +50,9 @@ DEFAULT_PARAMETERS = {
 class ParameterManager:
     def __init__(self, parameters_dict=DEFAULT_PARAMETERS):
         self.parameters_dict = parameters_dict
+
+        if self.parameters_dict["seed"] is not None:
+            random.seed(self.parameters_dict["seed"])
 
         constants.pw = self.parameters_dict["water_density"]
         constants.po = self.parameters_dict["oil_density"]
