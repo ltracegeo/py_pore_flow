@@ -1,5 +1,6 @@
 import math
 from math import pi
+import random
 
 from numba import njit
 import numpy as np
@@ -31,6 +32,11 @@ DEFAULT_PARAMETERS = {
     "equilibrium_ca_correlation": UNCORRELATED,
     "equilibrium_ca_model": 3,
     "equilibrium_ca_separation": 25.2,
+    "second_ca_center": 140,
+    "second_ca_range": 15,
+    "second_ca_k": 3.5,
+    "second_ca_correlation": UNCORRELATED,
+    "second_ca_fraction": 0.5,
     "pc_maximum": 40000,
     "pc_minimum": 0,
     "pc_step": 200,
@@ -97,17 +103,7 @@ class ParameterManager:
         network.pn["throat.receding_contact_angle"] = receding_ca_array
 
     def __generate_cas(self, prefix, size, radius_array):
-        center = math.radians(self.parameters_dict[f"{prefix}_ca_center"])
-        range = math.radians(self.parameters_dict[f"{prefix}_ca_range"])
-        k = self.parameters_dict[f"{prefix}_ca_k"]
-        intrinsic_ca_array = self.__generate_intrinsic_cas(
-            center,
-            range,
-            k,
-            size,
-            radius_array,
-            self.parameters_dict[f"{prefix}_ca_correlation"],
-        )
+        intrinsic_ca_array = self.__generate_intrinsic_cas(prefix, size, radius_array)
         model_class = self.parameters_dict[f"{prefix}_ca_model"]
         separation_angle = math.radians(self.parameters_dict[f"{prefix}_ca_separation"])
         advancing_ca_array, receding_ca_array = self.__calculate_cas(
@@ -115,18 +111,50 @@ class ParameterManager:
             model_class,
             separation_angle,
         )
+        # ParameterManager.show_histogram(np.degrees(intrinsic_ca_array))
         # ParameterManager.show_points(intrinsic_ca_array, receding_ca_array, advancing_ca_array)
         return advancing_ca_array, receding_ca_array
 
+    def __generate_intrinsic_cas(self, prefix, size, radius_array):
+        if prefix == "equilibrium":
+            fraction = self.parameters_dict[f"second_ca_fraction"]
+            if fraction == 0:
+                intrisic_ca_array = self.__generate_fraction_cas("equilibrium", size, radius_array)
+            else:
+                fraction_size = round(size * fraction)
+                indexes = list(range(size))
+                random.shuffle(indexes)
+                first_dist_indexes = indexes[0:fraction_size]
+                second_dist_indexes = indexes[fraction_size:]
+                intrisic_ca_array = np.empty(size, dtype=np.float64)
+                intrisic_ca_array[first_dist_indexes] = self.__generate_fraction_cas("equilibrium", size - fraction_size, radius_array[first_dist_indexes])
+                intrisic_ca_array[second_dist_indexes] = self.__generate_fraction_cas("second", fraction_size, radius_array[second_dist_indexes])
+        else:
+            intrisic_ca_array = self.__generate_fraction_cas(prefix, size, radius_array)
+        return intrisic_ca_array
+
+    def __generate_fraction_cas(self, prefix, size, radius_array):
+        center = math.radians(self.parameters_dict[f"{prefix}_ca_center"])
+        range = math.radians(self.parameters_dict[f"{prefix}_ca_range"])
+        k = self.parameters_dict[f"{prefix}_ca_k"]
+        intrinsic_ca_array = self.__generate_ca_distribution(
+            center,
+            range,
+            k,
+            size,
+            radius_array,
+            self.parameters_dict[f"{prefix}_ca_correlation"],
+        )
+        return intrinsic_ca_array
+
     @staticmethod
-    def __generate_intrinsic_cas(center, range, k, size, radius_array, correlation):
+    def __generate_ca_distribution(center, range, k, size, radius_array, correlation):
         loc = center - range / 2
         scale = center - loc
         reference_ca_array = weibull_min.rvs(k, loc=loc, scale=scale, size=size)
         reference_ca_array[reference_ca_array < 0] = 0
         reference_ca_array[reference_ca_array > pi] = pi
 
-        # ParameterManager.show_histogram(np.degrees(reference_ca_array))
         contact_angles = np.empty(size, dtype=np.float64)
         if correlation == UNCORRELATED:
             contact_angles = reference_ca_array
@@ -213,7 +241,7 @@ class ParameterManager:
         win = pg.GraphicsLayoutWidget()
         plot_item = win.addPlot(left="quant", bottom="angle")
 
-        hist, edges = np.histogram(data, bins=20)
+        hist, edges = np.histogram(data, bins=90)
         curve_item0 = pg.PlotCurveItem(edges, hist, stepMode=True, pen=pg.mkPen(QtGui.QColor(0, 255, 255), width=2))
         # hist, edges = np.histogram(data2, bins=50)
         # curve_item1 = pg.PlotCurveItem(edges, hist, stepMode=True, pen=pg.mkPen(QtGui.QColor(255, 0, 255), width=2))
