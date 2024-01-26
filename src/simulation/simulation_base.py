@@ -419,7 +419,7 @@ class SimulationBase:
         self.border_elements = BorderElements()
         self.border_elements.set_pores_ids(nb.typed.List(self.network.get_inlets_ids()))
 
-        self.trap_checker = TrapChecker(network, self.pores_dict, self.phase)
+        self.trap_checker = TrapChecker(network, self.phase)
 
         self.saturation_calculator = SaturationCalculator(self.pores_dict, self.throats_dict)
 
@@ -499,19 +499,20 @@ class SimulationBase:
             throat.theta_h = hinging_contact_angle
 
 
-class TrapChecker:
-    def __init__(self, network, pores_dict, phase):
+class OldTrapChecker:
+    def __init__(self, network, phase):
         self.network = network
-        self.pores_dict = pores_dict
+        self.phase = phase
+        self.pores_dict = self.network.get_pore_list()
 
-        self.cluster_finder = ClusterFinder(network, pores_dict, phase)
+        self.cluster_finder = ClusterFinder(network, self.pores_dict, phase)
 
     def update_trapped_pores(self):
-        for pore_id, is_trapped in enumerate(self.get_pore_trap_status()):
+        for pore_id, is_trapped in enumerate(self.__get_pore_trap_status()):
             if is_trapped and not self.pores_dict[pore_id].is_oil_filled():
                 self.pores_dict[pore_id].trapped = True
 
-    def get_pore_trap_status(self):
+    def __get_pore_trap_status(self):
         pore_trap_status_list = [True] * self.network.get_number_of_pores()
         outlets_pore_id_list = self.network.get_outlets_ids()
         checked_outlets = []
@@ -524,6 +525,28 @@ class TrapChecker:
             checked_outlets.extend(outlets_in_cluster)
 
         return pore_trap_status_list
+
+
+class TrapChecker:
+    def __init__(self, network, phase):
+        self.network = network
+        self.phase = phase
+
+    def update_trapped_pores(self):
+        self.network.reset_property("trapped")
+        self.network.pn["pore.trapped"] = False
+        outlets_pore_id_list = self.network.get_outlets_ids()
+        if self.phase == OIL:
+            cluster_array = openpnm.topotools.find_clusters(
+                self.network.pn, mask=self.network.pn["pore.water_saturation"] > 0
+            )
+        else:
+            cluster_array = openpnm.topotools.find_clusters(
+                self.network.pn, mask=self.network.pn["pore.oil_saturation"] > 0
+            )
+        for cluster_label in range(np.max(cluster_array.pore_labels) + 1):
+            cluster = np.where(cluster_array.pore_labels == cluster_label)[0]
+            self.network.pn["pore.trapped"][cluster] = not np.isin(outlets_pore_id_list, cluster).any()
 
 
 class ClusterFinder:
