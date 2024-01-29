@@ -285,7 +285,22 @@ class KrelCalculator:
         except:
             return True
 
-        clustered_pores = pn["pore.cluster_size"] < pn["pore.cluster_size"].max()
+        clusters_with_inlets = pn["pore.cluster_number"][pn["pore.inlets"]]
+        clusters_with_outlets = pn["pore.cluster_number"][pn["pore.outlets"]]
+        valid_clusters = np.intersect1d(clusters_with_inlets, clusters_with_outlets)
+        if len(valid_clusters) == 0:
+            return False
+        if len(valid_clusters) == 1:
+            choosen_cluster = valid_clusters[0]
+        else:
+            # Get bigger cluster
+            cluster_sizes = []
+            for cluster_number in valid_clusters:
+                if pn["pore.cluster_number"] == cluster_number:
+                    cluster_sizes.append(pn["pore.cluster_size"][pn["pore.cluster_number"] == cluster_number][0])
+            choosen_cluster = valid_clusters[np.argmax(cluster_sizes)]
+        clustered_pores = pn[pn["pore.cluster_number"] != choosen_cluster]
+
         openpnm.topotools.trim(network=pn, pores=clustered_pores)
         return True
 
