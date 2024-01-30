@@ -17,18 +17,9 @@ def initialize_pn(pn):
         pn[f"{element_type}.water_filled"] = True
         pn[f"{element_type}.oil_saturation"] = 0.0
         pn[f"{element_type}.water_saturation"] = 1.0
-        pn[f"{element_type}.corner_half_angle_0"] = 0.0
-        pn[f"{element_type}.corner_half_angle_1"] = 0.0
-        pn[f"{element_type}.corner_half_angle_2"] = 0.0
-        pn[f"{element_type}.corner_half_angle_3"] = 0.0
-        pn[f"{element_type}.hinging_contact_angle_0"] = 0.0
-        pn[f"{element_type}.hinging_contact_angle_1"] = 0.0
-        pn[f"{element_type}.hinging_contact_angle_2"] = 0.0
-        pn[f"{element_type}.hinging_contact_angle_3"] = 0.0
-        pn[f"{element_type}.b_0"] = 0.0
-        pn[f"{element_type}.b_1"] = 0.0
-        pn[f"{element_type}.b_2"] = 0.0
-        pn[f"{element_type}.b_3"] = 0.0
+        pn[f"{element_type}.corner_half_angle"] = np.empty((len(pn[f"{element_type}.all"]), 4), np.float64)
+        pn[f"{element_type}.hinging_contact_angle"] = np.empty((len(pn[f"{element_type}.all"]), 4), np.float64)
+        pn[f"{element_type}.b"] = np.empty((len(pn[f"{element_type}.all"]), 4), np.float64)
         pn[f"{element_type}.C"] = 0.0
         pn[f"{element_type}.advancing_contact_angle"] = 0.0
         pn[f"{element_type}.receding_contact_angle"] = 0.0
@@ -203,9 +194,7 @@ class PnElement:
                 n = 4
             else:
                 n = 0
-            self._beta = np.empty(n, dtype=np.float64)
-            for i in range(n):
-                self._beta[i] = self.pn[f"{self.type_name}.corner_half_angle_{i}"][self.id]
+            self._beta = np.resize(self.pn[f"{self.type_name}.corner_half_angle"][self.id], n)
         return self._beta
 
     @property
@@ -217,9 +206,7 @@ class PnElement:
                 n = 4
             else:
                 n = 0
-            self._theta_h = np.empty(n, dtype=np.float64)
-            for i in range(n):
-                self._theta_h[i] = self.pn[f"{self.type_name}.hinging_contact_angle_{i}"][self.id]
+            self._theta_h = np.resize(self.pn[f"{self.type_name}.hinging_contact_angle"][self.id], n)
         return self._theta_h
 
     @property
@@ -231,9 +218,7 @@ class PnElement:
                 n = 4
             else:
                 n = 0
-            self._b = np.empty(n, dtype=np.float64)
-            for i in range(n):
-                self._b[i] = self.pn[f"{self.type_name}.b_{i}"][self.id]
+            self._b = np.resize(self.pn[f"{self.type_name}.b"][self.id], n)
         return self._b
 
     @Sw.setter
@@ -274,20 +259,17 @@ class PnElement:
     @beta.setter
     def beta(self, beta):
         self._beta = beta
-        for i, value in enumerate(beta):
-            self.pn[f"{self.type_name}.corner_half_angle_{i}"][self.id] = value
+        self.pn[f"{self.type_name}.corner_half_angle"][self.id] = np.resize(beta, 4)
 
     @theta_h.setter
     def theta_h(self, theta_h):
         self._theta_h = theta_h
-        for i, value in enumerate(theta_h):
-            self.pn[f"{self.type_name}.hinging_contact_angle_{i}"][self.id] = value
+        self.pn[f"{self.type_name}.hinging_contact_angle"][self.id] = np.resize(theta_h, 4)
 
     @b.setter
     def b(self, b):
         self._b = b
-        for i, value in enumerate(b):
-            self.pn[f"{self.type_name}.b_{i}"][self.id] = value
+        self.pn[f"{self.type_name}.b"][self.id] = np.resize(b, 4)
 
     def get_id(self):
         return self.id
