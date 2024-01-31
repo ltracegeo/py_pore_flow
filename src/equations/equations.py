@@ -27,7 +27,7 @@ def calculate_pc(shape_factor, radius, theta, shape, C, height_above_datum):
     r = radius
     h = height_above_datum
 
-    if shape != TRIANGLE:
+    if shape == CIRCLE:
         Fd = 1
     else:
         Fd = 1 + sqrt(1 - (4 * G * C / cos(theta) ** 2))

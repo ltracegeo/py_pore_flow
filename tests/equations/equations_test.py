@@ -67,7 +67,7 @@ class TestEquations(unittest.TestCase):
         shape = 1
         C_r = 0.8584073464102069
         pc = calculate_drainage_pc(shape_factor, radius, receding_contact_angle, shape, C_r, 0)
-        self.assertEqual(pc, 5888.663854599456)
+        self.assertEqual(pc, 4653.5748971834755)
 
         shape_factor = 0.0677922077922077
         radius = 5.985215e-06
@@ -98,7 +98,7 @@ class TestEquations(unittest.TestCase):
         entry_pc = calculate_imbibition_piston_like_displacement_pc(
             shape_factor, radius, advancing_contact_angle, shape, C_a, pc, 0
         )
-        self.assertEqual(entry_pc, 5646.0697675431265)
+        self.assertEqual(entry_pc, 4447.019531129279)
 
         shape_factor = 0.0677922077922077
         radius = 5.985215e-06
