@@ -3,11 +3,10 @@ from math import pi
 
 from numba import njit
 import numpy as np
-from scipy.stats import weibull_min
 
 import constants
 import global_random
-from global_random import random
+from global_random import random, weibull
 
 
 UNCORRELATED = 0
@@ -163,7 +162,7 @@ class ParameterManager:
     def __generate_ca_distribution(center, range, k, size, radius_array, correlation):
         loc = center - range / 2
         scale = center - loc
-        reference_ca_array = weibull_min.rvs(k, loc=loc, scale=scale, size=size)
+        reference_ca_array = weibull(k, loc=loc, scale=scale, size=size)
         reference_ca_array[reference_ca_array < 0] = 0
         reference_ca_array[reference_ca_array > pi] = pi
 

@@ -4,7 +4,6 @@ import scipy
 
 
 random = np.random.RandomState()
-scipy.stats.rv_continuous.random_state = random
 
 
 def set_seed(seed):
@@ -15,3 +14,7 @@ def set_seed(seed):
 @nb.njit
 def numba_set_seed(seed):
     np.random.seed(seed)
+
+
+def weibull(k, loc, scale, size):
+    return scipy.stats.weibull_min.rvs(k, loc=loc, scale=scale, size=size, random_state=random)
