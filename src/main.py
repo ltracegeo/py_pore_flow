@@ -32,7 +32,7 @@ def show_graph(Sw, Krw, Kro):
 
 
 def run():
-    pn = openpnm.io.network_from_statoil("statoil", "a")
+    pn = openpnm.io.network_from_statoil("tests/resources/statoil", "a")
 
     Sw = [None] * 2
     Krw = [None] * 2

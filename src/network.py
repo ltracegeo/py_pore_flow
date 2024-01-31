@@ -44,6 +44,12 @@ class Network:
         for throat_id in self.pn.throats():
             self.throat_list[throat_id] = Throat(self.pn, throat_id)
 
+    def get_pore(self, id):
+        return self.pore_list[id]
+
+    def get_throat(self, id):
+        return self.throat_list[id]
+
     def get_pore_list(self):
         return self.pore_list
 
