@@ -5,10 +5,19 @@ python src/main.py
 ```
 
 
+## Run tests
+
+```console
+python -m pytest
+```
+
+
 ## File structure
-- src: Python source files
-- project: Geoslicer project with the sample being used during development
-- statoil: Input files being used during development
+- **src**: Python source files
+- **project**: Geoslicer project with the sample being used during development
+- **tests**: unit tests
+- **tests/resources/statoil**: Input files being used during development
+
 
 ## Documentation
 
