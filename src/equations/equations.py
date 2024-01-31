@@ -114,10 +114,9 @@ def calculate_C(theta, beta):
         C
     """
     C = 0
-    i = 0
-    while i < len(beta) and beta[i] < pi / 2 - theta:
-        C += cos(theta) * (cos(theta + beta[i]) / sin(beta[i])) - (pi / 2 - theta - beta[i])
-        i += 1
+    for i in range(len(beta)):
+        if beta[i] < pi / 2 - theta:
+            C += cos(theta) * (cos(theta + beta[i]) / sin(beta[i])) - (pi / 2 - theta - beta[i])
 
     return C
 
