@@ -23,27 +23,27 @@ class Simulation:
         self.pc_incrementer = PcIncrementer(self.parameter_manager)
 
         initialize_pn(pn)
-        self.network = construct_network(pn, self.pc_incrementer.get_pc_max())
+        self.network = Network(pn)
 
     def run_drainage(self):
         self.parameter_manager.update_initial_cas(self.network)
+        calculate_initial_values(self.network, self.pc_incrementer.get_pc_max())
         self.pc_incrementer.set_pc_to_min()
         return run_drainage(self.network, self.pc_incrementer, debug=self.debug)
 
     def run_imbibition(self):
         self.parameter_manager.update_equilibrium_cas(self.network)
+        calculate_initial_values(self.network, self.pc_incrementer.get_pc_max())
         self.pc_incrementer.set_pc_to_max()
         return run_imbibition(self.network, self.pc_incrementer, debug=self.debug)
 
 
-def construct_network(pn, max_pc):
-    network = Network(pn)
-
+def calculate_initial_values(network, max_pc):
     for pore in network.pore_list:
-        calculate_element_const_values(pore, max_pc)
+        calculate_element_initial_values(pore, max_pc)
 
     for throat in network.throat_list:
-        calculate_element_const_values(throat, max_pc)
+        calculate_element_initial_values(throat, max_pc)
 
     conductance_calculator = ConductanceCalculator(network)
     oil_singlephase_conductance = conductance_calculator.calculate_singlephase_conductance(OIL)
@@ -54,11 +54,12 @@ def construct_network(pn, max_pc):
     return network
 
 
-def calculate_element_const_values(element, max_pc):
+def calculate_element_initial_values(element, max_pc):
     element.shape = calculate_shape(element.G)
     element.beta = calculate_beta(element.G, element.shape)
     element.b = calculate_drainage_b(element.beta, element.receding_contact_angle, max_pc)
-    element.C = calculate_C(element.receding_contact_angle, element.beta)
+    element.C_r = calculate_C(element.receding_contact_angle, element.beta)
+    element.C_a = calculate_C(element.advancing_contact_angle, element.beta)
     element.set_pc(
-        calculate_drainage_pc(element.G, element.r, element.receding_contact_angle, element.shape, element.C, 0)
+        calculate_drainage_pc(element.G, element.r, element.receding_contact_angle, element.shape, element.C_r, 0)
     )

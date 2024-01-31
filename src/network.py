@@ -20,7 +20,8 @@ def initialize_pn(pn):
         pn[f"{element_type}.corner_half_angle"] = np.empty((len(pn[f"{element_type}.all"]), 4), np.float64)
         pn[f"{element_type}.hinging_contact_angle"] = np.empty((len(pn[f"{element_type}.all"]), 4), np.float64)
         pn[f"{element_type}.b"] = np.empty((len(pn[f"{element_type}.all"]), 4), np.float64)
-        pn[f"{element_type}.C"] = 0.0
+        pn[f"{element_type}.C_r"] = 0.0
+        pn[f"{element_type}.C_a"] = 0.0
         pn[f"{element_type}.advancing_contact_angle"] = 0.0
         pn[f"{element_type}.receding_contact_angle"] = 0.0
         pn[f"{element_type}.oil_singlephase_conductance"] = 0.0
@@ -174,10 +175,16 @@ class PnElement:
         return self._receding_contact_angle
 
     @property
-    def C(self):
-        if self._C is None:
-            self._C = self.pn[f"{self.type_name}.C"][self.id]
-        return self._C
+    def C_r(self):
+        if self._C_r is None:
+            self._C_r = self.pn[f"{self.type_name}.C_r"][self.id]
+        return self._C_r
+
+    @property
+    def C_a(self):
+        if self._C_a is None:
+            self._C_a = self.pn[f"{self.type_name}.C_a"][self.id]
+        return self._C_a
 
     @property
     def shape(self):
@@ -247,10 +254,15 @@ class PnElement:
         self._receding_contact_angle = value
         self.pn[f"{self.type_name}.receding_contact_angle"][self.id] = value
 
-    @C.setter
-    def C(self, C):
-        self._C = C
-        self.pn[f"{self.type_name}.C"][self.id] = C
+    @C_r.setter
+    def C_r(self, C_r):
+        self._C_r = C_r
+        self.pn[f"{self.type_name}.C_r"][self.id] = C_r
+
+    @C_a.setter
+    def C_a(self, C_a):
+        self._C_a = C_a
+        self.pn[f"{self.type_name}.C_a"][self.id] = C_a
 
     @shape.setter
     def shape(self, shape):

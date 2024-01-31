@@ -16,9 +16,9 @@ def cot(x):
 
 
 @njit
-def calculate_drainage_pc(shape_factor, radius, receding_contact_angle, shape, C, height_above_datum):
+def calculate_drainage_pc(shape_factor, radius, receding_contact_angle, shape, C_r, height_above_datum):
     theta = receding_contact_angle
-    return calculate_pc(shape_factor, radius, theta, shape, C, height_above_datum)
+    return calculate_pc(shape_factor, radius, theta, shape, C_r, height_above_datum)
 
 
 @njit
@@ -38,14 +38,14 @@ def calculate_pc(shape_factor, radius, theta, shape, C, height_above_datum):
 
 
 @njit
-def calculate_drainage_displacement(shape, C, current_Pc, A):
+def calculate_drainage_displacement(shape, C_r, current_Pc, A):
     Pc = current_Pc
 
     if shape == CIRCLE:
         Aw = 0
     else:
         R = sigma / Pc
-        Aw = R**2 * C
+        Aw = R**2 * C_r
 
     if Aw < A:
         Sw = Aw / A
@@ -246,25 +246,25 @@ def calculate_drainage_b(beta, theta_r, Pc_max):
 
 @njit
 def calculate_imbibition_pc(
-    shape_factor, radius, advancing_contact_angle, shape, C, pc, height_above_datum, number_of_oil_filled_neighbors, K
+    shape_factor, radius, advancing_contact_angle, shape, C_a, pc, height_above_datum, number_of_oil_filled_neighbors, K
 ):
     if number_of_oil_filled_neighbors > 1:
         return calculate_pore_body_filling_pc(radius, advancing_contact_angle, K, number_of_oil_filled_neighbors, 0)
     else:
         return calculate_imbibition_piston_like_displacement_pc(
-            shape_factor, radius, advancing_contact_angle, shape, C, pc, height_above_datum
+            shape_factor, radius, advancing_contact_angle, shape, C_a, pc, height_above_datum
         )
 
 
 @njit
 def calculate_imbibition_piston_like_displacement_pc(
-    shape_factor, radius, advancing_contact_angle, shape, C, pc, height_above_datum
+    shape_factor, radius, advancing_contact_angle, shape, C_a, pc, height_above_datum
 ):
     if pc < 0:
         theta = pi - advancing_contact_angle
     else:
         theta = advancing_contact_angle
-    return calculate_pc(shape_factor, radius, theta, shape, C, height_above_datum)
+    return calculate_pc(shape_factor, radius, theta, shape, C_a, height_above_datum)
 
 
 @njit

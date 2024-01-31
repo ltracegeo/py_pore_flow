@@ -368,7 +368,7 @@ class SaturationCalculator:
 
     def __update_saturations(self, element, current_pc):
         if element.is_oil_filled():
-            Sw, So = calculate_drainage_displacement(element.shape, element.C, current_pc, element.A)
+            Sw, So = calculate_drainage_displacement(element.shape, element.C_r, current_pc, element.A)
         else:
             Sw, So = 1, 0
 
