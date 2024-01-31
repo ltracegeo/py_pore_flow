@@ -1,5 +1,4 @@
 from math import acos, asin, atan, cos, pi, sin, sqrt, tan
-import random
 
 from numba import njit
 import numpy as np
@@ -74,7 +73,7 @@ def calculate_beta(G, shape):
     if shape == TRIANGLE:
         b2_min = atan(2 / sqrt(3) * cos(acos(-12 * sqrt(3) * G) / 3 + 4 * pi / 3))
         b2_max = atan(2 / sqrt(3) * cos(acos(-12 * sqrt(3) * G) / 3))
-        b2 = random.uniform(b2_min, b2_max)
+        b2 = np.random.uniform(b2_min, b2_max)
         b1 = -b2 / 2 + (1 / 2) * asin(((tan(b2) + 4 * G) / (tan(b2) - 4 * G)) * sin(b2))
         b3 = pi / 2 - b1 - b2
 
@@ -283,7 +282,7 @@ def calculate_absolute_permeability(phase, qts, A, L, fi_inlet, fi_outlet):
 def calculate_pore_body_filling_pc(r, theta_a, K, oil_filled_throats_n, h):
     x = [0] * oil_filled_throats_n
     for i in range(oil_filled_throats_n):
-        x[i] = random.uniform(0, 1)
+        x[i] = np.random.uniform(0, 1)
 
     lamb = [0] * oil_filled_throats_n
     for i in range(oil_filled_throats_n):

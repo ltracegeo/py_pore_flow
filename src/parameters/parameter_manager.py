@@ -1,12 +1,13 @@
 import math
 from math import pi
-import random
 
 from numba import njit
 import numpy as np
 from scipy.stats import weibull_min
 
 import constants
+import global_random
+from global_random import random
 
 
 UNCORRELATED = 0
@@ -51,8 +52,11 @@ class ParameterManager:
     def __init__(self, parameters_dict=DEFAULT_PARAMETERS):
         self.parameters_dict = parameters_dict
 
-        if self.parameters_dict["seed"] is not None:
-            random.seed(self.parameters_dict["seed"])
+        if self.parameters_dict["seed"] is None:
+            seed = np.random.randint(0, 999999999)
+        else:
+            seed = self.parameters_dict["seed"]
+        global_random.set_seed(seed)
 
         constants.pw = self.parameters_dict["water_density"]
         constants.po = self.parameters_dict["oil_density"]
