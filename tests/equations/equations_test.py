@@ -8,12 +8,17 @@ from equations import (
     CIRCLE,
     SQUARE,
     TRIANGLE,
+    WATER,
+    OIL,
     calculate_beta,
     calculate_drainage_b,
     calculate_drainage_displacement,
     calculate_drainage_pc,
     calculate_hinging_contact_angle,
     calculate_imbibition_piston_like_displacement_pc,
+    calculate_multiphase_oil_conductance,
+    calculate_multiphase_water_conductance,
+    calculate_singlephase_conductance,
     calculate_shape,
 )
 import global_random
@@ -23,6 +28,9 @@ from simulation.simulation import calculate_initial_values
 
 
 class TestEquations(unittest.TestCase):
+    def setUp(self):
+        global_random.set_seed(0)
+
     def test_shape(self):
         self.assertEqual(calculate_shape(0.0443548387096774), TRIANGLE)
         self.assertEqual(calculate_shape(0.0490196078431372), SQUARE)
@@ -137,3 +145,48 @@ class TestEquations(unittest.TestCase):
         b = np.array([7.398922e-07, 7.398922e-07, 7.398922e-07, 7.398922e-07])
         theta_h = calculate_hinging_contact_angle(pc, beta, b)
         assert_almost_equal(theta_h, np.array([0.6980902, 0.6980902, 0.6980902, 0.6980902]))
+
+    def test_conductance(self):
+        A = np.empty(3, dtype=np.float64)
+        A[0] = 3.2616286606601026e-10
+        A[1] = 0.85423594305093e-10
+        A[2] = 59.5109522864946e-10
+        G = np.empty(3, dtype=np.float64)
+        G[0] = 0.0443548387096774
+        G[1] = 0.07258065
+        G[2] = 0.0354226214781543
+        L = np.empty(3, dtype=np.float64)
+        L[0] = 7.607076e-06
+        L[1] = 2.620349e-05
+        L[2] = 2.903814e-05
+        shape = np.empty(3, dtype=np.float64)
+        shape[0] = 0
+        shape[1] = 2
+        shape[2] = 0
+
+        assert_equal(calculate_singlephase_conductance(L, A, G, shape, WATER), 9.366933989647119e-15)
+        assert_equal(calculate_singlephase_conductance(L, A, G, shape, OIL), 7.0757415029708445e-15)
+
+        So = np.empty(3, dtype=np.float64)
+        So[0] = 0.7246413840327184
+        So[1] = 1
+        So[2] = 0.9267026348700467
+        assert_equal(calculate_multiphase_oil_conductance(L, A, G, shape, So), 7.005185434381609e-15)
+
+        Sw = np.empty(3, dtype=np.float64)
+        Sw[0] = 0.27535861596728156
+        Sw[1] = 1
+        Sw[2] = 0.07329736512995329
+        theta_h = [None] * 3
+        theta_h[0] = np.array([1.099105, 0.9393731, 0.7834584])
+        theta_h[1] = np.array([])
+        theta_h[2] = np.array([0.6980902, 0.6980902, 0.6980902, 0.6980902])
+        b = [None] * 3
+        b[0] = np.array([2.0134182e-06, 1.2875214e-06, 8.9420597e-07])
+        b[1] = np.array([])
+        b[2] = np.array([7.398922e-07, 7.398922e-07, 7.398922e-07, 7.398922e-07])
+        beta = [None] * 3
+        beta[0] = np.array([0.35483625, 0.52387179, 0.69208829])
+        beta[1] = np.array([])
+        beta[2] = np.array([0.78539816, 0.78539816, 0.78539816, 0.78539816])
+        assert_equal(calculate_multiphase_water_conductance(L, A, G, shape, Sw, theta_h, b, beta), 3.76155495677152e-17)
