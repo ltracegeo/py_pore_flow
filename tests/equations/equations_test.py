@@ -9,8 +9,10 @@ from equations import (
     SQUARE,
     TRIANGLE,
     calculate_beta,
+    calculate_drainage_b,
     calculate_drainage_displacement,
     calculate_drainage_pc,
+    calculate_hinging_contact_angle,
     calculate_imbibition_piston_like_displacement_pc,
     calculate_shape,
 )
@@ -109,3 +111,29 @@ class TestEquations(unittest.TestCase):
             shape_factor, radius, advancing_contact_angle, shape, C_a, pc, 0
         )
         self.assertEqual(entry_pc, 9093.357879396488)
+
+    def test_b(self):
+        max_pc = 40000
+
+        beta = np.array([0.35483625, 0.52387179, 0.69208829])
+        receding_contact_angle = 0.014092640613489886
+        b = calculate_drainage_b(beta, receding_contact_angle, max_pc)
+        assert_almost_equal(b, np.array([2.0134182e-06, 1.2875214e-06, 8.9420597e-07]))
+
+        beta = np.array([0.78539816, 0.78539816, 0.78539816, 0.78539816])
+        receding_contact_angle = 0.013387853642248211
+        b = calculate_drainage_b(beta, receding_contact_angle, max_pc)
+        assert_almost_equal(b, np.array([7.398922e-07, 7.398922e-07, 7.398922e-07, 7.398922e-07]))
+
+    def test_hinging_contact_angle(self):
+        pc = 5000
+
+        beta = np.array([0.35483625, 0.52387179, 0.69208829])
+        b = np.array([2.0134182e-06, 1.2875214e-06, 8.9420597e-07])
+        theta_h = calculate_hinging_contact_angle(pc, beta, b)
+        assert_almost_equal(theta_h, np.array([1.099105, 0.9393731, 0.7834584]))
+
+        beta = np.array([0.78539816, 0.78539816, 0.78539816, 0.78539816])
+        b = np.array([7.398922e-07, 7.398922e-07, 7.398922e-07, 7.398922e-07])
+        theta_h = calculate_hinging_contact_angle(pc, beta, b)
+        assert_almost_equal(theta_h, np.array([0.6980902, 0.6980902, 0.6980902, 0.6980902]))
