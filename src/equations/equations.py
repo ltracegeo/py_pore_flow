@@ -8,6 +8,7 @@ from .pnflow_equations import calculate_element_multiphase_oil_conductance, calc
 from constants import g, mio, miw, po, pw, sigma
 
 
+@njit
 def cot(x):
     return 1 / tan(x)
 
@@ -299,7 +300,7 @@ def calculate_pore_body_filling_pc(r, theta_a, K, oil_filled_throats_n, h):
 
 
 @njit
-def calculate_drop_off_pc(r, beta, theta_a, theta_r, theta_h, Rmin, pc, h):
+def calculate_snap_off_pc(r, beta, theta_a, theta_r, theta_h, Rmin, pc, h):
     if pc > 0:
         Pc_0 = (
             sigma
@@ -318,3 +319,9 @@ def calculate_drop_off_pc(r, beta, theta_a, theta_r, theta_h, Rmin, pc, h):
             Pc = (-sigma / Rmin * cos(theta_r + beta[0])) - (pw - po) * g * h
 
     return Pc
+
+
+@njit
+def calculate_r(pc):
+    R = sigma / pc
+    return R
