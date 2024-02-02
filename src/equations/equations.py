@@ -44,6 +44,8 @@ def calculate_drainage_displacement(shape, C_r, current_Pc, A):
 
     if shape == CIRCLE:
         Aw = 0
+    elif Pc == 0:
+        Aw = A
     else:
         R = sigma / Pc
         Aw = R**2 * C_r
