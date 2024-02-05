@@ -617,19 +617,37 @@ class ClusterFinder:
         return neighbor_pore_id_list
 
 
-class PcIncrementer:
-    def __init__(self, parameter_manager, enable_control=True):
-        self.enable_control = enable_control
-        self.pc = parameter_manager.pc_minimum
-        self.pc_step_initial = parameter_manager.pc_step
-        self.pc_step = self.pc_step_initial
-        self.pc_step_min = parameter_manager.pc_step_min
-        self.pc_step_max = parameter_manager.pc_step_max
-        self.sw_step = parameter_manager.sw_step
-        self.pc_maximum = parameter_manager.pc_maximum
-        self.pc_minimum = parameter_manager.pc_minimum
+spec = [
+    ("enable_control", nb.types.float64),
+    ("pc", nb.types.float64),
+    ("pc_step_initial", nb.types.float64),
+    ("pc_step", nb.types.float64),
+    ("pc_step_min", nb.types.float64),
+    ("pc_step_max", nb.types.float64),
+    ("sw_step", nb.types.float64),
+    ("pc_maximum", nb.types.float64),
+    ("pc_minimum", nb.types.float64),
+    ("sw_last", nb.types.float64),
+    ("first_step", nb.types.boolean),
+]
 
-        self.sw_last = None
+
+@jitclass(spec)
+class PcIncrementer:
+    def __init__(self, pc_step, pc_step_min, pc_step_max, sw_step, pc_maximum, pc_minimum, enable_control=True):
+        self.enable_control = enable_control
+        self.pc_step_initial = pc_step
+        self.pc_step_min = pc_step_min
+        self.pc_step_max = pc_step_max
+        self.sw_step = sw_step
+        self.pc_maximum = pc_maximum
+        self.pc_minimum = pc_minimum
+
+        self.pc = self.pc_minimum
+        self.pc_step = self.pc_step_initial
+
+        self.first_step = True
+        self.sw_last = 0
 
     def get_pc(self):
         return self.pc
@@ -650,16 +668,18 @@ class PcIncrementer:
         self.__adjust_pc_step(sw_current)
         self.pc += self.pc_step
         self.sw_last = sw_current
+        self.first_step = False
         return self.pc
 
     def decrement(self, sw_current):
         self.__adjust_pc_step(sw_current)
         self.pc -= self.pc_step
         self.sw_last = sw_current
+        self.first_step = False
         return self.pc
 
     def __adjust_pc_step(self, sw_current):
-        if self.enable_control and self.sw_last is not None:
+        if self.enable_control and not self.first_step:
             sw_diff = abs(self.sw_last - sw_current)
             if sw_diff > 0:
                 error = self.sw_step / sw_diff

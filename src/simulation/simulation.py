@@ -20,7 +20,14 @@ class Simulation:
         self.debug = debug
 
         self.parameter_manager = ParameterManager(parameters_dict)
-        self.pc_incrementer = PcIncrementer(self.parameter_manager)
+        self.pc_incrementer = PcIncrementer(
+            self.parameter_manager.pc_step,
+            self.parameter_manager.pc_step_min,
+            self.parameter_manager.pc_step_max,
+            self.parameter_manager.sw_step,
+            self.parameter_manager.pc_maximum,
+            self.parameter_manager.pc_minimum,
+        )
 
         initialize_pn(pn)
         self.network = Network(pn)
