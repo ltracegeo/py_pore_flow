@@ -19,8 +19,9 @@ def run_imbibition(network, pc_incrementer, debug=False):
     Krw_array = []
     Kro_array = []
 
-    Pc = pc_incrementer.get_pc()
-    while Pc > pc_incrementer.get_pc_min():
+    while True:
+        Pc = pc_incrementer.get_pc()
+
         simulation.update_pc(Pc)
         Sw = simulation.calculate_sw_total(Pc)
         Krw, Kro = simulation.calculate_krel()
@@ -35,7 +36,10 @@ def run_imbibition(network, pc_incrementer, debug=False):
                 f"Pc: {Pc:8.2f}, Sw: {Sw:.6f}, Krw: {Krw:.6f}, Kro: {Kro:.6f}, Filled: {pores_filled:4}/{total_pores} ({percentage:2}%)."
             )
 
-        Pc = pc_incrementer.decrement(Sw)
+        if Pc <= pc_incrementer.get_pc_min():
+            break
+        else:
+            pc_incrementer.decrement(Sw)
 
     return Sw_array, Krw_array, Kro_array
 

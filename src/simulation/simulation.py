@@ -35,13 +35,11 @@ class Simulation:
     def run_drainage(self):
         self.parameter_manager.update_initial_cas(self.network)
         calculate_initial_values(self.network, self.pc_incrementer.get_pc_max())
-        self.pc_incrementer.set_pc_to_min()
         return run_drainage(self.network, self.pc_incrementer, debug=self.debug)
 
     def run_imbibition(self):
         self.parameter_manager.update_equilibrium_cas(self.network)
         calculate_initial_values(self.network, self.pc_incrementer.get_pc_max())
-        self.pc_incrementer.set_pc_to_max()
         return run_imbibition(self.network, self.pc_incrementer, debug=self.debug)
 
 

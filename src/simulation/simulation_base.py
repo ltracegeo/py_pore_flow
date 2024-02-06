@@ -643,7 +643,7 @@ class PcIncrementer:
         self.pc_maximum = pc_maximum
         self.pc_minimum = pc_minimum
 
-        self.pc = self.pc_minimum
+        self.pc = 0
         self.pc_step = self.pc_step_initial
 
         self.first_step = True
@@ -666,14 +666,14 @@ class PcIncrementer:
 
     def increment(self, sw_current):
         self.__adjust_pc_step(sw_current)
-        self.pc += self.pc_step
+        self.pc = min(self.pc + self.pc_step, self.pc_maximum)
         self.sw_last = sw_current
         self.first_step = False
         return self.pc
 
     def decrement(self, sw_current):
         self.__adjust_pc_step(sw_current)
-        self.pc -= self.pc_step
+        self.pc = max(self.pc - self.pc_step, self.pc_minimum)
         self.sw_last = sw_current
         self.first_step = False
         return self.pc
