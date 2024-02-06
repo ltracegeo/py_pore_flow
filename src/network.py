@@ -143,7 +143,7 @@ class Network:
         core.beta = element.beta
         core.theta_h = element.theta_h
         core.b = element.b
-        core.oil_filled = element.is_oil_filled()
+        core.oil_filled = element.oil_filled
 
 
 class PnElement:
@@ -165,13 +165,13 @@ class PnElement:
         self._C_a = None
         self._shape = None
         self._trapped = None
+        self._water_filled = None
+        self._oil_filled = None
         self._beta = None
         self._theta_h = None
         self._b = None
 
         self.pc = None
-        self.oil_filled = False
-        self.water_filled = True
 
     @property
     def G(self):
@@ -244,6 +244,18 @@ class PnElement:
         if self._trapped is None:
             self._trapped = self.pn[f"{self.type_name}.trapped"][self.id]
         return self._trapped
+
+    @property
+    def oil_filled(self):
+        if self._oil_filled is None:
+            self._oil_filled = self.pn[f"{self.type_name}.oil_filled"][self.id]
+        return self._oil_filled
+
+    @property
+    def water_filled(self):
+        if self._water_filled is None:
+            self._water_filled = self.pn[f"{self.type_name}.water_filled"][self.id]
+        return self._water_filled
 
     @property
     def beta(self):
@@ -321,6 +333,16 @@ class PnElement:
         self._trapped = trapped
         self.pn[f"{self.type_name}.trapped"][self.id] = trapped
 
+    @oil_filled.setter
+    def oil_filled(self, oil_filled):
+        self._oil_filled = oil_filled
+        self.pn[f"{self.type_name}.oil_filled"][self.id] = oil_filled
+
+    @water_filled.setter
+    def water_filled(self, water_filled):
+        self._water_filled = water_filled
+        self.pn[f"{self.type_name}.water_filled"][self.id] = water_filled
+
     @beta.setter
     def beta(self, beta):
         self._beta = beta
@@ -352,17 +374,9 @@ class PnElement:
 
     def set_filled(self, phase, filled: bool):
         if phase == WATER:
-            self.water_filled = filled
-            self.oil_filled = not filled
+            self.set_water_filled(filled)
         else:
-            self.oil_filled = filled
-            self.water_filled = not filled
-
-    def is_oil_filled(self) -> bool:
-        return self.oil_filled
-
-    def is_water_filled(self) -> bool:
-        return self.water_filled
+            self.set_oil_filled(filled)
 
     def is_filled(self, phase):
         if phase == WATER:

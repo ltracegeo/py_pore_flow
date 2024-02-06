@@ -367,7 +367,7 @@ class SaturationCalculator:
         return calculate_sw_total(sw_list, v_list, v_clay_list)
 
     def __update_saturations(self, element, current_pc):
-        if element.is_oil_filled():
+        if element.oil_filled:
             Sw, So = calculate_drainage_displacement(element.shape, element.C_r, current_pc, element.A)
         else:
             Sw, So = 1, 0
@@ -452,13 +452,8 @@ class SimulationBase:
         return self.krel_calculator.calculate_krw(), self.krel_calculator.calculate_kro()
 
     def get_oil_filled_percentage(self):
-        total_pores = 0
-        pores_filled = 0
-        for pore in self.pores_dict:
-            total_pores += 1
-            if pore.is_oil_filled():
-                pores_filled += 1
-
+        total_pores = self.network.get_number_of_pores()
+        pores_filled = self.network.pn["pore.oil_filled"].sum()
         return pores_filled, total_pores, int((pores_filled / total_pores) * 100)
 
     @abstractmethod
@@ -524,7 +519,7 @@ class OldTrapChecker:
 
     def update_trapped_pores(self):
         for pore_id, is_trapped in enumerate(self.__get_pore_trap_status()):
-            if is_trapped and not self.pores_dict[pore_id].is_oil_filled():
+            if is_trapped and not self.pores_dict[pore_id].oil_filled:
                 self.pores_dict[pore_id].trapped = True
 
     def __get_pore_trap_status(self):
@@ -595,10 +590,8 @@ class ClusterFinder:
 
     def __check_condition(self, pore):
         if self.phase == OIL:
-            # return pore.is_oil_filled()
             return pore.Sw == 0
         else:
-            # return pore.is_water_filled()
             return pore.So == 0
 
     def get_neighbor_pores(self, pore_id):

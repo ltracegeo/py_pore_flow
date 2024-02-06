@@ -99,7 +99,7 @@ class ImbibitionSimulation(SimulationBase):
             K = self.krel_calculator.get_absolute_permeability()
             number_of_oil_filled_neighbors = 0
             for neighbor in self.network.get_neighbor_throats(element.get_id()):
-                if neighbor.is_oil_filled():
+                if neighbor.oil_filled:
                     number_of_oil_filled_neighbors += 1
             element_pc = calculate_imbibition_pc(
                 element.G,
