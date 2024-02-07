@@ -135,10 +135,10 @@ class ParameterManager:
                 second_dist_indexes = indexes[fraction_size:]
                 intrisic_ca_array = np.empty(size, dtype=np.float64)
                 intrisic_ca_array[first_dist_indexes] = self.__generate_fraction_cas(
-                    "equilibrium", size - fraction_size, radius_array[first_dist_indexes]
+                    "equilibrium", len(first_dist_indexes), radius_array[first_dist_indexes]
                 )
                 intrisic_ca_array[second_dist_indexes] = self.__generate_fraction_cas(
-                    "second", fraction_size, radius_array[second_dist_indexes]
+                    "second", len(second_dist_indexes), radius_array[second_dist_indexes]
                 )
         else:
             intrisic_ca_array = self.__generate_fraction_cas(prefix, size, radius_array)
