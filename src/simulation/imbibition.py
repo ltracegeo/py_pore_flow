@@ -1,3 +1,5 @@
+import numpy as np
+
 from equations import (
     CIRCLE,
     WATER,
@@ -36,6 +38,9 @@ def run_imbibition(network, pc_incrementer, debug=False):
                 f"Pc: {Pc:8.2f}, Sw: {Sw:.6f}, Krw: {Krw:.6f}, Kro: {Kro:.6f}, Filled: {pores_filled:4}/{total_pores} ({percentage:2}%)."
             )
 
+        if simulation.get_pores_left() == 0:
+            break
+
         if Pc <= pc_incrementer.get_pc_min():
             break
         else:
@@ -48,6 +53,9 @@ class ImbibitionSimulation(SimulationBase):
     def __init__(self, network, pc_max):
         super().__init__(network, WATER)
         self.Rmin = calculate_r(pc_max)
+
+    def get_pores_left(self):
+        return np.logical_not(self.network.pn["pore.water_filled"] | self.network.pn["pore.trapped"]).sum()
 
     def _update_invasions(self, pc):
         super()._update_invasions(pc)

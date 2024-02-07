@@ -39,7 +39,7 @@ DEFAULT_PARAMETERS = {
     "second_ca_correlation": UNCORRELATED,
     "second_ca_fraction": 0.5,
     "pc_maximum": 40000,
-    "pc_minimum": 0,
+    "pc_minimum": -40000,
     "pc_step": 200,
     "pc_step_min": 1,
     "pc_step_max": 1000,

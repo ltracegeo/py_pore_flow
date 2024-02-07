@@ -1,3 +1,5 @@
+import numpy as np
+
 from equations import OIL
 from simulation.simulation_base import SimulationBase
 
@@ -29,6 +31,9 @@ def run_drainage(network, pc_incrementer, debug=False):
                 f"Pc: {Pc:8.2f}, Sw: {Sw:.6f}, Krw: {Krw:.6f}, Kro: {Kro:.6f}, Filled: {pores_filled:4}/{total_pores} ({percentage:2}%)."
             )
 
+        if simulation.get_pores_left() == 0:
+            break
+
         if Pc >= pc_incrementer.get_pc_max():
             break
         else:
@@ -40,6 +45,9 @@ def run_drainage(network, pc_incrementer, debug=False):
 class DrainageSimulation(SimulationBase):
     def __init__(self, network):
         super().__init__(network, OIL)
+
+    def get_pores_left(self):
+        return np.logical_not(self.network.pn["pore.oil_filled"] | self.network.pn["pore.trapped"]).sum()
 
     def _check_invasion_condition(self, pc, element):
         return pc > element.get_pc()
