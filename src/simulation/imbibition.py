@@ -81,6 +81,11 @@ class ImbibitionSimulation(SimulationBase):
                     > pc
                 ):
                     throat.set_filled(self.phase, True)
+                    self.border_elements.remove_throat(throat.get_id())
+                    neighbor_pore_list = self.network.get_neighbor_pores(throat.get_id())
+                    for neighbor_pore in neighbor_pore_list:
+                        if not neighbor_pore.is_filled(self.phase):
+                            self.border_elements.add_pore(neighbor_pore.get_id())
 
         for pore in self.network.get_pore_list():
             if not pore.is_filled(self.phase) and pore.shape != CIRCLE:
@@ -101,6 +106,11 @@ class ImbibitionSimulation(SimulationBase):
                         > pc
                     ):
                         pore.set_filled(self.phase, True)
+                        self.border_elements.remove_pore(pore.get_id())
+                        neighbor_throat_list = self.network.get_neighbor_throats(pore.get_id())
+                        for neighbor_throat in neighbor_throat_list:
+                            if not neighbor_throat.is_filled(self.phase):
+                                self.border_elements.add_throat(neighbor_throat.get_id())
 
     def _check_invasion_condition(self, pc, element):
         if element.is_pore():
