@@ -18,7 +18,7 @@ def run_drainage(network, pc_incrementer, debug=False):
         Pc = pc_incrementer.get_pc()
 
         simulation.update_pc(Pc)
-        Sw = simulation.calculate_sw_total(Pc)
+        Sw = simulation.calculate_sw_total()
         Krw, Kro = simulation.calculate_krel()
         pores_filled, total_pores, percentage = simulation.get_oil_filled_percentage()
 

@@ -337,43 +337,47 @@ class KrelCalculator:
 
 
 class SaturationCalculator:
-    def __init__(self, pores_dict, throats_dict):
-        self.pores_dict = pores_dict
-        self.throats_dict = throats_dict
+    def __init__(self, network):
+        self.network = network
 
-    def calculate_sw_total(self, pc):
-        length = len(self.pores_dict) + len(self.throats_dict)
+    def update_saturations(self, pc):
+        vectorized = np.vectorize(calculate_drainage_displacement)
+        self.network.pn["pore.water_saturation"], self.network.pn["pore.oil_saturation"] = vectorized(
+            self.network.pn["pore.shape"],
+            self.network.pn["pore.C_r"],
+            pc,
+            self.network.pn["pore.area"],
+            self.network.pn["pore.oil_filled"],
+        )
+        self.network.pn["throat.water_saturation"], self.network.pn["throat.oil_saturation"] = vectorized(
+            self.network.pn["throat.shape"],
+            self.network.pn["throat.C_r"],
+            pc,
+            self.network.pn["throat.cross_sectional_area"],
+            self.network.pn["throat.oil_filled"],
+        )
 
-        sw_list = np.empty(length, dtype=np.float64)
-        v_list = np.empty(length, dtype=np.float64)
-        v_clay_list = np.empty(length, dtype=np.float64)
-
-        i = 0
-
-        for pore in self.pores_dict:
-            self.__update_saturations(pore, pc)
-            sw_list[i] = pore.Sw
-            v_list[i] = pore.V
-            v_clay_list[i] = pore.Vclay
-            i += 1
-
-        for throat in self.throats_dict:
-            self.__update_saturations(throat, pc)
-            sw_list[i] = throat.Sw
-            v_list[i] = throat.V
-            v_clay_list[i] = throat.Vclay
-            i += 1
-
-        return calculate_sw_total(sw_list, v_list, v_clay_list)
-
-    def __update_saturations(self, element, current_pc):
-        if element.oil_filled:
-            Sw, So = calculate_drainage_displacement(element.shape, element.C_r, current_pc, element.A)
-        else:
-            Sw, So = 1, 0
-
-        element.Sw = Sw
-        element.So = So
+    def calculate_sw_total(self):
+        return calculate_sw_total(
+            np.concatenate(
+                (
+                    self.network.pn["throat.water_saturation"],
+                    self.network.pn["pore.water_saturation"],
+                )
+            ),
+            np.concatenate(
+                (
+                    self.network.pn["throat.volume"],
+                    self.network.pn["pore.volume"],
+                )
+            ),
+            np.concatenate(
+                (
+                    self.network.pn["throat.clay_volume"],
+                    self.network.pn["pore.clay_volume"],
+                )
+            ),
+        )
 
 
 spec = [
@@ -436,17 +440,18 @@ class SimulationBase:
 
         self.trap_checker = TrapChecker(network, self.phase)
 
-        self.saturation_calculator = SaturationCalculator(self.pores_dict, self.throats_dict)
+        self.saturation_calculator = SaturationCalculator(network)
 
     def update_pc(self, pc):
         self._update_invasions(pc)
 
         self.trap_checker.update_trapped_pores()
 
+        self.saturation_calculator.update_saturations(pc)
         self.__update_hinging_contact_angles(pc)
 
-    def calculate_sw_total(self, pc):
-        return self.saturation_calculator.calculate_sw_total(pc)
+    def calculate_sw_total(self):
+        return self.saturation_calculator.calculate_sw_total()
 
     def calculate_krel(self):
         return self.krel_calculator.calculate_krw(), self.krel_calculator.calculate_kro()

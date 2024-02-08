@@ -157,8 +157,6 @@ class PnElement:
         self._A = None
         self._V = None
         self._Vclay = None
-        self._Sw = None
-        self._So = None
         self._advancing_contact_angle = None
         self._receding_contact_angle = None
         self._C_r = None
@@ -199,15 +197,11 @@ class PnElement:
 
     @property
     def Sw(self):
-        if self._Sw is None:
-            self._Sw = self.pn[f"{self.type_name}.water_saturation"][self.id]
-        return self._Sw
+        return self.pn[f"{self.type_name}.water_saturation"][self.id]
 
     @property
     def So(self):
-        if self._So is None:
-            self._So = self.pn[f"{self.type_name}.oil_saturation"][self.id]
-        return self._So
+        return self.pn[f"{self.type_name}.oil_saturation"][self.id]
 
     @property
     def advancing_contact_angle(self):
@@ -295,12 +289,10 @@ class PnElement:
 
     @Sw.setter
     def Sw(self, value):
-        self._Sw = value
         self.pn[f"{self.type_name}.water_saturation"][self.id] = value
 
     @So.setter
     def So(self, value):
-        self._So = value
         self.pn[f"{self.type_name}.oil_saturation"][self.id] = value
 
     @advancing_contact_angle.setter

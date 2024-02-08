@@ -39,7 +39,10 @@ def calculate_pc(shape_factor, radius, theta, shape, C, height_above_datum):
 
 
 @njit
-def calculate_drainage_displacement(shape, C_r, current_Pc, A):
+def calculate_drainage_displacement(shape, C_r, current_Pc, A, oil_filled):
+    if not oil_filled:
+        return 1.0, 0.0
+
     Pc = current_Pc
 
     if shape == CIRCLE:
