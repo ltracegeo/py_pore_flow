@@ -251,7 +251,7 @@ def calculate_drainage_b(beta, theta_r, Pc_max):
 def calculate_imbibition_pc(
     shape_factor, radius, advancing_contact_angle, shape, C_a, pc, height_above_datum, number_of_oil_filled_neighbors, K
 ):
-    if number_of_oil_filled_neighbors > 1:
+    if number_of_oil_filled_neighbors > 1 and pc > 0:
         return calculate_pore_body_filling_pc(radius, advancing_contact_angle, K, number_of_oil_filled_neighbors, 0)
     else:
         return calculate_imbibition_piston_like_displacement_pc(
