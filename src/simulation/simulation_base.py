@@ -514,34 +514,6 @@ class SimulationBase:
             throat.theta_h = hinging_contact_angle
 
 
-class OldTrapChecker:
-    def __init__(self, network, phase):
-        self.network = network
-        self.phase = phase
-        self.pores_dict = self.network.get_pore_list()
-
-        self.cluster_finder = ClusterFinder(network, self.pores_dict, phase)
-
-    def update_trapped_pores(self):
-        for pore_id, is_trapped in enumerate(self.__get_pore_trap_status()):
-            if is_trapped and not self.pores_dict[pore_id].oil_filled:
-                self.pores_dict[pore_id].trapped = True
-
-    def __get_pore_trap_status(self):
-        pore_trap_status_list = [True] * self.network.get_number_of_pores()
-        outlets_pore_id_list = self.network.get_outlets_ids()
-        checked_outlets = []
-        for outlet_pore_id in outlets_pore_id_list:
-            if outlet_pore_id in checked_outlets:
-                continue
-            pores_in_cluster, outlets_in_cluster = self.cluster_finder.get_cluster_info(outlet_pore_id)
-            for pore_id in pores_in_cluster:
-                pore_trap_status_list[pore_id] = False
-            checked_outlets.extend(outlets_in_cluster)
-
-        return pore_trap_status_list
-
-
 class TrapChecker:
     def __init__(self, network, phase):
         self.network = network
@@ -562,57 +534,6 @@ class TrapChecker:
         for cluster_label in range(np.max(cluster_array.pore_labels) + 1):
             cluster = np.where(cluster_array.pore_labels == cluster_label)[0]
             self.network.pn["pore.trapped"][cluster] = not np.isin(outlets_pore_id_list, cluster).any()
-
-
-class ClusterFinder:
-    def __init__(self, network, pores_dict, phase):
-        self.network = network
-        self.pores_dict = pores_dict
-        self.phase = phase
-
-        self.outlets_pore_id_list = self.network.get_outlets_ids()
-
-        self.pores_in_cluster = []
-        self.outlets_in_cluster = []
-
-    def get_cluster_info(self, base_pore_id):
-        self.pores_in_cluster = []
-        self.outlets_in_cluster = []
-
-        self.__check_cluster(base_pore_id)
-
-        return self.pores_in_cluster, self.outlets_in_cluster
-
-    def __check_cluster(self, pore_id):
-        pore = self.pores_dict[pore_id]
-        if not self.__check_condition(pore) and pore_id not in self.pores_in_cluster:
-            if pore_id in self.outlets_pore_id_list:
-                self.outlets_in_cluster.append(pore_id)
-            self.pores_in_cluster.append(pore_id)
-            neighbor_pore_id_list = self.get_neighbor_pores(pore_id)
-            for neighbor_pore_id in neighbor_pore_id_list:
-                self.__check_cluster(neighbor_pore_id)
-
-    def __check_condition(self, pore):
-        if self.phase == OIL:
-            return pore.Sw == 0
-        else:
-            return pore.So == 0
-
-    def get_neighbor_pores(self, pore_id):
-        neighbor_pore_id_list = []
-        for throat in self.network.get_neighbor_throats(pore_id):
-            pore_list = self.network.get_neighbor_pores(throat.get_id())
-            try:
-                if pore_list[0].get_id() == pore_id:
-                    new_pore_id = pore_list[1].get_id()
-                else:
-                    new_pore_id = pore_list[0].get_id()
-                if new_pore_id not in neighbor_pore_id_list:
-                    neighbor_pore_id_list.append(new_pore_id)
-            except IndexError:
-                pass
-        return neighbor_pore_id_list
 
 
 spec = [
