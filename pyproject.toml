@@ -1,3 +1,12 @@
+[project]
+name = "pore_flow"
+version = "0.0.1"
+dependencies = [
+    "numba",
+    "numpy",
+    "openpnm",
+]
+
 [tool.black]
 line-length = 120
 
