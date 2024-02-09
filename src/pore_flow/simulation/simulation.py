@@ -1,6 +1,5 @@
-from parameters.parameter_manager import DEFAULT_PARAMETERS, ParameterManager
-
-from equations import (
+from pore_flow.parameters.parameter_manager import DEFAULT_PARAMETERS, ParameterManager
+from pore_flow.equations import (
     calculate_beta,
     calculate_C,
     calculate_drainage_b,
@@ -9,10 +8,10 @@ from equations import (
     WATER,
     OIL,
 )
-from network import initialize_pn, Network
-from simulation.drainage import run_drainage
-from simulation.imbibition import run_imbibition
-from simulation.simulation_base import ConductanceCalculator, PcIncrementer
+from pore_flow.network import initialize_pn, Network
+from pore_flow.simulation.drainage import run_drainage
+from pore_flow.simulation.imbibition import run_imbibition
+from pore_flow.simulation.simulation_base import ConductanceCalculator, PcIncrementer
 
 
 class Simulation:

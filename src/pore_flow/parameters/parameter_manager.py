@@ -4,9 +4,9 @@ from math import pi
 from numba import njit
 import numpy as np
 
-import constants
-import global_random
-from global_random import random, weibull
+from pore_flow import constants
+from pore_flow import global_random
+from pore_flow.global_random import random, weibull
 
 
 UNCORRELATED = 0

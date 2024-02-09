@@ -3,7 +3,7 @@ from math import sqrt
 from numba import njit
 
 from .common_equations import CIRCLE, SQUARE
-from constants import mio
+from pore_flow.constants import mio
 
 
 @njit

@@ -1,7 +1,7 @@
 from numba import njit
 
 from .common_equations import CIRCLE, SQUARE, TRIANGLE
-from constants import mio
+from pore_flow.constants import mio
 
 
 @njit

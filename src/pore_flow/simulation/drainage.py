@@ -1,7 +1,7 @@
 import numpy as np
 
-from equations import OIL
-from simulation.simulation_base import SimulationBase
+from pore_flow.equations import OIL
+from pore_flow.simulation.simulation_base import SimulationBase
 
 
 def run_drainage(network, pc_incrementer, debug=False):

@@ -5,7 +5,7 @@ from numba.experimental import jitclass
 import numpy as np
 import openpnm
 
-from equations import (
+from pore_flow.equations import (
     calculate_absolute_permeability,
     calculate_drainage_displacement,
     calculate_hinging_contact_angle,
@@ -16,7 +16,7 @@ from equations import (
     WATER,
     OIL,
 )
-from network import Network
+from pore_flow.network import Network
 
 
 class ConductanceCalculator:

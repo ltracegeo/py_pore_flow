@@ -5,7 +5,7 @@ import openpnm
 from PyQt6 import QtWidgets, QtGui
 import pyqtgraph as pg
 
-from simulation.simulation import Simulation
+from pore_flow.simulation.simulation import Simulation
 
 
 def see_props():

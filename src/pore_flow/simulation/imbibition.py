@@ -1,6 +1,6 @@
 import numpy as np
 
-from equations import (
+from pore_flow.equations import (
     CIRCLE,
     WATER,
     calculate_imbibition_pc,
@@ -8,7 +8,7 @@ from equations import (
     calculate_r,
     calculate_snap_off_pc,
 )
-from simulation.simulation_base import SimulationBase
+from pore_flow.simulation.simulation_base import SimulationBase
 
 
 def run_imbibition(network, pc_incrementer, debug=False):
