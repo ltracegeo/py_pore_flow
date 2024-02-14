@@ -17,6 +17,7 @@ def run_imbibition(network, pc_incrementer, debug=False):
 
     simulation = ImbibitionSimulation(network, pc_incrementer.get_pc())
 
+    Pc_array = []
     Sw_array = []
     Krw_array = []
     Kro_array = []
@@ -29,6 +30,7 @@ def run_imbibition(network, pc_incrementer, debug=False):
         Krw, Kro = simulation.calculate_krel()
         pores_filled, total_pores, percentage = simulation.get_oil_filled_percentage()
 
+        Pc_array.append(Pc)
         Sw_array.append(Sw)
         Krw_array.append(Krw)
         Kro_array.append(Kro)
@@ -46,7 +48,7 @@ def run_imbibition(network, pc_incrementer, debug=False):
         else:
             pc_incrementer.decrement(Sw)
 
-    return Sw_array, Krw_array, Kro_array
+    return Pc_array, Sw_array, Krw_array, Kro_array
 
 
 class ImbibitionSimulation(SimulationBase):

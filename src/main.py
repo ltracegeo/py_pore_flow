@@ -34,14 +34,15 @@ def show_graph(Sw, Krw, Kro):
 def run():
     pn = openpnm.io.network_from_statoil("tests/resources/statoil", "a")
 
+    Pc = [None] * 2
     Sw = [None] * 2
     Krw = [None] * 2
     Kro = [None] * 2
 
     start = time.time()
     simulation = Simulation(pn, debug=True)
-    Sw[0], Krw[0], Kro[0] = simulation.run_drainage()
-    Sw[1], Krw[1], Kro[1] = simulation.run_imbibition()
+    Pc[0], Sw[0], Krw[0], Kro[0] = simulation.run_drainage()
+    Pc[1], Sw[1], Krw[1], Kro[1] = simulation.run_imbibition()
     time_elapsed = datetime.timedelta(seconds=int(time.time() - start))
 
     print(f"Time elapsed: {time_elapsed}")

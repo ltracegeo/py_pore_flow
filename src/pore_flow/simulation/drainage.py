@@ -10,6 +10,7 @@ def run_drainage(network, pc_incrementer, debug=False):
 
     simulation = DrainageSimulation(network)
 
+    Pc_array = []
     Sw_array = []
     Krw_array = []
     Kro_array = []
@@ -22,6 +23,7 @@ def run_drainage(network, pc_incrementer, debug=False):
         Krw, Kro = simulation.calculate_krel()
         pores_filled, total_pores, percentage = simulation.get_oil_filled_percentage()
 
+        Pc_array.append(Pc)
         Sw_array.append(Sw)
         Krw_array.append(Krw)
         Kro_array.append(Kro)
@@ -39,7 +41,7 @@ def run_drainage(network, pc_incrementer, debug=False):
         else:
             pc_incrementer.increment(Sw)
 
-    return Sw_array, Krw_array, Kro_array
+    return Pc_array, Sw_array, Krw_array, Kro_array
 
 
 class DrainageSimulation(SimulationBase):
