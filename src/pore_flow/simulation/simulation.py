@@ -14,6 +14,32 @@ from pore_flow.simulation.imbibition import run_imbibition
 from pore_flow.simulation.simulation_base import ConductanceCalculator, PcIncrementer
 
 
+def run_two_phase_simulation(pn, parameters_dict=DEFAULT_PARAMETERS, debug=False):
+    parameters = DEFAULT_PARAMETERS
+    parameters.update(parameters_dict)
+
+    cycle = [None] * 2
+    Pc = [None] * 2
+    Sw = [None] * 2
+    Krw = [None] * 2
+    Kro = [None] * 2
+
+    simulation = Simulation(pn, parameters, debug)
+    Pc[0], Sw[0], Krw[0], Kro[0] = simulation.run_drainage()
+    Pc[1], Sw[1], Krw[1], Kro[1] = simulation.run_imbibition()
+
+    cycle[0] = [1] * len(Pc[0])
+    cycle[1] = [2] * len(Pc[1])
+
+    return (
+        cycle[0] + cycle[1],
+        Pc[0] + Pc[1],
+        Sw[0] + Sw[1],
+        Krw[0] + Krw[1],
+        Kro[0] + Kro[1],
+    )
+
+
 class Simulation:
     def __init__(self, pn, parameters_dict=DEFAULT_PARAMETERS, debug=False):
         self.debug = debug
