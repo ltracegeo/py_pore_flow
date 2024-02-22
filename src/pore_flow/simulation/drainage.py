@@ -1,10 +1,11 @@
 import numpy as np
 
 from pore_flow.equations import OIL
+from pore_flow.output import pn_to_vtu
 from pore_flow.simulation.simulation_base import SimulationBase
 
 
-def run_drainage(network, pc_incrementer, debug=False):
+def run_drainage(network, pc_incrementer, generate_vtu=False, debug=False):
     if debug:
         print("Start drainage")
 
@@ -32,6 +33,9 @@ def run_drainage(network, pc_incrementer, debug=False):
             print(
                 f"Pc: {Pc:8.2f}, Sw: {Sw:.6f}, Krw: {Krw:.6f}, Kro: {Kro:.6f}, Filled: {pores_filled:4}/{total_pores} ({percentage:2}%)."
             )
+
+        if generate_vtu:
+            pn_to_vtu(network.pn)
 
         if simulation.get_pores_left() == 0:
             break

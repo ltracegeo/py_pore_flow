@@ -40,7 +40,7 @@ def run():
     Kro = [None] * 2
 
     start = time.time()
-    simulation = Simulation(pn, debug=True)
+    simulation = Simulation(pn, generate_vtu=True, debug=True)
     Pc[0], Sw[0], Krw[0], Kro[0] = simulation.run_drainage()
     Pc[1], Sw[1], Krw[1], Kro[1] = simulation.run_imbibition()
     time_elapsed = datetime.timedelta(seconds=int(time.time() - start))
