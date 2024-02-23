@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 import vtk
 from vtk.util.numpy_support import numpy_to_vtk
@@ -10,7 +12,9 @@ def pn_to_vtu(pn):
     global id_count
 
     unstructured_grid = pn_to_vtk(pn)
-    file_name = f"output_{id_count}.vtu"
+    if not os.path.exists("Output_res"):
+        os.makedirs("Output_res")
+    file_name = f"Output_res/output_{id_count}.vtu"
 
     writer = vtk.vtkXMLUnstructuredGridWriter()
     writer.SetFileName(file_name)
