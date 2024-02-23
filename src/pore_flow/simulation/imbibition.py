@@ -42,7 +42,7 @@ def run_imbibition(network, pc_incrementer, generate_vtu=False, debug=False):
             )
 
         if generate_vtu:
-            pn_to_vtu(network.pn)
+            pn_to_vtu(network.pn, Pc)
 
         if simulation.get_pores_left() == 0:
             break
