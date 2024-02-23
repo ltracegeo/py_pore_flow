@@ -8,7 +8,7 @@ from vtk.util.numpy_support import numpy_to_vtk
 id_count = 0
 
 
-def pn_to_vtu(pn, pc):
+def pn_to_vtu(pn, pc, sw, cycle):
     global id_count
 
     unstructured_grid = pn_to_vtk(pn, pc)
@@ -20,6 +20,9 @@ def pn_to_vtu(pn, pc):
     writer.SetFileName(file_name)
     writer.SetInputData(unstructured_grid)
     writer.Write()
+
+    line = f"<!-- Animation data used by GeoSlicer. Deleting this comment will break compatibility. # Sw: {sw} Cycle: {cycle} -->"
+    add_string_to_file(file_name, 4, line)
 
     id_count += 1
 
@@ -70,3 +73,15 @@ def pn_to_vtk(pn, pc):
     unstructured_grid.GetCellData().AddArray(pc_data)
 
     return unstructured_grid
+
+
+def add_string_to_file(file_path, line_number, new_content):
+    lines = []
+
+    with open(file_path, "r") as file:
+        lines = file.readlines()
+
+    lines.insert(line_number - 1, new_content + "\n")
+
+    with open(file_path, "w") as file:
+        file.writelines(lines)
