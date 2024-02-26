@@ -12,13 +12,23 @@ def pn_to_vtu(pn, pc, sw, cycle):
     global id_count
 
     unstructured_grid = pn_to_vtk(pn, pc)
-    if not os.path.exists("Output_res"):
-        os.makedirs("Output_res")
-    file_name = f"Output_res/output_{id_count}.vtu"
+    ouput_dir_name = "Output_res"
+    if not os.path.exists(ouput_dir_name):
+        os.makedirs(ouput_dir_name)
+
+    if cycle == 0:
+        phase = "Init"
+    elif cycle == 1:
+        phase = "OInj"
+    else:
+        phase = "WInj"
+    file_name = f"{ouput_dir_name}/{cycle}_{phase}{id_count:04}.vtu"
 
     writer = vtk.vtkXMLUnstructuredGridWriter()
     writer.SetFileName(file_name)
     writer.SetInputData(unstructured_grid)
+    writer.SetCompressorTypeToNone()
+    writer.SetDataModeToAscii()
     writer.Write()
 
     line = f"<!-- Animation data used by GeoSlicer. Deleting this comment will break compatibility. # Sw: {sw} Cycle: {cycle} -->"

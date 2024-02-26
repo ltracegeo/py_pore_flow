@@ -13,6 +13,7 @@ from pore_flow.equations import (
     OIL,
 )
 from pore_flow.network import initialize_pn, Network
+from pore_flow.output import pn_to_vtu
 from pore_flow.simulation.drainage import run_drainage
 from pore_flow.simulation.imbibition import run_imbibition
 from pore_flow.simulation.simulation_base import ConductanceCalculator, PcIncrementer
@@ -34,8 +35,6 @@ def run_two_phase_simulation(pn, parameters_dict=DEFAULT_PARAMETERS, generate_vt
 
     cycle[0] = [1] * len(Pc[0])
     cycle[1] = [2] * len(Pc[1])
-
-    pn_to_vtk(pn)
 
     return (
         cycle[0] + cycle[1],
@@ -63,6 +62,9 @@ class Simulation:
 
         initialize_pn(pn)
         self.network = Network(pn)
+
+        if generate_vtu:
+            pn_to_vtu(pn, self.pc_incrementer.get_pc(), 1, 0)
 
     def run_drainage(self):
         self.parameter_manager.update_initial_cas(self.network)
@@ -100,16 +102,6 @@ def calculate_element_initial_values(element, max_pc):
     element.set_pc(
         calculate_drainage_pc(element.G, element.r, element.receding_contact_angle, element.shape, element.C_r, 0)
     )
-
-
-def pn_to_vtu(pn):
-    unstructured_grid = pn_to_vtk(pn)
-    file_name = "output.vtu"
-
-    writer = vtk.vtkXMLUnstructuredGridWriter()
-    writer.SetFileName(file_name)
-    writer.SetInputData(unstructured_grid)
-    writer.Write()
 
 
 def pn_to_vtk(pn):
