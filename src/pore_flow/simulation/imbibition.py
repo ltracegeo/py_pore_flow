@@ -1,6 +1,6 @@
 import numpy as np
 
-from pore_flow.equations import (
+from py_pore_flow.equations import (
     CIRCLE,
     WATER,
     calculate_imbibition_pc,
@@ -8,8 +8,8 @@ from pore_flow.equations import (
     calculate_r,
     calculate_snap_off_pc,
 )
-from pore_flow.output import pn_to_vtu
-from pore_flow.simulation.simulation_base import SimulationBase
+from py_pore_flow.output import pn_to_vtu
+from py_pore_flow.simulation.simulation_base import SimulationBase
 
 
 def run_imbibition(network, pc_incrementer, generate_vtu=False, debug=False):

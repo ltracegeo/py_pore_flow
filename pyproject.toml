@@ -1,5 +1,5 @@
 [project]
-name = "pore_flow"
+name = "py_pore_flow"
 version = "0.0.1"
 dependencies = [
     "numba",

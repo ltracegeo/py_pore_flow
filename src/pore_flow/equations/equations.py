@@ -5,7 +5,7 @@ import numpy as np
 
 from .common_equations import CIRCLE, OIL, SQUARE, TRIANGLE, WATER
 from .pnflow_equations import calculate_element_multiphase_oil_conductance, calculate_element_singlephase_conductance
-from pore_flow.constants import g, mio, miw, po, pw, sigma
+from py_pore_flow.constants import g, mio, miw, po, pw, sigma
 
 
 @njit

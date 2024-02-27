@@ -6,7 +6,7 @@ from numba.experimental import jitclass
 import numpy as np
 import openpnm
 
-from pore_flow.equations import (
+from py_pore_flow.equations import (
     SQUARE,
     TRIANGLE,
     WATER,

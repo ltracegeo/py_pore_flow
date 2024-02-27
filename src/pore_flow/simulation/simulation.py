@@ -2,8 +2,8 @@ import numpy as np
 import vtk
 from vtk.util.numpy_support import numpy_to_vtk, vtk_to_numpy
 
-from pore_flow.parameters.parameter_manager import DEFAULT_PARAMETERS, ParameterManager
-from pore_flow.equations import (
+from py_pore_flow.parameters.parameter_manager import DEFAULT_PARAMETERS, ParameterManager
+from py_pore_flow.equations import (
     calculate_beta,
     calculate_C,
     calculate_drainage_b,
@@ -12,11 +12,11 @@ from pore_flow.equations import (
     WATER,
     OIL,
 )
-from pore_flow.network import initialize_pn, Network
-from pore_flow.output import pn_to_vtu
-from pore_flow.simulation.drainage import run_drainage
-from pore_flow.simulation.imbibition import run_imbibition
-from pore_flow.simulation.simulation_base import ConductanceCalculator, PcIncrementer
+from py_pore_flow.network import initialize_pn, Network
+from py_pore_flow.output import pn_to_vtu
+from py_pore_flow.simulation.drainage import run_drainage
+from py_pore_flow.simulation.imbibition import run_imbibition
+from py_pore_flow.simulation.simulation_base import ConductanceCalculator, PcIncrementer
 
 
 def run_two_phase_simulation(pn, parameters_dict=DEFAULT_PARAMETERS, generate_vtu=False, debug=False):

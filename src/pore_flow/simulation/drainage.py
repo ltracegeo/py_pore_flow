@@ -1,8 +1,8 @@
 import numpy as np
 
-from pore_flow.equations import OIL
-from pore_flow.output import pn_to_vtu
-from pore_flow.simulation.simulation_base import SimulationBase
+from py_pore_flow.equations import OIL
+from py_pore_flow.output import pn_to_vtu
+from py_pore_flow.simulation.simulation_base import SimulationBase
 
 
 def run_drainage(network, pc_incrementer, generate_vtu=False, debug=False):
