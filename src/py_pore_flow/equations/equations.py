@@ -39,6 +39,16 @@ def calculate_pc(shape_factor, radius, theta, shape, C, height_above_datum):
 
 
 @njit
+def calculate_network_saturation(shape, c, pc, a, oil_filled):
+    number_of_elements = len(shape)
+    sw = np.empty(number_of_elements, np.float64)
+    so = np.empty(number_of_elements, np.float64)
+    for i in range(number_of_elements):
+        sw[i], so[i] = calculate_drainage_displacement(shape[i], c[i], pc, a[i], oil_filled[i])
+    return sw, so
+
+
+@njit
 def calculate_drainage_displacement(shape, C_r, current_Pc, A, oil_filled):
     if not oil_filled:
         return 1.0, 0.0
