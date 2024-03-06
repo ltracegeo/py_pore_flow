@@ -449,6 +449,7 @@ class SimulationBase:
 
         self.trap_checker.update_trapped_pores()
 
+        self._update_b(pc)
         self.__update_hinging_contact_angles(pc)
         self.saturation_calculator.update_saturations(pc)
 
@@ -465,6 +466,9 @@ class SimulationBase:
 
     @abstractmethod
     def _check_invasion_condition(self, pc, element):
+        pass
+
+    def _update_b(self, pc):
         pass
 
     def _update_invasions(self, pc):

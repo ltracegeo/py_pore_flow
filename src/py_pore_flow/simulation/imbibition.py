@@ -3,6 +3,7 @@ import numpy as np
 from py_pore_flow.equations import (
     CIRCLE,
     WATER,
+    calculate_drainage_b,
     calculate_imbibition_pc,
     calculate_imbibition_piston_like_displacement_pc,
     calculate_r,
@@ -141,3 +142,18 @@ class ImbibitionSimulation(SimulationBase):
                 element.G, element.r, element.advancing_contact_angle, element.shape, element.C_a, pc, 0
             )
         return element_pc > pc
+
+    def _update_b(self, pc):
+        vectorized = np.vectorize(calculate_drainage_b, signature="(i),(i),(),()->(i)")
+        self.network.pn["pore.b"] = vectorized(
+            self.network.pn["pore.corner_half_angle"],
+            self.network.pn["pore.hinging_contact_angle"],
+            self.network.pn["pore.n_corners"],
+            pc,
+        )
+        self.network.pn["throat.b"] = vectorized(
+            self.network.pn["throat.corner_half_angle"],
+            self.network.pn["throat.hinging_contact_angle"],
+            self.network.pn["throat.n_corners"],
+            pc,
+        )
