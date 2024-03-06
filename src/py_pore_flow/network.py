@@ -30,6 +30,7 @@ def initialize_pn(pn):
         pn[f"{element_type}.water_singlephase_conductance"] = 0.0
         pn[f"{element_type}.shape"] = 0
         pn[f"{element_type}.trapped"] = False
+        pn[f"{element_type}.n_corners"] = 0
 
 
 class Network:
@@ -165,6 +166,7 @@ class PnElement:
         self._trapped = None
         self._water_filled = None
         self._oil_filled = None
+        self._n_corners = None
         self._beta = None
         self._theta_h = None
         self._b = None
@@ -252,38 +254,29 @@ class PnElement:
         return self._water_filled
 
     @property
+    def n_corners(self):
+        if self._n_corners is None:
+            self._n_corners = self.pn[f"{self.type_name}.n_corners"][self.id]
+        return self._n_corners
+
+    @property
     def beta(self):
         if self._beta is None:
-            if self.shape == TRIANGLE:
-                n = 3
-            elif self.shape == SQUARE:
-                n = 4
-            else:
-                n = 0
+            n = self.n_corners
             self._beta = np.resize(self.pn[f"{self.type_name}.corner_half_angle"][self.id], n)
         return self._beta
 
     @property
     def theta_h(self):
         if self._theta_h is None:
-            if self.shape == TRIANGLE:
-                n = 3
-            elif self.shape == SQUARE:
-                n = 4
-            else:
-                n = 0
+            n = self.n_corners
             self._theta_h = np.resize(self.pn[f"{self.type_name}.hinging_contact_angle"][self.id], n)
         return self._theta_h
 
     @property
     def b(self):
         if self._b is None:
-            if self.shape == TRIANGLE:
-                n = 3
-            elif self.shape == SQUARE:
-                n = 4
-            else:
-                n = 0
+            n = self.n_corners
             self._b = np.resize(self.pn[f"{self.type_name}.b"][self.id], n)
         return self._b
 
@@ -319,6 +312,14 @@ class PnElement:
     def shape(self, shape):
         self._shape = shape
         self.pn[f"{self.type_name}.shape"][self.id] = shape
+
+        if shape == TRIANGLE:
+            self._n_corners = 3
+        elif shape == SQUARE:
+            self._n_corners = 4
+        else:
+            self._n_corners = 0
+        self.pn[f"{self.type_name}.n_corners"][self.id] = self._n_corners
 
     @trapped.setter
     def trapped(self, trapped):
