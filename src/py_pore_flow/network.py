@@ -24,6 +24,7 @@ def initialize_pn(pn):
         pn[f"{element_type}.b"] = np.empty((len(pn[f"{element_type}.all"]), 4), np.float64)
         pn[f"{element_type}.C_r"] = 0.0
         pn[f"{element_type}.C_a"] = 0.0
+        pn[f"{element_type}.C_h"] = 0.0
         pn[f"{element_type}.advancing_contact_angle"] = 0.0
         pn[f"{element_type}.receding_contact_angle"] = 0.0
         pn[f"{element_type}.oil_singlephase_conductance"] = 0.0
@@ -139,6 +140,7 @@ class Network:
         core.theta_r = element.receding_contact_angle
         core.C_r = element.C_r
         core.C_a = element.C_a
+        core.C_h = element.C_h
         core.shape = element.shape
         core.trapped = element.trapped
         core.beta = element.beta
@@ -162,6 +164,7 @@ class PnElement:
         self._receding_contact_angle = None
         self._C_r = None
         self._C_a = None
+        self._C_h = None
         self._shape = None
         self._trapped = None
         self._water_filled = None
@@ -228,6 +231,12 @@ class PnElement:
         if self._C_a is None:
             self._C_a = self.pn[f"{self.type_name}.C_a"][self.id]
         return self._C_a
+
+    @property
+    def C_h(self):
+        if self._C_h is None:
+            self._C_h = self.pn[f"{self.type_name}.C_h"][self.id]
+        return self._C_h
 
     @property
     def shape(self):
@@ -307,6 +316,11 @@ class PnElement:
     def C_a(self, C_a):
         self._C_a = C_a
         self.pn[f"{self.type_name}.C_a"][self.id] = C_a
+
+    @C_h.setter
+    def C_h(self, C_h):
+        self._C_h = C_h
+        self.pn[f"{self.type_name}.C_h"][self.id] = C_h
 
     @shape.setter
     def shape(self, shape):
@@ -443,6 +457,7 @@ spec = [
     ("theta_r", nb.types.float64),
     ("C_r", nb.types.float64),
     ("C_a", nb.types.float64),
+    ("C_h", nb.types.float64),
     ("shape", nb.types.int32),
     ("trapped", nb.types.boolean),
     ("beta", nb.types.float64[:]),
@@ -468,6 +483,7 @@ class ElementCore:
         self.theta_r = 0.0
         self.C_r = 0.0
         self.C_a = 0.0
+        self.C_h = 0.0
         self.shape = 0
         self.trapped = False
         self.beta = np.empty(4, dtype=np.float64)

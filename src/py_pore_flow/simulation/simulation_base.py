@@ -7,6 +7,7 @@ import openpnm
 
 from py_pore_flow.equations import (
     calculate_absolute_permeability,
+    calculate_C,
     calculate_drainage_displacement,
     calculate_hinging_contact_angle,
     calculate_multiphase_oil_conductance,
@@ -337,21 +338,22 @@ class KrelCalculator:
 
 
 class SaturationCalculator:
-    def __init__(self, network):
+    def __init__(self, network, phase):
         self.network = network
+        self.phase = phase
 
     def update_saturations(self, pc):
         vectorized = np.vectorize(calculate_drainage_displacement)
         self.network.pn["pore.water_saturation"], self.network.pn["pore.oil_saturation"] = vectorized(
             self.network.pn["pore.shape"],
-            self.network.pn["pore.C_r"],
+            self.network.pn["pore.C_r"] if self.phase == WATER else self.network.pn["pore.C_h"],
             pc,
             self.network.pn["pore.area"],
             self.network.pn["pore.oil_filled"],
         )
         self.network.pn["throat.water_saturation"], self.network.pn["throat.oil_saturation"] = vectorized(
             self.network.pn["throat.shape"],
-            self.network.pn["throat.C_r"],
+            self.network.pn["throat.C_r"] if self.phase == WATER else self.network.pn["throat.C_h"],
             pc,
             self.network.pn["throat.cross_sectional_area"],
             self.network.pn["throat.oil_filled"],
@@ -440,15 +442,15 @@ class SimulationBase:
 
         self.trap_checker = TrapChecker(network, self.phase)
 
-        self.saturation_calculator = SaturationCalculator(network)
+        self.saturation_calculator = SaturationCalculator(network, phase)
 
     def update_pc(self, pc):
         self._update_invasions(pc)
 
         self.trap_checker.update_trapped_pores()
 
-        self.saturation_calculator.update_saturations(pc)
         self.__update_hinging_contact_angles(pc)
+        self.saturation_calculator.update_saturations(pc)
 
     def calculate_sw_total(self):
         return self.saturation_calculator.calculate_sw_total()
@@ -505,6 +507,8 @@ class SimulationBase:
                 hinging_contact_angle, pore.receding_contact_angle, pore.advancing_contact_angle
             )
             pore.theta_h = hinging_contact_angle
+            if self.phase == OIL:
+                pore.C_h = calculate_C(pore.theta_h, pore.beta)
 
         for throat in self.network.get_throat_list():
             hinging_contact_angle = calculate_hinging_contact_angle(pc, throat.beta, throat.b)
@@ -512,6 +516,8 @@ class SimulationBase:
                 hinging_contact_angle, throat.receding_contact_angle, throat.advancing_contact_angle
             )
             throat.theta_h = hinging_contact_angle
+            if self.phase == OIL:
+                throat.C_h = calculate_C(throat.theta_h, throat.beta)
 
 
 class TrapChecker:
