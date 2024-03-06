@@ -247,6 +247,43 @@ def calculate_drainage_b(beta, theta, n_corners, Pc_max):
     return b
 
 
+@njit
+def calculate_imbibition_network_b(beta, theta_r, theta_a, theta_h, n_corners, pc, Rmin):
+    number_of_elements = len(beta)
+    R = sigma / pc
+
+    b = np.empty((number_of_elements, 4), np.float64)
+    for i in range(number_of_elements):
+        b[i] = calculate_imbibition_element_b(beta[i], theta_r[i], theta_a[i], theta_h[i], n_corners[i], R, Rmin)
+
+
+@njit
+def calculate_imbibition_element_b(beta, theta_r, theta_a, theta_h, n_corners, R, Rmin):
+    b = np.empty(4, dtype=np.float64)
+    for i in range(n_corners):
+        b[i] = calculate_imbibition_corner_b(beta[i], theta_r, theta_a, theta_h[i], R, Rmin)
+    return b
+
+
+@njit
+def calculate_imbibition_corner_b(beta, theta_r, theta_a, theta_h, R, Rmin):
+    if theta_h >= theta_a:
+        return calculate_corner_b(beta, theta_a, R)
+    else:
+        return calculate_corner_b(beta, theta_r, Rmin)
+
+
+@njit
+def calculate_drainage_corner_b(beta, theta_r, Rmin):
+    return calculate_corner_b(beta, theta_r, Rmin)
+
+
+@njit
+def calculate_corner_b(beta, theta, R):
+    b = R * cos(theta + beta) / sin(beta)
+    return b
+
+
 # Imbibition
 
 
