@@ -96,9 +96,11 @@ def calculate_initial_values(network, max_pc):
 def calculate_element_initial_values(element, max_pc):
     element.shape = calculate_shape(element.G)
     element.beta = calculate_beta(element.G, element.shape)
-    element.b = calculate_drainage_b(element.beta, element.receding_contact_angle, element.n_corners, max_pc)
-    element.C_r = calculate_C(element.receding_contact_angle, element.beta)
-    element.C_a = calculate_C(element.advancing_contact_angle, element.beta)
+    element.b = calculate_drainage_b(
+        element.beta, np.full(element.n_corners, element.receding_contact_angle), element.n_corners, max_pc
+    )
+    element.C_r = calculate_C(np.full(element.n_corners, element.receding_contact_angle), element.beta)
+    element.C_a = calculate_C(np.full(element.n_corners, element.advancing_contact_angle), element.beta)
     element.set_pc(
         calculate_drainage_pc(element.G, element.r, element.receding_contact_angle, element.shape, element.C_r, 0)
     )

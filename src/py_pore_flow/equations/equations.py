@@ -121,8 +121,8 @@ def calculate_C(theta, beta):
     """
     C = 0
     for i in range(len(beta)):
-        if beta[i] < pi / 2 - theta:
-            C += cos(theta) * (cos(theta + beta[i]) / sin(beta[i])) - (pi / 2 - theta - beta[i])
+        if beta[i] < pi / 2 - theta[i]:
+            C += cos(theta[i]) * (cos(theta[i] + beta[i]) / sin(beta[i])) - (pi / 2 - theta[i] - beta[i])
 
     return C
 
@@ -238,12 +238,12 @@ def calculate_hinging_contact_angle(Pc, beta, b):
 
 
 @njit
-def calculate_drainage_b(beta, theta_r, n_corners, Pc_max):
+def calculate_drainage_b(beta, theta, n_corners, Pc_max):
     Rmin = sigma / Pc_max
 
     b = np.empty(4, dtype=np.float64)
     for i in range(n_corners):
-        b[i] = Rmin * cos(theta_r + beta[i]) / sin(beta[i])
+        b[i] = Rmin * cos(theta[i] + beta[i]) / sin(beta[i])
     return b
 
 
