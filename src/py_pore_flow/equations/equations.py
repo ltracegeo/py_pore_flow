@@ -377,3 +377,42 @@ def calculate_snap_off_pc(r, beta, theta_a, theta_r, theta_h, Rmin, pc, h):
 def calculate_r(pc):
     R = sigma / pc
     return R
+
+
+@njit
+def calculate_oil_layer(theta_a, beta, n_corners):
+    corner_oil_layer = np.empty(4, dtype=np.bool_)
+    for i in range(n_corners):
+        corner_oil_layer[i] = theta_a > pi / 2 + beta[i]
+    return corner_oil_layer
+
+
+@njit
+def calculate_oil_layer_collapse_pc(beta, theta_a, b):
+    Pc = sigma * cos(acos(2 * sin(beta) + cos(theta_a)) + beta) / (b * sin(beta))
+    return Pc
+
+
+@njit
+def calculate_oil_layer_element(corner_oil_layer, beta, theta_a, b, n_corners, pc):
+    for i in range(n_corners):
+        if corner_oil_layer[i]:
+            collapse_pc = calculate_oil_layer_collapse_pc(beta[i], theta_a, b[i])
+            if pc > collapse_pc:
+                corner_oil_layer[i] = False
+    return corner_oil_layer
+
+
+@njit
+def calculate_oil_layer_network(corner_oil_layer, beta, theta_a, b, n_corners, pc):
+    number_of_elements = len(theta_a)
+    for i in range(number_of_elements):
+        corner_oil_layer[i] = calculate_oil_layer_element(
+            corner_oil_layer[i],
+            beta[i],
+            theta_a[i],
+            b[i],
+            n_corners[i],
+            pc,
+        )
+    return corner_oil_layer
