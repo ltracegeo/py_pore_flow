@@ -15,13 +15,16 @@ from py_pore_flow.equations import (
 
 def initialize_pn(pn):
     for element_type in ["pore", "throat"]:
+        number_of_elements = len(pn[f"{element_type}.all"])
+
         pn[f"{element_type}.oil_filled"] = False
         pn[f"{element_type}.water_filled"] = True
         pn[f"{element_type}.oil_saturation"] = 0.0
         pn[f"{element_type}.water_saturation"] = 1.0
-        pn[f"{element_type}.corner_half_angle"] = np.empty((len(pn[f"{element_type}.all"]), 4), np.float64)
-        pn[f"{element_type}.hinging_contact_angle"] = np.empty((len(pn[f"{element_type}.all"]), 4), np.float64)
-        pn[f"{element_type}.b"] = np.empty((len(pn[f"{element_type}.all"]), 4), np.float64)
+        pn[f"{element_type}.corner_half_angle"] = np.empty((number_of_elements, 4), np.float64)
+        pn[f"{element_type}.hinging_contact_angle"] = np.empty((number_of_elements, 4), np.float64)
+        pn[f"{element_type}.b"] = np.empty((number_of_elements, 4), np.float64)
+        pn[f"{element_type}.corner_oil_layer"] = np.full((number_of_elements, 4), False, np.bool_)
         pn[f"{element_type}.C_r"] = 0.0
         pn[f"{element_type}.C_a"] = 0.0
         pn[f"{element_type}.C_h"] = 0.0
@@ -146,6 +149,7 @@ class Network:
         core.beta = element.beta
         core.theta_h = element.theta_h
         core.b = element.b
+        core.corner_oil_layer = element.corner_oil_layer
         core.oil_filled = element.oil_filled
 
 
@@ -173,6 +177,7 @@ class PnElement:
         self._beta = None
         self._theta_h = None
         self._b = None
+        self._corner_oil_layer = None
 
         self.pc = None
 
@@ -289,6 +294,13 @@ class PnElement:
             self._b = np.resize(self.pn[f"{self.type_name}.b"][self.id], n)
         return self._b
 
+    @property
+    def corner_oil_layer(self):
+        if self._corner_oil_layer is None:
+            n = self.n_corners
+            self._corner_oil_layer = np.resize(self.pn[f"{self.type_name}.corner_oil_layer"][self.id], n)
+        return self._corner_oil_layer
+
     @Sw.setter
     def Sw(self, value):
         self.pn[f"{self.type_name}.water_saturation"][self.id] = value
@@ -364,6 +376,11 @@ class PnElement:
     def b(self, b):
         self._b = b
         self.pn[f"{self.type_name}.b"][self.id] = np.resize(b, 4)
+
+    @corner_oil_layer.setter
+    def corner_oil_layer(self, corner_oil_layer):
+        self._corner_oil_layer = corner_oil_layer
+        self.pn[f"{self.type_name}.corner_oil_layer"][self.id] = np.resize(corner_oil_layer, 4)
 
     def get_id(self):
         return self.id
@@ -463,6 +480,7 @@ spec = [
     ("beta", nb.types.float64[:]),
     ("theta_h", nb.types.float64[:]),
     ("b", nb.types.float64[:]),
+    ("corner_oil_layer", nb.types.boolean[:]),
     ("oil_filled", nb.types.boolean),
     ("n_corners", nb.types.int32),
 ]
@@ -489,5 +507,6 @@ class ElementCore:
         self.beta = np.empty(4, dtype=np.float64)
         self.theta_h = np.empty(4, dtype=np.float64)
         self.b = np.empty(4, dtype=np.float64)
+        self.corner_oil_layer = np.empty(4, dtype=np.bool_)
         self.oil_filled = True
         self.n_corners = 0

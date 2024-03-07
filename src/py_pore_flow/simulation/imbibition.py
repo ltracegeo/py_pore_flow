@@ -6,6 +6,8 @@ from py_pore_flow.equations import (
     calculate_imbibition_network_b,
     calculate_imbibition_pc,
     calculate_imbibition_piston_like_displacement_pc,
+    calculate_oil_layer,
+    calculate_oil_layer_network,
     calculate_r,
     calculate_snap_off_pc,
 )
@@ -67,6 +69,7 @@ class ImbibitionSimulation(SimulationBase):
     def _update_invasions(self, pc):
         super()._update_invasions(pc)
         self.__update_snap_offs(pc)
+        self.__update_oil_layers(pc)
 
     def __update_snap_offs(self, pc):
         for throat in self.network.get_throat_list():
@@ -119,6 +122,25 @@ class ImbibitionSimulation(SimulationBase):
                             if not neighbor_throat.is_filled(self.phase):
                                 self.border_elements.add_throat(neighbor_throat.get_id())
 
+    def __update_oil_layers(self, pc):
+        self.network.pn[f"pore.corner_oil_layer"] = calculate_oil_layer_network(
+            self.network.pn[f"pore.corner_oil_layer"],
+            self.network.pn[f"pore.corner_half_angle"],
+            self.network.pn[f"pore.advancing_contact_angle"],
+            self.network.pn[f"pore.b"],
+            self.network.pn[f"pore.n_corners"],
+            pc,
+        )
+
+        self.network.pn[f"throat.corner_oil_layer"] = calculate_oil_layer_network(
+            self.network.pn[f"throat.corner_oil_layer"],
+            self.network.pn[f"throat.corner_half_angle"],
+            self.network.pn[f"throat.advancing_contact_angle"],
+            self.network.pn[f"throat.b"],
+            self.network.pn[f"throat.n_corners"],
+            pc,
+        )
+
     def _check_invasion_condition(self, pc, element):
         if element.is_pore():
             K = self.krel_calculator.get_absolute_permeability()
@@ -163,3 +185,6 @@ class ImbibitionSimulation(SimulationBase):
             pc,
             self.Rmin,
         )
+
+    def _on_element_invaded(self, element):
+        element.corner_oil_layer = calculate_oil_layer(element.advancing_contact_angle, element.beta, element.n_corners)
