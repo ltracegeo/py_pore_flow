@@ -16,6 +16,7 @@ from py_pore_flow.equations import (
     calculate_sw_total,
     WATER,
     OIL,
+    MAX_NUMBER_OF_CORNERS,
 )
 from py_pore_flow.network import Network
 
@@ -75,15 +76,15 @@ class ConductanceCalculator:
         Sw[i] = pore_i.Sw
         Sw[j] = throat_j.Sw
         Sw[k] = pore_k.Sw
-        theta_h = [None] * 3
+        theta_h = np.empty((3, MAX_NUMBER_OF_CORNERS), dtype=np.float64)
         theta_h[i] = pore_i.theta_h
         theta_h[j] = throat_j.theta_h
         theta_h[k] = pore_k.theta_h
-        b = [None] * 3
+        b = np.empty((3, MAX_NUMBER_OF_CORNERS), dtype=np.float64)
         b[i] = pore_i.b
         b[j] = throat_j.b
         b[k] = pore_k.b
-        beta = [None] * 3
+        beta = np.empty((3, MAX_NUMBER_OF_CORNERS), dtype=np.float64)
         beta[i] = pore_i.beta
         beta[j] = throat_j.beta
         beta[k] = pore_k.beta

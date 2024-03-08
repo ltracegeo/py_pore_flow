@@ -3,7 +3,7 @@ from math import acos, asin, atan, cos, pi, sin, sqrt, tan
 from numba import njit
 import numpy as np
 
-from .common_equations import CIRCLE, OIL, SQUARE, TRIANGLE, WATER
+from .common_equations import CIRCLE, OIL, SQUARE, TRIANGLE, WATER, MAX_NUMBER_OF_CORNERS
 from .pnflow_equations import calculate_element_multiphase_oil_conductance, calculate_element_singlephase_conductance
 from py_pore_flow.constants import g, mio, miw, po, pw, sigma
 
@@ -86,6 +86,8 @@ def calculate_sw_total(Sw, V, Vclay):
 
 @njit
 def calculate_beta(G, shape):
+    beta = np.empty(MAX_NUMBER_OF_CORNERS, dtype=np.float64)
+
     if shape == TRIANGLE:
         b2_min = atan(2 / sqrt(3) * cos(acos(-12 * sqrt(3) * G) / 3 + 4 * pi / 3))
         b2_max = atan(2 / sqrt(3) * cos(acos(-12 * sqrt(3) * G) / 3))
@@ -93,11 +95,12 @@ def calculate_beta(G, shape):
         b1 = -b2 / 2 + (1 / 2) * asin(((tan(b2) + 4 * G) / (tan(b2) - 4 * G)) * sin(b2))
         b3 = pi / 2 - b1 - b2
 
-        beta = np.array([b1, b2, b3], dtype=np.float64)
+        beta[0] = b1
+        beta[1] = b2
+        beta[2] = b3
     elif shape == SQUARE:
-        beta = np.array([pi / 4, pi / 4, pi / 4, pi / 4], dtype=np.float64)
-    else:
-        return np.empty(0, dtype=np.float64)
+        for i in range(4):
+            beta[i] = pi / 4
 
     return beta
 
@@ -236,7 +239,7 @@ def calculate_conductance(L, gp):
 
 @njit
 def calculate_hinging_contact_angle(Pc, beta, b, n_corners):
-    theta_h = np.empty(n_corners, dtype=np.float64)
+    theta_h = np.empty(MAX_NUMBER_OF_CORNERS, dtype=np.float64)
 
     if Pc == 0:
         return theta_h
@@ -251,7 +254,7 @@ def calculate_hinging_contact_angle(Pc, beta, b, n_corners):
 def calculate_drainage_b(beta, theta, n_corners, Pc_max):
     Rmin = sigma / Pc_max
 
-    b = np.empty(4, dtype=np.float64)
+    b = np.empty(MAX_NUMBER_OF_CORNERS, dtype=np.float64)
     for i in range(n_corners):
         b[i] = Rmin * cos(theta[i] + beta[i]) / sin(beta[i])
     return b
@@ -262,14 +265,14 @@ def calculate_imbibition_network_b(beta, theta_r, theta_a, theta_h, n_corners, p
     number_of_elements = len(beta)
     R = sigma / pc
 
-    b = np.empty((number_of_elements, 4), np.float64)
+    b = np.empty((number_of_elements, MAX_NUMBER_OF_CORNERS), np.float64)
     for i in range(number_of_elements):
         b[i] = calculate_imbibition_element_b(beta[i], theta_r[i], theta_a[i], theta_h[i], n_corners[i], R, Rmin)
 
 
 @njit
 def calculate_imbibition_element_b(beta, theta_r, theta_a, theta_h, n_corners, R, Rmin):
-    b = np.empty(4, dtype=np.float64)
+    b = np.empty(MAX_NUMBER_OF_CORNERS, dtype=np.float64)
     for i in range(n_corners):
         b[i] = calculate_imbibition_corner_b(beta[i], theta_r, theta_a, theta_h[i], R, Rmin)
     return b
@@ -381,7 +384,7 @@ def calculate_r(pc):
 
 @njit
 def calculate_oil_layer(theta_a, beta, n_corners):
-    corner_oil_layer = np.empty(4, dtype=np.bool_)
+    corner_oil_layer = np.empty(MAX_NUMBER_OF_CORNERS, dtype=np.bool_)
     for i in range(n_corners):
         corner_oil_layer[i] = theta_a > pi / 2 + beta[i]
     return corner_oil_layer
