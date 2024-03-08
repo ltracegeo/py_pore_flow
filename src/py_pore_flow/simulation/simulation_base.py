@@ -35,11 +35,11 @@ class ConductanceCalculator:
         multiphase_conductance = [0.0] * len(self.network.throat_list)
         for throat_id in throat_id_list:
             if phase == WATER:
-                L, A, G, shape, Sw, theta_h, b, beta = self.__get_multiphase_water_parameters(
+                L, A, G, shape, Sw, theta_h, b, beta, n_corners = self.__get_multiphase_water_parameters(
                     self.network.throat_list[throat_id]
                 )
                 multiphase_conductance[throat_id] = calculate_multiphase_water_conductance(
-                    L, A, G, shape, Sw, theta_h, b, beta
+                    L, A, G, shape, Sw, theta_h, b, beta, n_corners
                 )
             else:
                 L, A, G, shape, So = self.__get_multiphase_oil_parameters(self.network.throat_list[throat_id])
@@ -88,7 +88,12 @@ class ConductanceCalculator:
         beta[j] = throat_j.beta
         beta[k] = pore_k.beta
 
-        return L, A, G, shape, Sw, theta_h, b, beta
+        n_corners = np.empty(3, dtype=np.float64)
+        n_corners[i] = pore_i.n_corners
+        n_corners[j] = throat_j.n_corners
+        n_corners[k] = pore_k.n_corners
+
+        return L, A, G, shape, Sw, theta_h, b, beta, n_corners
 
     def __get_multiphase_oil_parameters(self, throat_j):
         i = 0  # Pore 1
@@ -499,22 +504,22 @@ class SimulationBase:
 
     def __update_hinging_contact_angles(self, pc):
         for pore in self.network.get_pore_list():
-            hinging_contact_angle = calculate_hinging_contact_angle(pc, pore.beta, pore.b)
+            hinging_contact_angle = calculate_hinging_contact_angle(pc, pore.beta, pore.b, pore.n_corners)
             hinging_contact_angle = np.clip(
                 hinging_contact_angle, pore.receding_contact_angle, pore.advancing_contact_angle
             )
             pore.theta_h = hinging_contact_angle
             if self.phase == OIL:
-                pore.C_h = calculate_C(pore.theta_h, pore.beta)
+                pore.C_h = calculate_C(pore.theta_h, pore.beta, pore.n_corners)
 
         for throat in self.network.get_throat_list():
-            hinging_contact_angle = calculate_hinging_contact_angle(pc, throat.beta, throat.b)
+            hinging_contact_angle = calculate_hinging_contact_angle(pc, throat.beta, throat.b, throat.n_corners)
             hinging_contact_angle = np.clip(
                 hinging_contact_angle, throat.receding_contact_angle, throat.advancing_contact_angle
             )
             throat.theta_h = hinging_contact_angle
             if self.phase == OIL:
-                throat.C_h = calculate_C(throat.theta_h, throat.beta)
+                throat.C_h = calculate_C(throat.theta_h, throat.beta, throat.n_corners)
 
     def __add_border_element(self, element):
         if element.is_pore():
