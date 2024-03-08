@@ -7,6 +7,7 @@ import numpy as np
 import openpnm
 
 from py_pore_flow.equations import (
+    MAX_NUMBER_OF_CORNERS,
     SQUARE,
     TRIANGLE,
     WATER,
@@ -21,10 +22,10 @@ def initialize_pn(pn):
         pn[f"{element_type}.water_filled"] = True
         pn[f"{element_type}.oil_saturation"] = 0.0
         pn[f"{element_type}.water_saturation"] = 1.0
-        pn[f"{element_type}.corner_half_angle"] = np.empty((number_of_elements, 4), np.float64)
-        pn[f"{element_type}.hinging_contact_angle"] = np.empty((number_of_elements, 4), np.float64)
-        pn[f"{element_type}.b"] = np.empty((number_of_elements, 4), np.float64)
-        pn[f"{element_type}.corner_oil_layer"] = np.full((number_of_elements, 4), False, np.bool_)
+        pn[f"{element_type}.corner_half_angle"] = np.empty((number_of_elements, MAX_NUMBER_OF_CORNERS), np.float64)
+        pn[f"{element_type}.hinging_contact_angle"] = np.empty((number_of_elements, MAX_NUMBER_OF_CORNERS), np.float64)
+        pn[f"{element_type}.b"] = np.empty((number_of_elements, MAX_NUMBER_OF_CORNERS), np.float64)
+        pn[f"{element_type}.corner_oil_layer"] = np.full((number_of_elements, MAX_NUMBER_OF_CORNERS), False, np.bool_)
         pn[f"{element_type}.C_r"] = 0.0
         pn[f"{element_type}.C_a"] = 0.0
         pn[f"{element_type}.C_h"] = 0.0
@@ -277,28 +278,28 @@ class PnElement:
     def beta(self):
         if self._beta is None:
             n = self.n_corners
-            self._beta = np.resize(self.pn[f"{self.type_name}.corner_half_angle"][self.id], n)
+            self._beta = self.pn[f"{self.type_name}.corner_half_angle"][self.id]
         return self._beta
 
     @property
     def theta_h(self):
         if self._theta_h is None:
             n = self.n_corners
-            self._theta_h = np.resize(self.pn[f"{self.type_name}.hinging_contact_angle"][self.id], n)
+            self._theta_h = self.pn[f"{self.type_name}.hinging_contact_angle"][self.id]
         return self._theta_h
 
     @property
     def b(self):
         if self._b is None:
             n = self.n_corners
-            self._b = np.resize(self.pn[f"{self.type_name}.b"][self.id], n)
+            self._b = self.pn[f"{self.type_name}.b"][self.id]
         return self._b
 
     @property
     def corner_oil_layer(self):
         if self._corner_oil_layer is None:
             n = self.n_corners
-            self._corner_oil_layer = np.resize(self.pn[f"{self.type_name}.corner_oil_layer"][self.id], n)
+            self._corner_oil_layer = self.pn[f"{self.type_name}.corner_oil_layer"][self.id]
         return self._corner_oil_layer
 
     @Sw.setter
@@ -365,22 +366,22 @@ class PnElement:
     @beta.setter
     def beta(self, beta):
         self._beta = beta
-        self.pn[f"{self.type_name}.corner_half_angle"][self.id] = np.resize(beta, 4)
+        self.pn[f"{self.type_name}.corner_half_angle"][self.id] = beta
 
     @theta_h.setter
     def theta_h(self, theta_h):
         self._theta_h = theta_h
-        self.pn[f"{self.type_name}.hinging_contact_angle"][self.id] = np.resize(theta_h, 4)
+        self.pn[f"{self.type_name}.hinging_contact_angle"][self.id] = theta_h
 
     @b.setter
     def b(self, b):
         self._b = b
-        self.pn[f"{self.type_name}.b"][self.id] = np.resize(b, 4)
+        self.pn[f"{self.type_name}.b"][self.id] = b
 
     @corner_oil_layer.setter
     def corner_oil_layer(self, corner_oil_layer):
         self._corner_oil_layer = corner_oil_layer
-        self.pn[f"{self.type_name}.corner_oil_layer"][self.id] = np.resize(corner_oil_layer, 4)
+        self.pn[f"{self.type_name}.corner_oil_layer"][self.id] = corner_oil_layer
 
     def get_id(self):
         return self.id
@@ -504,9 +505,9 @@ class ElementCore:
         self.C_h = 0.0
         self.shape = 0
         self.trapped = False
-        self.beta = np.empty(4, dtype=np.float64)
-        self.theta_h = np.empty(4, dtype=np.float64)
-        self.b = np.empty(4, dtype=np.float64)
-        self.corner_oil_layer = np.empty(4, dtype=np.bool_)
+        self.beta = np.empty(MAX_NUMBER_OF_CORNERS, dtype=np.float64)
+        self.theta_h = np.empty(MAX_NUMBER_OF_CORNERS, dtype=np.float64)
+        self.b = np.empty(MAX_NUMBER_OF_CORNERS, dtype=np.float64)
+        self.corner_oil_layer = np.empty(MAX_NUMBER_OF_CORNERS, dtype=np.bool_)
         self.oil_filled = True
         self.n_corners = 0
