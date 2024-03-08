@@ -198,6 +198,14 @@ def calculate_singlephase_conductance(L, A, G, shape, phase=WATER):
 
 
 @njit
+def calculate_multiphase_network_oil_conductance(L, A, G, shape, So, number_of_elements):
+    multiphase_conductance = np.empty(number_of_elements, np.float64)
+    for i in range(number_of_elements):
+        multiphase_conductance[i] = calculate_multiphase_oil_conductance(L[i], A[i], G[i], shape[i], So[i])
+    return multiphase_conductance
+
+
+@njit
 def calculate_multiphase_oil_conductance(L, A, G, shape, So):
     i = 0  # Pore 1
     j = 2  # Throat connecting pore 0 and 1
@@ -211,6 +219,15 @@ def calculate_multiphase_oil_conductance(L, A, G, shape, So):
             gp[n] = calculate_element_multiphase_oil_conductance(A[n], G[n], shape[n], So[n])
     Gp = 1 / ((L[i] / gp[i]) + (L[j] / gp[j]) + (L[k] / gp[k]))
     return Gp
+
+
+def calculate_multiphase_network_water_conductance(L, A, G, shape, Sw, theta_h, b, beta, n_corners, number_of_elements):
+    multiphase_conductance = np.empty(number_of_elements, np.float64)
+    for i in range(number_of_elements):
+        multiphase_conductance[i] = calculate_multiphase_water_conductance(
+            L[i], A[i], G[i], shape[i], Sw[i], theta_h[i], b[i], beta[i], n_corners[i]
+        )
+    return multiphase_conductance
 
 
 def calculate_multiphase_water_conductance(L, A, G, shape, Sw, theta_h, b, beta, n_corners):
