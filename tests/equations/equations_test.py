@@ -138,12 +138,12 @@ class TestEquations(unittest.TestCase):
 
         beta = np.array([0.35483625, 0.52387179, 0.69208829])
         b = np.array([2.0134182e-06, 1.2875214e-06, 8.9420597e-07])
-        theta_h = calculate_hinging_contact_angle(pc, beta, b)
+        theta_h = calculate_hinging_contact_angle(pc, beta, b, 3)
         assert_almost_equal(theta_h, np.array([1.099105, 0.9393731, 0.7834584]))
 
         beta = np.array([0.78539816, 0.78539816, 0.78539816, 0.78539816])
         b = np.array([7.398922e-07, 7.398922e-07, 7.398922e-07, 7.398922e-07])
-        theta_h = calculate_hinging_contact_angle(pc, beta, b)
+        theta_h = calculate_hinging_contact_angle(pc, beta, b, 4)
         assert_almost_equal(theta_h, np.array([0.6980902, 0.6980902, 0.6980902, 0.6980902]))
 
     def test_conductance(self):

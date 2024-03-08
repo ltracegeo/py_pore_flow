@@ -121,7 +121,7 @@ def calculate_shape(G):
 
 
 @njit
-def calculate_C(theta, beta):
+def calculate_C(theta, beta, n_corners):
     """
     Args:
         theta: receding_contact_angle
@@ -130,7 +130,7 @@ def calculate_C(theta, beta):
         C
     """
     C = 0
-    for i in range(len(beta)):
+    for i in range(n_corners):
         if beta[i] < pi / 2 - theta[i]:
             C += cos(theta[i]) * (cos(theta[i] + beta[i]) / sin(beta[i])) - (pi / 2 - theta[i] - beta[i])
 
@@ -165,9 +165,9 @@ def flow_rate(L, A, G, shape, phase, P, h):
 
 
 @njit
-def calculate_element_multiphase_water_conductance(theta_h, b, beta):
+def calculate_element_multiphase_water_conductance(theta_h, b, beta, n_corners):
     gw = 0
-    for i in range(len(beta)):
+    for i in range(n_corners):
         Ac = ((b[i] * sin(beta[i])) / cos(theta_h[i] + beta[i])) ** 2 * (
             cos(theta_h[i] + beta[i]) / sin(beta[i]) + theta_h[i] + beta[i] - pi / 2
         )
@@ -210,7 +210,7 @@ def calculate_multiphase_oil_conductance(L, A, G, shape, So):
     return Gp
 
 
-def calculate_multiphase_water_conductance(L, A, G, shape, Sw, theta_h, b, beta):
+def calculate_multiphase_water_conductance(L, A, G, shape, Sw, theta_h, b, beta, n_corners):
     i = 0  # Pore 1
     j = 2  # Throat connecting pore 0 and 1
     k = 1  # Pore 2
@@ -220,7 +220,7 @@ def calculate_multiphase_water_conductance(L, A, G, shape, Sw, theta_h, b, beta)
         if Sw[n] == 1:
             gp[n] = calculate_element_singlephase_conductance(A[n], G[n], shape[n], miw)
         else:
-            gp[n] = calculate_element_multiphase_water_conductance(theta_h[n], b[n], beta[n])
+            gp[n] = calculate_element_multiphase_water_conductance(theta_h[n], b[n], beta[n], n_corners[n])
     return calculate_conductance(L, gp)
 
 
@@ -235,14 +235,14 @@ def calculate_conductance(L, gp):
 
 
 @njit
-def calculate_hinging_contact_angle(Pc, beta, b):
-    theta_h = np.empty(len(beta), dtype=np.float64)
+def calculate_hinging_contact_angle(Pc, beta, b, n_corners):
+    theta_h = np.empty(n_corners, dtype=np.float64)
 
     if Pc == 0:
         return theta_h
 
     R = sigma / Pc
-    for i in range(len(beta)):
+    for i in range(n_corners):
         theta_h[i] = acos(b[i] * sin(beta[i]) / R) - beta[i]
     return theta_h
 
