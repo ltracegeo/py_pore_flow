@@ -8,10 +8,11 @@ import openpnm
 from py_pore_flow.equations import (
     calculate_absolute_permeability,
     calculate_C,
+    calculate_drainage_network_saturation,
     calculate_hinging_contact_angle,
+    calculate_imbibition_network_saturation,
     calculate_multiphase_network_oil_conductance,
     calculate_multiphase_network_water_conductance,
-    calculate_network_saturation,
     calculate_singlephase_conductance,
     calculate_sw_total,
     WATER,
@@ -372,9 +373,18 @@ class SaturationCalculator:
         self.phase = phase
 
     def update_saturations(self, pc):
-        self.network.pn["pore.water_saturation"], self.network.pn["pore.oil_saturation"] = calculate_network_saturation(
+        if self.phase == OIL:
+            self.update_drainage_saturations(pc)
+        else:
+            self.update_imbibition_saturations(pc)
+
+    def update_drainage_saturations(self, pc):
+        (
+            self.network.pn["pore.water_saturation"],
+            self.network.pn["pore.oil_saturation"],
+        ) = calculate_drainage_network_saturation(
             self.network.pn["pore.shape"],
-            self.network.pn["pore.C_r"] if self.phase == WATER else self.network.pn["pore.C_h"],
+            self.network.pn["pore.C_r"],
             pc,
             self.network.pn["pore.area"],
             self.network.pn["pore.oil_filled"],
@@ -382,9 +392,31 @@ class SaturationCalculator:
         (
             self.network.pn["throat.water_saturation"],
             self.network.pn["throat.oil_saturation"],
-        ) = calculate_network_saturation(
+        ) = calculate_drainage_network_saturation(
             self.network.pn["throat.shape"],
-            self.network.pn["throat.C_r"] if self.phase == WATER else self.network.pn["throat.C_h"],
+            self.network.pn["throat.C_r"],
+            pc,
+            self.network.pn["throat.cross_sectional_area"],
+            self.network.pn["throat.oil_filled"],
+        )
+
+    def update_imbibition_saturations(self, pc):
+        (
+            self.network.pn["pore.water_saturation"],
+            self.network.pn["pore.oil_saturation"],
+        ) = calculate_drainage_network_saturation(
+            self.network.pn["pore.shape"],
+            self.network.pn["pore.C_h"],
+            pc,
+            self.network.pn["pore.area"],
+            self.network.pn["pore.oil_filled"],
+        )
+        (
+            self.network.pn["throat.water_saturation"],
+            self.network.pn["throat.oil_saturation"],
+        ) = calculate_drainage_network_saturation(
+            self.network.pn["throat.shape"],
+            self.network.pn["throat.C_h"],
             pc,
             self.network.pn["throat.cross_sectional_area"],
             self.network.pn["throat.oil_filled"],
