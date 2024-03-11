@@ -39,7 +39,7 @@ def calculate_pc(shape_factor, radius, theta, shape, C, height_above_datum):
 
 
 @njit
-def calculate_network_saturation(shape, c, pc, a, oil_filled):
+def calculate_drainage_network_saturation(shape, c, pc, a, oil_filled):
     number_of_elements = len(shape)
     sw = np.empty(number_of_elements, np.float64)
     so = np.empty(number_of_elements, np.float64)
