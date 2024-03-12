@@ -1,4 +1,5 @@
 from math import acos, asin, atan, cos, pi, sin, sqrt, tan
+import sys
 
 from numba import njit
 import numpy as np
@@ -70,6 +71,58 @@ def calculate_drainage_displacement(shape, C_r, current_Pc, A, oil_filled):
     So = 1 - Sw
 
     return Sw, So
+
+
+@njit
+def calculate_imbibition_network_saturation(
+    shape, c, pc, a, oil_filled, theta_a, theta_h, beta, n_corners, has_oil_layer
+):
+    if pc == 0:
+        R = np.finfo(np.float64).max
+    else:
+        R = sigma / pc
+    number_of_elements = len(shape)
+    sw = np.empty(number_of_elements, np.float64)
+    so = np.empty(number_of_elements, np.float64)
+    for i in range(number_of_elements):
+        sw[i], so[i] = calculate_imbibition_displacement(
+            shape[i], c[i], pc, a[i], oil_filled[i], theta_a[i], theta_h[i], beta[i], n_corners[i], R, has_oil_layer[i]
+        )
+    return sw, so
+
+
+@njit
+def calculate_imbibition_displacement(
+    shape, C_h, current_Pc, A, oil_filled, theta_a, theta_h, beta, n_corners, R, has_oil_layer
+):
+    if oil_filled:
+        Sw, So = calculate_drainage_displacement(shape, C_h, current_Pc, A, oil_filled)
+    else:
+        Ao = calculate_oil_layer_area(theta_a, theta_h, beta, n_corners, R, has_oil_layer)
+        if Ao < A:
+            So = Ao / A
+        else:
+            So = 1.0
+        Sw = 1.0 - So
+
+    return Sw, So
+
+
+@njit
+def calculate_oil_layer_area(theta_a, theta_h, beta, n_corners, R, has_oil_layer):
+    C = 0.0
+    for i in range(n_corners):
+        if has_oil_layer[i]:
+            corner_water = calculate_corner_C(theta_h[i], beta[i])
+            corner_oil = calculate_corner_C(theta_a, beta[i])
+            C += corner_oil - corner_water
+    Ao = R**2 * C
+    return Ao
+
+
+@njit
+def calculate_corner_C(theta, beta):
+    return cos(theta) * (cos(theta + beta) / sin(beta)) - (pi / 2 - theta - beta)
 
 
 @njit
@@ -418,7 +471,7 @@ def calculate_oil_layer_element(corner_oil_layer, beta, theta_a, b, n_corners, p
     for i in range(n_corners):
         if corner_oil_layer[i]:
             collapse_pc = calculate_oil_layer_collapse_pc(beta[i], theta_a, b[i])
-            if pc > collapse_pc:
+            if pc < collapse_pc:
                 corner_oil_layer[i] = False
     return corner_oil_layer
 

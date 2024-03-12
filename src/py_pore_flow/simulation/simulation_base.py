@@ -404,22 +404,32 @@ class SaturationCalculator:
         (
             self.network.pn["pore.water_saturation"],
             self.network.pn["pore.oil_saturation"],
-        ) = calculate_drainage_network_saturation(
+        ) = calculate_imbibition_network_saturation(
             self.network.pn["pore.shape"],
             self.network.pn["pore.C_h"],
             pc,
             self.network.pn["pore.area"],
             self.network.pn["pore.oil_filled"],
+            self.network.pn["pore.advancing_contact_angle"],
+            self.network.pn["pore.hinging_contact_angle"],
+            self.network.pn["pore.corner_half_angle"],
+            self.network.pn["pore.n_corners"],
+            self.network.pn["pore.corner_oil_layer"],
         )
         (
             self.network.pn["throat.water_saturation"],
             self.network.pn["throat.oil_saturation"],
-        ) = calculate_drainage_network_saturation(
+        ) = calculate_imbibition_network_saturation(
             self.network.pn["throat.shape"],
             self.network.pn["throat.C_h"],
             pc,
             self.network.pn["throat.cross_sectional_area"],
             self.network.pn["throat.oil_filled"],
+            self.network.pn["throat.advancing_contact_angle"],
+            self.network.pn["throat.hinging_contact_angle"],
+            self.network.pn["throat.corner_half_angle"],
+            self.network.pn["throat.n_corners"],
+            self.network.pn["throat.corner_oil_layer"],
         )
 
     def calculate_sw_total(self):
