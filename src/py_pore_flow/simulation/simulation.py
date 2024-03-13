@@ -1,6 +1,6 @@
+import sys
+
 import numpy as np
-import vtk
-from vtk.util.numpy_support import numpy_to_vtk, vtk_to_numpy
 
 from py_pore_flow.parameters.parameter_manager import DEFAULT_PARAMETERS, ParameterManager
 from py_pore_flow.equations import (
@@ -20,6 +20,11 @@ from py_pore_flow.simulation.simulation_base import ConductanceCalculator, PcInc
 
 
 def run_two_phase_simulation(pn, parameters_dict=DEFAULT_PARAMETERS, generate_vtu=False, debug=False):
+    previous_limit = sys.getrecursionlimit()
+
+    number_of_elements = len(pn["pore.all"]) + len(pn["throat.all"])
+    sys.setrecursionlimit(previous_limit + number_of_elements)
+
     parameters = DEFAULT_PARAMETERS
     parameters.update(parameters_dict)
 
@@ -36,12 +41,14 @@ def run_two_phase_simulation(pn, parameters_dict=DEFAULT_PARAMETERS, generate_vt
     cycle[0] = [1] * len(Pc[0])
     cycle[1] = [2] * len(Pc[1])
 
+    sys.setrecursionlimit(previous_limit)
+
     return (
-        cycle[0] + cycle[1],
-        Pc[0] + Pc[1],
-        Sw[0] + Sw[1],
-        Krw[0] + Krw[1],
-        Kro[0] + Kro[1],
+        np.array(cycle[0] + cycle[1]),
+        np.array(Pc[0] + Pc[1]),
+        np.array(Sw[0] + Sw[1]),
+        np.array(Krw[0] + Krw[1]),
+        np.array(Kro[0] + Kro[1]),
     )
 
 

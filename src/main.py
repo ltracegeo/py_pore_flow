@@ -5,7 +5,7 @@ import openpnm
 from PyQt6 import QtWidgets, QtGui
 import pyqtgraph as pg
 
-from py_pore_flow.simulation.simulation import Simulation
+from py_pore_flow.simulation.simulation import run_two_phase_simulation
 
 
 def see_props():
@@ -13,7 +13,7 @@ def see_props():
     print(pn.props())
 
 
-def show_graph(Sw, Krw, Kro):
+def show_graph(cycle, Sw, Krw, Kro):
     pg.setConfigOption("background", "w")
     pg.setConfigOption("foreground", "k")
 
@@ -22,8 +22,9 @@ def show_graph(Sw, Krw, Kro):
     plot_item = win.addPlot(left="Krel", bottom="Sw")
 
     for i, green in enumerate([0, 100]):
-        krw_curve_item = pg.PlotCurveItem(Sw[i], Krw[i], pen=pg.mkPen(QtGui.QColor(0, green, 255), width=2))
-        kro_curve_item = pg.PlotCurveItem(Sw[i], Kro[i], pen=pg.mkPen(QtGui.QColor(255, green, 0), width=2))
+        indexes = cycle == (i + 1)
+        krw_curve_item = pg.PlotCurveItem(Sw[indexes], Krw[indexes], pen=pg.mkPen(QtGui.QColor(0, green, 255), width=2))
+        kro_curve_item = pg.PlotCurveItem(Sw[indexes], Kro[indexes], pen=pg.mkPen(QtGui.QColor(255, green, 0), width=2))
         plot_item.addItem(krw_curve_item)
         plot_item.addItem(kro_curve_item)
 
@@ -34,20 +35,15 @@ def show_graph(Sw, Krw, Kro):
 def run():
     pn = openpnm.io.network_from_statoil("tests/resources/statoil", "a")
 
-    Pc = [None] * 2
-    Sw = [None] * 2
-    Krw = [None] * 2
-    Kro = [None] * 2
-
     start = time.time()
-    simulation = Simulation(pn, generate_vtu=True, debug=True)
-    Pc[0], Sw[0], Krw[0], Kro[0] = simulation.run_drainage()
-    Pc[1], Sw[1], Krw[1], Kro[1] = simulation.run_imbibition()
+
+    cycle, Pc, Sw, Krw, Kro = run_two_phase_simulation(pn, generate_vtu=True, debug=True)
+
     time_elapsed = datetime.timedelta(seconds=int(time.time() - start))
 
     print(f"Time elapsed: {time_elapsed}")
 
-    show_graph(Sw, Krw, Kro)
+    show_graph(cycle, Sw, Krw, Kro)
 
 
 if __name__ == "__main__":
