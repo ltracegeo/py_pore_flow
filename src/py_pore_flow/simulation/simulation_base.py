@@ -327,8 +327,7 @@ class KrelCalculator:
             # Get bigger cluster
             cluster_sizes = []
             for cluster_number in valid_clusters:
-                if pn["pore.cluster_number"] == cluster_number:
-                    cluster_sizes.append(pn["pore.cluster_size"][pn["pore.cluster_number"] == cluster_number][0])
+                cluster_sizes.append(pn["pore.cluster_size"][pn["pore.cluster_number"] == cluster_number][0])
             choosen_cluster = valid_clusters[np.argmax(cluster_sizes)]
         clustered_pores = pn[pn["pore.cluster_number"] != choosen_cluster]
 
