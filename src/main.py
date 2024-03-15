@@ -5,7 +5,7 @@ import openpnm
 from PyQt6 import QtWidgets, QtGui
 import pyqtgraph as pg
 
-from py_pore_flow.simulation.simulation import run_two_phase_simulation
+import py_pore_flow as ppf
 
 
 def see_props():
@@ -37,7 +37,9 @@ def run():
 
     start = time.time()
 
-    cycle, Pc, Sw, Krw, Kro = run_two_phase_simulation(pn, generate_vtu=True, debug=True)
+    ppf.log.configure(output=ppf.log.STDOUT, level=ppf.log.DEBUG)
+
+    cycle, Pc, Sw, Krw, Kro = ppf.run_two_phase_simulation(pn, generate_vtu=True, debug=True)
 
     time_elapsed = datetime.timedelta(seconds=int(time.time() - start))
 

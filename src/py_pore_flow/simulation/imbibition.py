@@ -1,5 +1,6 @@
 import numpy as np
 
+from py_pore_flow import log
 from py_pore_flow.equations import (
     CIRCLE,
     WATER,
@@ -17,7 +18,7 @@ from py_pore_flow.simulation.simulation_base import SimulationBase
 
 def run_imbibition(network, pc_incrementer, generate_vtu=False, debug=False):
     if debug:
-        print("Start imbibition")
+        log.info("Start imbibition")
 
     simulation = ImbibitionSimulation(network, pc_incrementer.get_pc())
 
@@ -40,7 +41,7 @@ def run_imbibition(network, pc_incrementer, generate_vtu=False, debug=False):
         Kro_array.append(Kro)
 
         if debug:
-            print(
+            log.info(
                 f"Pc: {Pc:8.2f}, Sw: {Sw:.6f}, Krw: {Krw:.6f}, Kro: {Kro:.6f}, Filled: {pores_filled:4}/{total_pores} ({percentage:2}%)."
             )
 
