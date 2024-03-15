@@ -77,10 +77,8 @@ def calculate_drainage_displacement(shape, C_r, current_Pc, A, oil_filled):
 def calculate_imbibition_network_saturation(
     shape, c, pc, a, oil_filled, theta_a, theta_h, beta, n_corners, has_oil_layer
 ):
-    if pc == 0:
-        R = np.finfo(np.float64).max
-    else:
-        R = sigma / pc
+    R = calculate_r(pc)
+
     number_of_elements = len(shape)
     sw = np.empty(number_of_elements, np.float64)
     so = np.empty(number_of_elements, np.float64)
@@ -333,7 +331,7 @@ def calculate_drainage_b(beta, theta, n_corners, Pc_max):
 @njit
 def calculate_imbibition_network_b(beta, theta_r, theta_a, theta_h, n_corners, pc, Rmin):
     number_of_elements = len(beta)
-    R = sigma / pc
+    R = calculate_r(pc)
 
     b = np.empty((number_of_elements, MAX_NUMBER_OF_CORNERS), np.float64)
     for i in range(number_of_elements):
@@ -448,7 +446,10 @@ def calculate_snap_off_pc(r, beta, theta_a, theta_r, theta_h, Rmin, pc, h):
 
 @njit
 def calculate_r(pc):
-    R = sigma / pc
+    if pc == 0:
+        R = np.finfo(np.float64).max
+    else:
+        R = sigma / pc
     return R
 
 
