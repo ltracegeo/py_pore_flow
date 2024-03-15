@@ -42,8 +42,8 @@ class Network:
     def __init__(self, network):
         self.pn = network
 
-        number_of_pores = len(self.pn.pores())
-        number_of_throats = max(self.pn.throats()) + 1
+        number_of_pores = len(self.pn[f"pore.all"])
+        number_of_throats = len(self.pn[f"throat.all"])
 
         self.pore_list = [None] * number_of_pores
         self.throat_list = [None] * number_of_throats
