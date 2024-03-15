@@ -1,5 +1,6 @@
 import numpy as np
 
+from py_pore_flow import log
 from py_pore_flow.equations import OIL
 from py_pore_flow.output import pn_to_vtu
 from py_pore_flow.simulation.simulation_base import SimulationBase
@@ -7,7 +8,7 @@ from py_pore_flow.simulation.simulation_base import SimulationBase
 
 def run_drainage(network, pc_incrementer, generate_vtu=False, debug=False):
     if debug:
-        print("Start drainage")
+        log.info("Start drainage")
 
     simulation = DrainageSimulation(network)
 
@@ -30,7 +31,7 @@ def run_drainage(network, pc_incrementer, generate_vtu=False, debug=False):
         Kro_array.append(Kro)
 
         if debug:
-            print(
+            log.info(
                 f"Pc: {Pc:8.2f}, Sw: {Sw:.6f}, Krw: {Krw:.6f}, Kro: {Kro:.6f}, Filled: {pores_filled:4}/{total_pores} ({percentage:2}%)."
             )
 
