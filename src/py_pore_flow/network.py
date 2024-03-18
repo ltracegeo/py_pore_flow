@@ -106,9 +106,9 @@ class Network:
 
     def get_neighbors(self, element):
         if element.is_pore():
-            return self.get_neighbor_throats(element.get_id())
-        else:
             return self.get_neighbor_pores(element.get_id())
+        else:
+            return self.get_neighbor_throats(element.get_id())
 
     def reset_property(self, property_name):
         for pore in self.pore_list:
