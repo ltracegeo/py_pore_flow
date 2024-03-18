@@ -4,6 +4,7 @@ import numba as nb
 from numba.experimental import jitclass
 import numpy as np
 import openpnm
+from py_pore_flow import log
 
 from py_pore_flow.equations import (
     calculate_absolute_permeability,
@@ -293,6 +294,10 @@ class KrelCalculator:
             return 0
         flow_rate_calculator = FlowRateCalculator(new_network)
         flow_rate = flow_rate_calculator.calculate_total_flow_rate(WATER)
+        krw = flow_rate / self.singlephase_flow_rate[WATER]
+        if krw > 1.0:
+            openpnm.io.network_to_csv(self.network.pn, "original_pn.csv")
+            openpnm.io.network_to_csv(network_clone, "network_clone.csv")
         return flow_rate / self.singlephase_flow_rate[WATER]
 
     def get_absolute_permeability(self):
@@ -324,6 +329,7 @@ class KrelCalculator:
         if len(valid_clusters) == 1:
             choosen_cluster = valid_clusters[0]
         else:
+            log.error(f"CLUSTERIZED!!! n_clusters: {valid_clusters}")
             # Get bigger cluster
             cluster_sizes = []
             for cluster_number in valid_clusters:
