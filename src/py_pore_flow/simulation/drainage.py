@@ -8,7 +8,7 @@ from py_pore_flow.simulation.simulation_base import SimulationBase
 
 def run_drainage(network, pc_incrementer, generate_vtu=False, debug=False):
     if debug:
-        log.info("Start drainage")
+        log.error("Start drainage")
 
     simulation = DrainageSimulation(network)
 
