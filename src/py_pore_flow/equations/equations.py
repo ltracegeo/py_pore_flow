@@ -272,6 +272,7 @@ def calculate_multiphase_oil_conductance(L, A, G, shape, So):
     return Gp
 
 
+@njit
 def calculate_multiphase_network_water_conductance(
     L, A, G, shape, Sw, theta_h, b, beta, n_corners, number_of_elements, throat_id_list
 ):
@@ -283,6 +284,7 @@ def calculate_multiphase_network_water_conductance(
     return multiphase_conductance
 
 
+@njit
 def calculate_multiphase_water_conductance(L, A, G, shape, Sw, theta_h, b, beta, n_corners):
     i = 0  # Pore 1
     j = 2  # Throat connecting pore 0 and 1
