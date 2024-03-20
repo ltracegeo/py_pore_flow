@@ -254,6 +254,7 @@ class FlowRateCalculator:
 class KrelCalculator:
     def __init__(self, network):
         self.network = network
+        openpnm.io.network_to_pergeos(self.network.pn, "pn_initial.am")
 
         flow_rate_calculator = FlowRateCalculator(self.network)
 
@@ -296,8 +297,8 @@ class KrelCalculator:
         flow_rate = flow_rate_calculator.calculate_total_flow_rate(WATER)
         krw = flow_rate / self.singlephase_flow_rate[WATER]
         if krw > 1.0:
-            openpnm.io.network_to_csv(self.network.pn, "original_pn.csv")
-            openpnm.io.network_to_csv(network_clone, "network_clone.csv")
+            openpnm.io.network_to_pergeos(self.network.pn, "pn_original.am")
+            openpnm.io.network_to_pergeos(network_clone, "pn_clone.am")
         return krw
 
     def get_absolute_permeability(self):
