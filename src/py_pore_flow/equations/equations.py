@@ -272,9 +272,11 @@ def calculate_multiphase_oil_conductance(L, A, G, shape, So):
     return Gp
 
 
-def calculate_multiphase_network_water_conductance(L, A, G, shape, Sw, theta_h, b, beta, n_corners, number_of_elements):
+def calculate_multiphase_network_water_conductance(
+    L, A, G, shape, Sw, theta_h, b, beta, n_corners, number_of_elements, throat_id_list
+):
     multiphase_conductance = np.empty(number_of_elements, np.float64)
-    for i in range(number_of_elements):
+    for i in throat_id_list:
         multiphase_conductance[i] = calculate_multiphase_water_conductance(
             L[i], A[i], G[i], shape[i], Sw[i], theta_h[i], b[i], beta[i], n_corners[i]
         )

@@ -61,7 +61,7 @@ class ConductanceCalculator:
                     n_corners[i],
                 ) = self.__get_multiphase_water_parameters(throat)
             return calculate_multiphase_network_water_conductance(
-                L, A, G, shape, Sw, theta_h, b, beta, n_corners, number_of_throats
+                L, A, G, shape, Sw, theta_h, b, beta, n_corners, number_of_throats, throat_id_list
             )
         else:
             So = np.empty((number_of_throats, 3), np.float64)
