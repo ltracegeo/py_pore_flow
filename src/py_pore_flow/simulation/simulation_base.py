@@ -254,7 +254,7 @@ class FlowRateCalculator:
 class KrelCalculator:
     def __init__(self, network):
         self.network = network
-        openpnm.io.network_to_pergeos(self.network.pn, "pn_initial.am")
+        export_network(self.network.pn, "pn_initial.bin")
 
         flow_rate_calculator = FlowRateCalculator(self.network)
 
@@ -297,8 +297,8 @@ class KrelCalculator:
         flow_rate = flow_rate_calculator.calculate_total_flow_rate(WATER)
         krw = flow_rate / self.singlephase_flow_rate[WATER]
         if krw > 1.0:
-            openpnm.io.network_to_pergeos(self.network.pn, "pn_original.am")
-            openpnm.io.network_to_pergeos(network_clone, "pn_clone.am")
+            export_network(self.network.pn, "pn_original.bin")
+            export_network(network_clone, "pn_clone.bin")
         return krw
 
     def get_absolute_permeability(self):
@@ -706,3 +706,20 @@ class PcIncrementer:
             self.pc_step = min(self.pc_step, self.pc_step_max)
         else:
             self.pc_step = self.pc_step_initial
+
+
+def export_network(pn, filename):
+    import pickle
+
+    with open(filename, "wb") as fp:
+        pickle.dump(pn.copy(), fp)
+
+
+def import_network(filename):
+    import pickle
+
+    pn = openpnm.network.Network()
+    with open(filename, "rb") as fp:
+        data = pickle.load(fp)
+        pn.update(data)
+    return pn
