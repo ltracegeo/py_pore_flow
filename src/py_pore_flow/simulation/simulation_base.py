@@ -523,7 +523,17 @@ class SimulationBase:
 
         self.saturation_calculator = SaturationCalculator(network, phase)
 
+        self.exported_a = False
+        self.exported_b = False
+
     def update_pc(self, pc):
+        self.pc = pc
+        if self.pc < 0 and not self.exported_a:
+            export_network(self.network.pn, "pn_negative_before.bin")
+            self.exported_a = True
+        elif self.pc < 150 and not self.exported_a:
+            export_network(self.network.pn, "pn_positive_before.bin")
+
         self._update_invasions(pc)
 
         self.trap_checker.update_trapped_pores()
@@ -536,6 +546,11 @@ class SimulationBase:
         return self.saturation_calculator.calculate_sw_total()
 
     def calculate_krel(self):
+        if self.pc < 0 and not self.exported_b:
+            export_network(self.network.pn, "pn_negative.bin")
+            self.exported_b = True
+        elif self.pc < 150 and not self.exported_b:
+            export_network(self.network.pn, "pn_positive.bin")
         return self.krel_calculator.calculate_krw(), self.krel_calculator.calculate_kro()
 
     def get_oil_filled_percentage(self):
