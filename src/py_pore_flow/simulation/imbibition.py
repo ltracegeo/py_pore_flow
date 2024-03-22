@@ -187,5 +187,7 @@ class ImbibitionSimulation(SimulationBase):
             self.Rmin,
         )
 
-    def _on_element_invaded(self, element):
-        element.corner_oil_layer = calculate_oil_layer(element.advancing_contact_angle, element.beta, element.n_corners)
+    def _on_element_invaded(self, pc, element):
+        element.corner_oil_layer = calculate_oil_layer(
+            element.advancing_contact_angle, element.beta, element.n_corners, pc
+        )

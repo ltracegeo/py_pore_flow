@@ -550,7 +550,7 @@ class SimulationBase:
     def _update_b(self, pc):
         pass
 
-    def _on_element_invaded(self, element):
+    def _on_element_invaded(self, pc, element):
         pass
 
     def _update_invasions(self, pc):
@@ -567,7 +567,7 @@ class SimulationBase:
     def __apply_oil_pressure_to_throat(self, throat, pc):
         if self._check_invasion_condition(pc, throat):
             throat.set_filled(self.phase, True)
-            self._on_element_invaded(throat)
+            self._on_element_invaded(pc, throat)
             self.border_elements.remove_throat(throat.get_id())
 
             neighbor_pore_list = self.network.get_neighbor_pores(throat.get_id())
@@ -579,7 +579,7 @@ class SimulationBase:
     def __apply_oil_pressure_to_pore(self, pore, pc):
         if not pore.trapped and self._check_invasion_condition(pc, pore):
             pore.set_filled(self.phase, True)
-            self._on_element_invaded(pore)
+            self._on_element_invaded(pc, pore)
             self.border_elements.remove_pore(pore.get_id())
 
             neighbor_throat_list = self.network.get_neighbor_throats(pore.get_id())
