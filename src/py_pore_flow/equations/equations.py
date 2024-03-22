@@ -508,3 +508,12 @@ def calculate_oil_layer_network(corner_oil_layer, beta, theta_a, b, n_corners, p
             pc,
         )
     return corner_oil_layer
+
+
+@njit
+def calculate_spontaneous_imbibition_viability(theta_a, theta_r, beta, n_corners, r, G, Rmin):
+    angle_sum = 0.0
+    for i in range(n_corners):
+        angle_sum += cos(theta_r + beta[i])
+
+    return theta_a <= acos((-4 * G * angle_sum) / (r / Rmin - cos(theta_r) + 12 * G * sin(theta_r)))
