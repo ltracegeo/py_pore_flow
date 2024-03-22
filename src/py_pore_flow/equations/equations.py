@@ -97,7 +97,9 @@ def calculate_imbibition_displacement(
         Sw, So = calculate_drainage_displacement(shape, C_h, current_Pc, A, oil_filled)
     else:
         Ao = calculate_oil_layer_area(theta_a, theta_h, beta, n_corners, R, has_oil_layer)
-        if Ao < A:
+        if Ao < 0:
+            So = 0
+        elif Ao < A:
             So = Ao / A
         else:
             So = 1.0
@@ -108,14 +110,23 @@ def calculate_imbibition_displacement(
 
 @njit
 def calculate_oil_layer_area(theta_a, theta_h, beta, n_corners, R, has_oil_layer):
+    theta = pi - theta_a
+
     C = 0.0
     for i in range(n_corners):
         if has_oil_layer[i]:
             corner_water = calculate_corner_C(theta_h[i], beta[i])
-            corner_oil = calculate_corner_C(theta_a, beta[i])
-            C += corner_oil - corner_water
+            C += corner_water
+    Aw = R**2 * C
+
+    C = 0.0
+    for i in range(n_corners):
+        if has_oil_layer[i]:
+            corner_oil = calculate_corner_C(theta, beta[i])
+            C += corner_oil
     Ao = R**2 * C
-    return Ao
+
+    return Ao - Aw
 
 
 @njit
