@@ -458,7 +458,10 @@ def calculate_r(pc):
 
 
 @njit
-def calculate_oil_layer(theta_a, beta, n_corners):
+def calculate_oil_layer(theta_a, beta, n_corners, pc):
+    if pc > 0:
+        return np.full(MAX_NUMBER_OF_CORNERS, False, dtype=np.bool_)
+
     corner_oil_layer = np.empty(MAX_NUMBER_OF_CORNERS, dtype=np.bool_)
     for i in range(n_corners):
         corner_oil_layer[i] = theta_a > pi / 2 + beta[i]
