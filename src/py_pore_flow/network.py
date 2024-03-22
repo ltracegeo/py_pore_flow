@@ -36,6 +36,7 @@ def initialize_pn(pn):
         pn[f"{element_type}.shape"] = 0
         pn[f"{element_type}.trapped"] = False
         pn[f"{element_type}.n_corners"] = 0
+        pn[f"{element_type}.spontaneous_imbibition"] = True
 
 
 class Network:
@@ -152,6 +153,8 @@ class Network:
         core.b = element.b
         core.corner_oil_layer = element.corner_oil_layer
         core.oil_filled = element.oil_filled
+        core.n_corners = element.n_corners
+        core.spontaneous_imbibition = element.spontaneous_imbibition
 
 
 class PnElement:
@@ -175,6 +178,7 @@ class PnElement:
         self._water_filled = None
         self._oil_filled = None
         self._n_corners = None
+        self._spontaneous_imbibition = None
         self._beta = None
         self._theta_h = None
         self._b = None
@@ -275,6 +279,12 @@ class PnElement:
         return self._n_corners
 
     @property
+    def spontaneous_imbibition(self):
+        if self._spontaneous_imbibition is None:
+            self._spontaneous_imbibition = self.pn[f"{self.type_name}.spontaneous_imbibition"][self.id]
+        return self._spontaneous_imbibition
+
+    @property
     def beta(self):
         if self._beta is None:
             n = self.n_corners
@@ -362,6 +372,11 @@ class PnElement:
     def water_filled(self, water_filled):
         self._water_filled = water_filled
         self.pn[f"{self.type_name}.water_filled"][self.id] = water_filled
+
+    @spontaneous_imbibition.setter
+    def spontaneous_imbibition(self, spontaneous_imbibition):
+        self._spontaneous_imbibition = spontaneous_imbibition
+        self.pn[f"{self.type_name}.spontaneous_imbibition"][self.id] = spontaneous_imbibition
 
     @beta.setter
     def beta(self, beta):
@@ -484,6 +499,7 @@ spec = [
     ("corner_oil_layer", nb.types.boolean[:]),
     ("oil_filled", nb.types.boolean),
     ("n_corners", nb.types.int32),
+    ("spontaneous_imbibition", nb.types.boolean),
 ]
 
 
@@ -511,3 +527,4 @@ class ElementCore:
         self.corner_oil_layer = np.empty(MAX_NUMBER_OF_CORNERS, dtype=np.bool_)
         self.oil_filled = True
         self.n_corners = 0
+        self.spontaneous_imbibition = True

@@ -143,6 +143,9 @@ class ImbibitionSimulation(SimulationBase):
         )
 
     def _check_invasion_condition(self, pc, element):
+        if pc > 0 and not element.spontaneous_imbibition:
+            return False
+
         if element.is_pore():
             K = self.krel_calculator.get_absolute_permeability()
             number_of_oil_filled_neighbors = 0
