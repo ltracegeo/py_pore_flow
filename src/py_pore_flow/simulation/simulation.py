@@ -126,5 +126,13 @@ def calculate_element_initial_values(element, max_pc):
         Rmin,
     )
     element.set_pc(
-        calculate_drainage_pc(element.G, element.r, element.receding_contact_angle, element.shape, element.C_r, 0)
+        calculate_drainage_pc(
+            element.G,
+            element.r,
+            element.receding_contact_angle,
+            element.shape,
+            element.C_r,
+            element.beta,
+            element.n_corners,
+        )
     )
