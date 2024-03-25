@@ -1,3 +1,4 @@
+import math
 from math import acos, asin, atan, cos, pi, sin, sqrt, tan
 import sys
 
@@ -18,24 +19,32 @@ def cot(x):
 
 
 @njit
-def calculate_drainage_pc(shape_factor, radius, receding_contact_angle, shape, C_r, height_above_datum):
+def calculate_drainage_pc(shape_factor, radius, receding_contact_angle, shape, C_r, beta, n_corners):
     theta = receding_contact_angle
-    return calculate_pc(shape_factor, radius, theta, shape, C_r, height_above_datum)
+    return calculate_pc(shape_factor, radius, theta, shape, C_r, beta, n_corners)
 
 
 @njit
-def calculate_pc(shape_factor, radius, theta, shape, C, height_above_datum):
+def calculate_pc(shape_factor, radius, theta, shape, C, beta, n_corners):
     G = shape_factor
     r = radius
-    h = height_above_datum
 
     if shape == CIRCLE:
         Fd = 1
     else:
-        Fd = 1 + sqrt(1 - (4 * G * C / cos(theta) ** 2))
+        # S1 = C
+        # S2 = 0
+        # S3 = 0
+        # for i in range(n_corners):
+        #     if beta[i] < pi / 2 - theta:
+        #         S2 += cos(theta + beta[i]) / sin(beta[i])
+        #         S3 += pi / 2 - theta - beta[i]
+        # S3 = 2*S3
+        # D = S1 - 2 * S2 * cos(theta) + S3
+        # Fd = (1 + sqrt(1 + (4 * G * D / cos(theta) ** 2))) / (1 + 2 * sqrt(pi * G))
+        Fd = (1 + sqrt(1 - (4 * G * C / cos(theta) ** 2))) / (1 + 2 * sqrt(pi * G))
 
-    Pc = sigma * cos(theta) / r * (1 + 2 * sqrt(pi * G) / Fd - (pw - po) * g * h)
-
+    Pc = sigma * cos(theta) / r * (1 + 2 * sqrt(pi * G)) * Fd
     return Pc
 
 
@@ -385,25 +394,25 @@ def calculate_corner_b(beta, theta, R):
 
 @njit
 def calculate_imbibition_pc(
-    shape_factor, radius, advancing_contact_angle, shape, C_a, pc, height_above_datum, number_of_oil_filled_neighbors, K
+    shape_factor, radius, advancing_contact_angle, shape, C_a, pc, beta, n_corners, number_of_oil_filled_neighbors, K
 ):
     if number_of_oil_filled_neighbors > 1 and pc > 0:
         return calculate_pore_body_filling_pc(radius, advancing_contact_angle, K, number_of_oil_filled_neighbors, 0)
     else:
         return calculate_imbibition_piston_like_displacement_pc(
-            shape_factor, radius, advancing_contact_angle, shape, C_a, pc, height_above_datum
+            shape_factor, radius, advancing_contact_angle, shape, C_a, pc, beta, n_corners
         )
 
 
 @njit
 def calculate_imbibition_piston_like_displacement_pc(
-    shape_factor, radius, advancing_contact_angle, shape, C_a, pc, height_above_datum
+    shape_factor, radius, advancing_contact_angle, shape, C_a, pc, beta, n_corners
 ):
     if pc < 0:
         theta = pi - advancing_contact_angle
     else:
         theta = advancing_contact_angle
-    return calculate_pc(shape_factor, radius, theta, shape, C_a, height_above_datum)
+    return calculate_pc(shape_factor, radius, theta, shape, C_a, beta, n_corners)
 
 
 @njit
