@@ -6,7 +6,7 @@ from numba import njit
 import numpy as np
 
 from .common_equations import CIRCLE, OIL, SQUARE, TRIANGLE, WATER, MAX_NUMBER_OF_CORNERS
-from .pnflow_equations import calculate_element_multiphase_oil_conductance, calculate_element_singlephase_conductance
+from .valvatne_equations import calculate_element_multiphase_oil_conductance, calculate_element_singlephase_conductance
 from py_pore_flow.constants import g, mio, miw, po, pw, sigma
 
 
