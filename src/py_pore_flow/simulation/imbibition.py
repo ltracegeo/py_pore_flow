@@ -16,7 +16,7 @@ from py_pore_flow.output import pn_to_vtu
 from py_pore_flow.simulation.simulation_base import SimulationBase
 
 
-def run_imbibition(network, pc_incrementer, generate_vtu=False, debug=False):
+def run_imbibition(network, pc_incrementer, end_at_sor=False, generate_vtu=False, debug=False):
     if debug:
         log.info("Start imbibition")
 
@@ -49,6 +49,9 @@ def run_imbibition(network, pc_incrementer, generate_vtu=False, debug=False):
             pn_to_vtu(network.pn, Pc, Sw, 2)
 
         if simulation.get_pores_left() == 0:
+            break
+
+        if end_at_sor and Kro <= 0:
             break
 
         if Pc <= pc_incrementer.get_pc_min():

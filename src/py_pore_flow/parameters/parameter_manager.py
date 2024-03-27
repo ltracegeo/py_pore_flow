@@ -44,6 +44,7 @@ DEFAULT_PARAMETERS = {
     "pc_step_min": 1,
     "pc_step_max": 1000,
     "sw_step": 0.01,
+    "end_at_sor": True,
 }
 
 
@@ -86,6 +87,10 @@ class ParameterManager:
     @property
     def sw_step(self):
         return self.parameters_dict["sw_step"]
+
+    @property
+    def end_at_sor(self):
+        return self.parameters_dict["end_at_sor"]
 
     def update_initial_cas(self, network):
         self.__update_cas(network, "initial")

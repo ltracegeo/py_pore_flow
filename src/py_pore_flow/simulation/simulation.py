@@ -83,7 +83,9 @@ class Simulation:
     def run_imbibition(self):
         self.parameter_manager.update_equilibrium_cas(self.network)
         calculate_initial_values(self.network, self.pc_incrementer.get_pc_max())
-        return run_imbibition(self.network, self.pc_incrementer, self.generate_vtu, debug=self.debug)
+        return run_imbibition(
+            self.network, self.pc_incrementer, self.parameter_manager.end_at_sor, self.generate_vtu, debug=self.debug
+        )
 
 
 def calculate_initial_values(network, max_pc):
