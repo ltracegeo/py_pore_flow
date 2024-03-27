@@ -1,9 +1,9 @@
-from math import sqrt
+from math import cos, pi, sqrt
 
 from numba import njit
 
 from .common_equations import CIRCLE, SQUARE
-from py_pore_flow.constants import mio
+from py_pore_flow.constants import mio, sigma
 
 
 @njit
@@ -28,3 +28,17 @@ def calculate_element_multiphase_oil_conductance(A, G, shape, So):
         v = 0.6
     go = v * (So * A) ** 2 * G / mio
     return go
+
+
+@njit
+def calculate_pc(shape_factor, radius, theta, shape, C, beta, n_corners):
+    G = shape_factor
+    r = radius
+
+    if shape == CIRCLE:
+        Fd = 1
+    else:
+        Fd = (1 + sqrt(1 - (4 * G * C / cos(theta) ** 2))) / (1 + 2 * sqrt(pi * G))
+
+    Pc = sigma * cos(theta) / r * (1 + 2 * sqrt(pi * G)) * Fd
+    return Pc

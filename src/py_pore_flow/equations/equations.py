@@ -6,7 +6,11 @@ from numba import njit
 import numpy as np
 
 from .common_equations import CIRCLE, OIL, SQUARE, TRIANGLE, WATER, MAX_NUMBER_OF_CORNERS
-from .valvatne_equations import calculate_element_multiphase_oil_conductance, calculate_element_singlephase_conductance
+from .starfish_equations import calculate_pc
+from .valvatne_equations import (
+    calculate_element_multiphase_oil_conductance,
+    calculate_element_singlephase_conductance,
+)
 from py_pore_flow.constants import g, mio, miw, po, pw, sigma
 
 
@@ -22,30 +26,6 @@ def cot(x):
 def calculate_drainage_pc(shape_factor, radius, receding_contact_angle, shape, C_r, beta, n_corners):
     theta = receding_contact_angle
     return calculate_pc(shape_factor, radius, theta, shape, C_r, beta, n_corners)
-
-
-@njit
-def calculate_pc(shape_factor, radius, theta, shape, C, beta, n_corners):
-    G = shape_factor
-    r = radius
-
-    if shape == CIRCLE:
-        Fd = 1
-    else:
-        # S1 = C
-        # S2 = 0
-        # S3 = 0
-        # for i in range(n_corners):
-        #     if beta[i] < pi / 2 - theta:
-        #         S2 += cos(theta + beta[i]) / sin(beta[i])
-        #         S3 += pi / 2 - theta - beta[i]
-        # S3 = 2*S3
-        # D = S1 - 2 * S2 * cos(theta) + S3
-        # Fd = (1 + sqrt(1 + (4 * G * D / cos(theta) ** 2))) / (1 + 2 * sqrt(pi * G))
-        Fd = (1 + sqrt(1 - (4 * G * C / cos(theta) ** 2))) / (1 + 2 * sqrt(pi * G))
-
-    Pc = sigma * cos(theta) / r * (1 + 2 * sqrt(pi * G)) * Fd
-    return Pc
 
 
 @njit
