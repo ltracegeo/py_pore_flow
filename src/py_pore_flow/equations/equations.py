@@ -5,7 +5,15 @@ import sys
 from numba import njit
 import numpy as np
 
-from .common_equations import CIRCLE, OIL, SQUARE, TRIANGLE, WATER, MAX_NUMBER_OF_CORNERS
+from .common_equations import (
+    CIRCLE,
+    OIL,
+    SQUARE,
+    TRIANGLE,
+    WATER,
+    MAX_NUMBER_OF_CORNERS,
+    calculate_dimensionless_layer_area,
+)
 
 # from .starfish_equations import calculate_pc
 from .valvatne_equations import (
@@ -66,7 +74,7 @@ def calculate_drainage_displacement(shape, C_r, current_Pc, A, oil_filled):
 
 @njit
 def calculate_imbibition_network_saturation(
-    shape, c, pc, a, oil_filled, theta_a, theta_h, beta, n_corners, has_oil_layer
+    shape, c, pc, a, oil_filled, theta_a, theta_h, beta, bi, bo, n_corners, has_oil_layer
 ):
     R = calculate_r(pc)
 
@@ -75,19 +83,31 @@ def calculate_imbibition_network_saturation(
     so = np.empty(number_of_elements, np.float64)
     for i in range(number_of_elements):
         sw[i], so[i] = calculate_imbibition_displacement(
-            shape[i], c[i], pc, a[i], oil_filled[i], theta_a[i], theta_h[i], beta[i], n_corners[i], R, has_oil_layer[i]
+            shape[i],
+            c[i],
+            pc,
+            a[i],
+            oil_filled[i],
+            theta_a[i],
+            theta_h[i],
+            beta[i],
+            bi[i],
+            bo[i],
+            n_corners[i],
+            R,
+            has_oil_layer[i],
         )
     return sw, so
 
 
 @njit
 def calculate_imbibition_displacement(
-    shape, C_h, current_Pc, A, oil_filled, theta_a, theta_h, beta, n_corners, R, has_oil_layer
+    shape, C_h, current_Pc, A, oil_filled, theta_a, theta_h, beta, bi, bo, n_corners, R, has_oil_layer
 ):
     if oil_filled:
         Sw, So = calculate_drainage_displacement(shape, C_h, current_Pc, A, oil_filled)
     else:
-        Ao = calculate_oil_layer_area(theta_a, theta_h, beta, n_corners, R, has_oil_layer)
+        Ao = calculate_oil_layer_area(theta_a, theta_h, beta, bi, bo, n_corners, R, has_oil_layer)
         if Ao < 0:
             So = 0
         elif Ao < A:
@@ -100,11 +120,12 @@ def calculate_imbibition_displacement(
 
 
 @njit
-def calculate_oil_layer_area(theta_a, theta_h, beta, n_corners, R, has_oil_layer):
+def calculate_oil_layer_area(theta_a, theta_h, beta, bi, bo, n_corners, R, has_oil_layer):
     Ao = 0
     for i in range(n_corners):
         if has_oil_layer[i]:
-            Ao += calculate_dimensionless_layer_area(0.01, beta[i], theta_h[i], theta_a)
+            b_tilde = bi[i] / bo[i]
+            Ao += calculate_dimensionless_layer_area(b_tilde, beta[i], theta_h[i], theta_a)
     return Ao
 
 
@@ -239,51 +260,70 @@ def calculate_singlephase_conductance(L, A, G, shape, phase=WATER):
 
 
 @njit
-def calculate_multiphase_network_oil_conductance(L, A, G, shape, So, number_of_elements):
+def calculate_multiphase_network_oil_conductance(
+    L, A, G, shape, So, b, bo, beta, theta_h, theta_a, n_corners, has_oil_in_center, number_of_elements
+):
     multiphase_conductance = np.empty(number_of_elements, np.float64)
     for i in range(number_of_elements):
-        multiphase_conductance[i] = calculate_multiphase_oil_conductance(L[i], A[i], G[i], shape[i], So[i])
+        multiphase_conductance[i] = calculate_multiphase_oil_conductance(
+            L[i],
+            A[i],
+            G[i],
+            shape[i],
+            So[i],
+            b[i],
+            bo[i],
+            beta[i],
+            theta_h[i],
+            theta_a[i],
+            n_corners[i],
+            has_oil_in_center[i],
+        )
     return multiphase_conductance
 
 
 @njit
-def calculate_multiphase_oil_conductance(L, A, G, shape, So):
+def calculate_multiphase_oil_conductance(
+    L, A, G, shape, So, b, bo, beta, theta_h, theta_a, n_corners, has_oil_in_center
+):
     i = 0  # Pore 1
     j = 2  # Throat connecting pore 0 and 1
     k = 1  # Pore 2
 
     gp = np.empty(3, dtype=np.float64)
     for n in [i, j, k]:
-        if So[n] == 1:
-            gp[n] = calculate_element_singlephase_conductance(A[n], G[n], shape[n], mio)
+        if has_oil_in_center[n]:
+            gp[n] = So[n] * calculate_element_singlephase_conductance(A[n], G[n], shape[n], mio)
         else:
-            gp[n] = calculate_element_multiphase_oil_conductance(A[n], G[n], shape[n], So[n])
+            gp[n] = calculate_element_multiphase_oil_conductance(
+                b[n], bo[n], beta[n], theta_h[n], theta_a[n], n_corners[n]
+            )
     Gp = 1 / ((L[i] / gp[i]) + (L[j] / gp[j]) + (L[k] / gp[k]))
     return Gp
 
 
 @njit
 def calculate_multiphase_network_water_conductance(
-    L, A, G, shape, Sw, theta_h, b, beta, n_corners, number_of_elements, throat_id_list
+    L, A, G, shape, Sw, theta_h, b, beta, n_corners, has_water_in_center, number_of_elements, throat_id_list
 ):
     multiphase_conductance = np.empty(number_of_elements, np.float64)
     for i in throat_id_list:
         multiphase_conductance[i] = calculate_multiphase_water_conductance(
-            L[i], A[i], G[i], shape[i], Sw[i], theta_h[i], b[i], beta[i], n_corners[i]
+            L[i], A[i], G[i], shape[i], Sw[i], theta_h[i], b[i], beta[i], n_corners[i], has_water_in_center[i]
         )
     return multiphase_conductance
 
 
 @njit
-def calculate_multiphase_water_conductance(L, A, G, shape, Sw, theta_h, b, beta, n_corners):
+def calculate_multiphase_water_conductance(L, A, G, shape, Sw, theta_h, b, beta, n_corners, has_water_in_center):
     i = 0  # Pore 1
     j = 2  # Throat connecting pore 0 and 1
     k = 1  # Pore 2
 
     gp = np.empty(3, dtype=np.float64)
     for n in [i, j, k]:
-        if Sw[n] == 1:
-            gp[n] = calculate_element_singlephase_conductance(A[n], G[n], shape[n], miw)
+        if has_water_in_center[n]:
+            gp[n] = Sw[n] * calculate_element_singlephase_conductance(A[n], G[n], shape[n], miw)
         else:
             gp[n] = calculate_element_multiphase_water_conductance(theta_h[n], b[n], beta[n], n_corners[n])
     return calculate_conductance(L, gp)
@@ -344,19 +384,45 @@ def calculate_imbibition_element_b(beta, theta_r, theta_a, theta_h, n_corners, R
 @njit
 def calculate_imbibition_corner_b(beta, theta_r, theta_a, theta_h, R, Rmin):
     if theta_h >= theta_a:
-        return calculate_corner_b(beta, theta_a, R)
+        return calculate_corner_bi(beta, theta_a, R)
     else:
-        return calculate_corner_b(beta, theta_r, Rmin)
+        return calculate_corner_bi(beta, theta_r, Rmin)
 
 
 @njit
 def calculate_drainage_corner_b(beta, theta_r, Rmin):
-    return calculate_corner_b(beta, theta_r, Rmin)
+    return calculate_corner_bi(beta, theta_r, Rmin)
 
 
 @njit
-def calculate_corner_b(beta, theta, R):
+def calculate_corner_bi(beta, theta, R):
     b = R * cos(theta + beta) / sin(beta)
+    return b
+
+
+@njit
+def calculate_imbibition_network_bo(beta, theta_a, has_oil_layer, n_corners, pc):
+    number_of_elements = len(beta)
+    R = calculate_r(pc)
+
+    b = np.empty((number_of_elements, MAX_NUMBER_OF_CORNERS), np.float64)
+    for i in range(number_of_elements):
+        b[i] = calculate_imbibition_element_bo(beta[i], theta_a[i], has_oil_layer[i], n_corners[i], R)
+    return b
+
+
+@njit
+def calculate_imbibition_element_bo(beta, theta_a, has_oil_layer, n_corners, R):
+    b = np.empty(MAX_NUMBER_OF_CORNERS, dtype=np.float64)
+    for i in range(n_corners):
+        if has_oil_layer[i]:
+            b[i] = calculate_corner_bo(beta[i], theta_a, R)
+    return b
+
+
+@njit
+def calculate_corner_bo(beta, theta, R):
+    b = R * cos(theta - beta) / sin(beta)
     return b
 
 
@@ -497,62 +563,3 @@ def calculate_spontaneous_imbibition_viability(theta_a, theta_r, beta, n_corners
         angle_sum += cos(theta_r + beta[i])
 
     return theta_a <= acos((-4 * G * angle_sum) / (r / Rmin - cos(theta_r) + 12 * G * sin(theta_r)))
-
-
-@njit
-def calculate_dimensionless_layer_area(b_tilde, beta, theta_i, theta_o):
-    Ao = (
-        (sin(beta) / cos(theta_o - beta)) ** 2 * (cos(theta_o) * cos(theta_o - beta) / sin(beta))
-        - theta_o
-        + beta
-        + pi / 2
-    )
-    Ai = (
-        (b_tilde * sin(beta) / cos(theta_i + beta)) ** 2 * (cos(theta_i) * cos(theta_i + beta) / sin(beta))
-        + theta_i
-        + beta
-        - pi / 2
-    )
-
-    Al = Ao - Ai
-
-    return Al
-
-
-@njit
-def calculate_dimensionless_layer_conductance(bi, bo, beta, theta_i, theta_o):
-    b_tilde = bi / bo
-
-    Al = calculate_dimensionless_layer_area(b_tilde, beta, theta_i, theta_o)
-
-    Loow = 2 * sin(beta) / cos(theta_o - beta) * (pi / 2 - theta_o + beta)
-    Liow = 2 * b_tilde * sin(beta) / cos(theta_i + beta) * (pi / 2 - theta_i - beta)
-
-    Gl = Al / ((Loow + Liow + 2 * (1 - b_tilde)) ** 2)
-
-    a1, a2, a3 = get_tabulated_conductance_constants(beta)
-
-    gl = math.e ** (a1 * log(Al**3 * Gl) ** 2 + a2 * log(Al**3 * Gl) + a3)
-
-    gpl = bo**4 * gl / mio
-
-    return gpl
-
-
-@njit
-def get_tabulated_conductance_constants(beta):
-    if beta < 0.17453292519943295:  # 10 degrees
-        a1, a2, a3 = -1.061e-02, 5.161e-01, -2.065
-    elif beta < 0.3490658503988659:  # 20 degrees
-        a1, a2, a3 = -2.681e-02, 1.867e-01, -3.598
-    elif beta < 0.5235987755982988:  # 30 degrees
-        a1, a2, a3 = -4.402e-02, -6.320e-02, -4.375
-    elif beta < 0.6981317007977318:  # 40 degrees
-        a1, a2, a3 = -3.152e-02, 1.695e-01, -3.360
-    elif beta < 0.8726646259971648:  # 50 degrees
-        a1, a2, a3 = -3.137e-02, 1.933e-01, -3.267
-    elif beta < 1.0471975511965976:  # 60 degrees
-        a1, a2, a3 = -2.320e-02, 3.118e-01, -2.925
-    else:
-        a1, a2, a3 = -3.576e-02, -6.537e-04, -4.702
-    return a1, a2, a3

@@ -39,13 +39,14 @@ class ConductanceCalculator:
         A = np.empty((number_of_throats, 3), np.float64)
         G = np.empty((number_of_throats, 3), np.float64)
         shape = np.empty((number_of_throats, 3), np.float64)
+        theta_h = np.empty((number_of_throats, 3, 4), np.float64)
+        b = np.empty((number_of_throats, 3, 4), np.float64)
+        beta = np.empty((number_of_throats, 3, 4), np.float64)
+        n_corners = np.empty((number_of_throats, 3), np.float64)
 
         if phase == WATER:
             Sw = np.empty((number_of_throats, 3), np.float64)
-            theta_h = np.empty((number_of_throats, 3, 4), np.float64)
-            b = np.empty((number_of_throats, 3, 4), np.float64)
-            beta = np.empty((number_of_throats, 3, 4), np.float64)
-            n_corners = np.empty((number_of_throats, 3), np.float64)
+            water_filled = np.empty((number_of_throats, 3), np.float64)
 
             for j, throat in enumerate(self.network.get_throat_list()):
                 i = throat.get_id()
@@ -59,17 +60,36 @@ class ConductanceCalculator:
                     b[i],
                     beta[i],
                     n_corners[i],
+                    water_filled[i],
                 ) = self.__get_multiphase_water_parameters(throat)
             return calculate_multiphase_network_water_conductance(
-                L, A, G, shape, Sw, theta_h, b, beta, n_corners, number_of_throats, throat_id_list
+                L, A, G, shape, Sw, theta_h, b, beta, n_corners, water_filled, number_of_throats, throat_id_list
             )
         else:
             So = np.empty((number_of_throats, 3), np.float64)
+            oil_filled = np.empty((number_of_throats, 3), np.float64)
+            theta_a = np.empty((number_of_throats, 3, 4), np.float64)
+            bo = np.empty((number_of_throats, 3, 4), np.float64)
 
             for j, throat in enumerate(self.network.get_throat_list()):
                 i = throat.get_id()
-                L[i], A[i], G[i], shape[i], So[i] = self.__get_multiphase_oil_parameters(throat)
-            return calculate_multiphase_network_oil_conductance(L, A, G, shape, So, number_of_throats)
+                (
+                    L[i],
+                    A[i],
+                    G[i],
+                    shape[i],
+                    So[i],
+                    b[i],
+                    bo[i],
+                    beta[i],
+                    theta_h[i],
+                    theta_a[i],
+                    n_corners[i],
+                    oil_filled[i],
+                ) = self.__get_multiphase_oil_parameters(throat)
+            return calculate_multiphase_network_oil_conductance(
+                L, A, G, shape, So, b, bo, beta, theta_h, theta_a, n_corners, oil_filled, number_of_throats
+            )
 
     def __get_multiphase_water_parameters(self, throat_j):
         i = 0  # Pore 1
@@ -117,8 +137,12 @@ class ConductanceCalculator:
         n_corners[i] = pore_i.n_corners
         n_corners[j] = throat_j.n_corners
         n_corners[k] = pore_k.n_corners
+        water_filled = np.empty(3, dtype=np.bool_)
+        water_filled[i] = pore_i.water_filled
+        water_filled[j] = throat_j.water_filled
+        water_filled[k] = pore_k.water_filled
 
-        return L, A, G, shape, Sw, theta_h, b, beta, n_corners
+        return L, A, G, shape, Sw, theta_h, b, beta, n_corners, water_filled
 
     def __get_multiphase_oil_parameters(self, throat_j):
         i = 0  # Pore 1
@@ -149,8 +173,37 @@ class ConductanceCalculator:
         So[i] = pore_i.So
         So[j] = throat_j.So
         So[k] = pore_k.So
+        oil_filled = np.empty(3, dtype=np.bool_)
+        oil_filled[i] = pore_i.oil_filled
+        oil_filled[j] = throat_j.oil_filled
+        oil_filled[k] = pore_k.oil_filled
 
-        return L, A, G, shape, So
+        b = np.empty((3, MAX_NUMBER_OF_CORNERS), dtype=np.float64)
+        b[i] = pore_i.b
+        b[j] = throat_j.b
+        b[k] = pore_k.b
+        bo = np.empty((3, MAX_NUMBER_OF_CORNERS), dtype=np.float64)
+        bo[i] = pore_i.bo
+        bo[j] = throat_j.bo
+        bo[k] = pore_k.bo
+        beta = np.empty((3, MAX_NUMBER_OF_CORNERS), dtype=np.float64)
+        beta[i] = pore_i.beta
+        beta[j] = throat_j.beta
+        beta[k] = pore_k.beta
+        theta_h = np.empty((3, MAX_NUMBER_OF_CORNERS), dtype=np.float64)
+        theta_h[i] = pore_i.theta_h
+        theta_h[j] = throat_j.theta_h
+        theta_h[k] = pore_k.theta_h
+        theta_a = np.empty((3, MAX_NUMBER_OF_CORNERS), dtype=np.float64)
+        theta_a[i] = np.full(MAX_NUMBER_OF_CORNERS, pore_i.advancing_contact_angle)
+        theta_a[j] = np.full(MAX_NUMBER_OF_CORNERS, throat_j.advancing_contact_angle)
+        theta_a[k] = np.full(MAX_NUMBER_OF_CORNERS, pore_k.advancing_contact_angle)
+        n_corners = np.empty(3, dtype=np.float64)
+        n_corners[i] = pore_i.n_corners
+        n_corners[j] = throat_j.n_corners
+        n_corners[k] = pore_k.n_corners
+
+        return L, A, G, shape, So, b, bo, beta, theta_h, theta_a, n_corners, oil_filled
 
     def __get_singlephase_parameters(self, throat_j):
         i = 0  # Pore 1
@@ -412,6 +465,8 @@ class SaturationCalculator:
             self.network.pn["pore.advancing_contact_angle"],
             self.network.pn["pore.hinging_contact_angle"],
             self.network.pn["pore.corner_half_angle"],
+            self.network.pn["pore.b"],
+            self.network.pn["pore.bo"],
             self.network.pn["pore.n_corners"],
             self.network.pn["pore.corner_oil_layer"],
         )
@@ -427,6 +482,8 @@ class SaturationCalculator:
             self.network.pn["throat.advancing_contact_angle"],
             self.network.pn["throat.hinging_contact_angle"],
             self.network.pn["throat.corner_half_angle"],
+            self.network.pn["throat.b"],
+            self.network.pn["throat.bo"],
             self.network.pn["throat.n_corners"],
             self.network.pn["throat.corner_oil_layer"],
         )

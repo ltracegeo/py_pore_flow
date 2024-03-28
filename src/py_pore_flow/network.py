@@ -25,6 +25,7 @@ def initialize_pn(pn):
         pn[f"{element_type}.corner_half_angle"] = np.empty((number_of_elements, MAX_NUMBER_OF_CORNERS), np.float64)
         pn[f"{element_type}.hinging_contact_angle"] = np.empty((number_of_elements, MAX_NUMBER_OF_CORNERS), np.float64)
         pn[f"{element_type}.b"] = np.empty((number_of_elements, MAX_NUMBER_OF_CORNERS), np.float64)
+        pn[f"{element_type}.bo"] = np.empty((number_of_elements, MAX_NUMBER_OF_CORNERS), np.float64)
         pn[f"{element_type}.corner_oil_layer"] = np.full((number_of_elements, MAX_NUMBER_OF_CORNERS), False, np.bool_)
         pn[f"{element_type}.C_r"] = 0.0
         pn[f"{element_type}.C_a"] = 0.0
@@ -151,6 +152,7 @@ class Network:
         core.beta = element.beta
         core.theta_h = element.theta_h
         core.b = element.b
+        core.bo = element.bo
         core.corner_oil_layer = element.corner_oil_layer
         core.oil_filled = element.oil_filled
         core.n_corners = element.n_corners
@@ -182,6 +184,7 @@ class PnElement:
         self._beta = None
         self._theta_h = None
         self._b = None
+        self._bo = None
         self._corner_oil_layer = None
 
         self.pc = None
@@ -287,28 +290,30 @@ class PnElement:
     @property
     def beta(self):
         if self._beta is None:
-            n = self.n_corners
             self._beta = self.pn[f"{self.type_name}.corner_half_angle"][self.id]
         return self._beta
 
     @property
     def theta_h(self):
         if self._theta_h is None:
-            n = self.n_corners
             self._theta_h = self.pn[f"{self.type_name}.hinging_contact_angle"][self.id]
         return self._theta_h
 
     @property
     def b(self):
         if self._b is None:
-            n = self.n_corners
             self._b = self.pn[f"{self.type_name}.b"][self.id]
         return self._b
 
     @property
+    def bo(self):
+        if self._bo is None:
+            self._bo = self.pn[f"{self.type_name}.bo"][self.id]
+        return self._bo
+
+    @property
     def corner_oil_layer(self):
         if self._corner_oil_layer is None:
-            n = self.n_corners
             self._corner_oil_layer = self.pn[f"{self.type_name}.corner_oil_layer"][self.id]
         return self._corner_oil_layer
 
@@ -392,6 +397,11 @@ class PnElement:
     def b(self, b):
         self._b = b
         self.pn[f"{self.type_name}.b"][self.id] = b
+
+    @b.setter
+    def bo(self, bo):
+        self._bo = bo
+        self.pn[f"{self.type_name}.bo"][self.id] = bo
 
     @corner_oil_layer.setter
     def corner_oil_layer(self, corner_oil_layer):
@@ -496,6 +506,7 @@ spec = [
     ("beta", nb.types.float64[:]),
     ("theta_h", nb.types.float64[:]),
     ("b", nb.types.float64[:]),
+    ("bo", nb.types.float64[:]),
     ("corner_oil_layer", nb.types.boolean[:]),
     ("oil_filled", nb.types.boolean),
     ("n_corners", nb.types.int32),
@@ -524,6 +535,7 @@ class ElementCore:
         self.beta = np.empty(MAX_NUMBER_OF_CORNERS, dtype=np.float64)
         self.theta_h = np.empty(MAX_NUMBER_OF_CORNERS, dtype=np.float64)
         self.b = np.empty(MAX_NUMBER_OF_CORNERS, dtype=np.float64)
+        self.bo = np.empty(MAX_NUMBER_OF_CORNERS, dtype=np.float64)
         self.corner_oil_layer = np.empty(MAX_NUMBER_OF_CORNERS, dtype=np.bool_)
         self.oil_filled = True
         self.n_corners = 0
