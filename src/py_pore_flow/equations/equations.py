@@ -1,15 +1,17 @@
 import math
-from math import acos, asin, atan, cos, pi, sin, sqrt, tan
+from math import acos, asin, atan, cos, log, pi, sin, sqrt, tan
 import sys
 
 from numba import njit
 import numpy as np
 
 from .common_equations import CIRCLE, OIL, SQUARE, TRIANGLE, WATER, MAX_NUMBER_OF_CORNERS
-from .starfish_equations import calculate_pc
+
+# from .starfish_equations import calculate_pc
 from .valvatne_equations import (
     calculate_element_multiphase_oil_conductance,
     calculate_element_singlephase_conductance,
+    calculate_pc,
 )
 from py_pore_flow.constants import g, mio, miw, po, pw, sigma
 
@@ -99,23 +101,11 @@ def calculate_imbibition_displacement(
 
 @njit
 def calculate_oil_layer_area(theta_a, theta_h, beta, n_corners, R, has_oil_layer):
-    theta = pi - theta_a
-
-    C = 0.0
+    Ao = 0
     for i in range(n_corners):
         if has_oil_layer[i]:
-            corner_water = calculate_corner_C(theta_h[i], beta[i])
-            C += corner_water
-    Aw = R**2 * C
-
-    C = 0.0
-    for i in range(n_corners):
-        if has_oil_layer[i]:
-            corner_oil = calculate_corner_C(theta, beta[i])
-            C += corner_oil
-    Ao = R**2 * C
-
-    return Ao - Aw
+            Ao += calculate_dimensionless_layer_area(0.01, beta[i], theta_h[i], theta_a)
+    return Ao
 
 
 @njit
@@ -506,3 +496,62 @@ def calculate_spontaneous_imbibition_viability(theta_a, theta_r, beta, n_corners
         angle_sum += cos(theta_r + beta[i])
 
     return theta_a <= acos((-4 * G * angle_sum) / (r / Rmin - cos(theta_r) + 12 * G * sin(theta_r)))
+
+
+@njit
+def calculate_dimensionless_layer_area(b_tilde, beta, theta_i, theta_o):
+    Ao = (
+        (sin(beta) / cos(theta_o - beta)) ** 2 * (cos(theta_o) * cos(theta_o - beta) / sin(beta))
+        - theta_o
+        + beta
+        + pi / 2
+    )
+    Ai = (
+        (b_tilde * sin(beta) / cos(theta_i + beta)) ** 2 * (cos(theta_i) * cos(theta_i + beta) / sin(beta))
+        + theta_i
+        + beta
+        - pi / 2
+    )
+
+    Al = Ao - Ai
+
+    return Al
+
+
+@njit
+def calculate_dimensionless_layer_conductance(bi, bo, beta, theta_i, theta_o):
+    b_tilde = bi / bo
+
+    Al = calculate_dimensionless_layer_area(b_tilde, beta, theta_i, theta_o)
+
+    Loow = 2 * sin(beta) / cos(theta_o - beta) * (pi / 2 - theta_o + beta)
+    Liow = 2 * b_tilde * sin(beta) / cos(theta_i + beta) * (pi / 2 - theta_i - beta)
+
+    Gl = Al / ((Loow + Liow + 2 * (1 - b_tilde)) ** 2)
+
+    a1, a2, a3 = get_tabulated_conductance_constants(beta)
+
+    gl = math.e ** (a1 * log(Al**3 * Gl) ** 2 + a2 * log(Al**3 * Gl) + a3)
+
+    gpl = bo**4 * gl / mio
+
+    return gpl
+
+
+@njit
+def get_tabulated_conductance_constants(beta):
+    if beta < 0.17453292519943295:  # 10 degrees
+        a1, a2, a3 = -1.061e-02, 5.161e-01, -2.065
+    elif beta < 0.3490658503988659:  # 20 degrees
+        a1, a2, a3 = -2.681e-02, 1.867e-01, -3.598
+    elif beta < 0.5235987755982988:  # 30 degrees
+        a1, a2, a3 = -4.402e-02, -6.320e-02, -4.375
+    elif beta < 0.6981317007977318:  # 40 degrees
+        a1, a2, a3 = -3.152e-02, 1.695e-01, -3.360
+    elif beta < 0.8726646259971648:  # 50 degrees
+        a1, a2, a3 = -3.137e-02, 1.933e-01, -3.267
+    elif beta < 1.0471975511965976:  # 60 degrees
+        a1, a2, a3 = -2.320e-02, 3.118e-01, -2.925
+    else:
+        a1, a2, a3 = -3.576e-02, -6.537e-04, -4.702
+    return a1, a2, a3
