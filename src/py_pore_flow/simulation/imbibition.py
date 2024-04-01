@@ -181,6 +181,8 @@ class ImbibitionSimulation(SimulationBase):
         return element_pc > pc
 
     def _update_b(self, pc):
+        self.network.reset_property("b")
+
         self.network.pn["pore.b"] = calculate_imbibition_network_b(
             self.network.pn["pore.corner_half_angle"],
             self.network.pn["pore.receding_contact_angle"],

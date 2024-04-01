@@ -330,6 +330,7 @@ def calculate_imbibition_network_b(beta, theta_r, theta_a, theta_h, n_corners, p
     b = np.empty((number_of_elements, MAX_NUMBER_OF_CORNERS), np.float64)
     for i in range(number_of_elements):
         b[i] = calculate_imbibition_element_b(beta[i], theta_r[i], theta_a[i], theta_h[i], n_corners[i], R, Rmin)
+    return b
 
 
 @njit
