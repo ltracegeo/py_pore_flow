@@ -128,7 +128,6 @@ class ImbibitionSimulation(SimulationBase):
                                 self.border_elements.add_throat(neighbor_throat.get_id())
 
     def __update_oil_layers(self, pc):
-        self.network.reset_property("corner_oil_layer")
         self.network.pn[f"pore.corner_oil_layer"] = calculate_oil_layer_network(
             self.network.pn[f"pore.corner_oil_layer"],
             self.network.pn[f"pore.corner_half_angle"],
@@ -183,7 +182,6 @@ class ImbibitionSimulation(SimulationBase):
         return element_pc > pc
 
     def _update_b(self, pc):
-        self.network.reset_property("b")
         self.network.pn["pore.b"] = calculate_imbibition_network_b(
             self.network.pn["pore.corner_half_angle"],
             self.network.pn["pore.receding_contact_angle"],
@@ -203,7 +201,6 @@ class ImbibitionSimulation(SimulationBase):
             self.Rmin,
         )
 
-        self.network.reset_property("bo")
         self.network.pn["pore.bo"] = calculate_imbibition_network_bo(
             self.network.pn["pore.corner_half_angle"],
             self.network.pn["pore.advancing_contact_angle"],

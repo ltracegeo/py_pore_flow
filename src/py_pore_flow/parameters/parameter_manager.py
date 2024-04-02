@@ -99,9 +99,6 @@ class ParameterManager:
         self.__update_cas(network, "equilibrium")
 
     def __update_cas(self, network, prefix):
-        network.reset_property("advancing_contact_angle")
-        network.reset_property("receding_contact_angle")
-
         advancing_ca_array, receding_ca_array = self.__generate_cas(
             prefix, len(network.pn["pore.radius"]), network.pn["pore.radius"]
         )

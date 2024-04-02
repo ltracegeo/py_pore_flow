@@ -191,27 +191,19 @@ class PnElement:
 
     @property
     def G(self):
-        if self._G is None:
-            self._G = self.pn[f"{self.type_name}.shape_factor"][self.id]
-        return self._G
+        return self.pn[f"{self.type_name}.shape_factor"][self.id]
 
     @property
     def r(self):
-        if self._r is None:
-            self._r = self.pn[f"{self.type_name}.radius"][self.id]
-        return self._r
+        return self.pn[f"{self.type_name}.radius"][self.id]
 
     @property
     def V(self):
-        if self._V is None:
-            self._V = self.pn[f"{self.type_name}.volume"][self.id]
-        return self._V
+        return self.pn[f"{self.type_name}.volume"][self.id]
 
     @property
     def Vclay(self):
-        if self._Vclay is None:
-            self._Vclay = self.pn[f"{self.type_name}.clay_volume"][self.id]
-        return self._Vclay
+        return self.pn[f"{self.type_name}.clay_volume"][self.id]
 
     @property
     def Sw(self):
@@ -223,99 +215,67 @@ class PnElement:
 
     @property
     def advancing_contact_angle(self):
-        if self._advancing_contact_angle is None:
-            self._advancing_contact_angle = self.pn[f"{self.type_name}.advancing_contact_angle"][self.id]
-        return self._advancing_contact_angle
+        return self.pn[f"{self.type_name}.advancing_contact_angle"][self.id]
 
     @property
     def receding_contact_angle(self):
-        if self._receding_contact_angle is None:
-            self._receding_contact_angle = self.pn[f"{self.type_name}.receding_contact_angle"][self.id]
-        return self._receding_contact_angle
+        return self.pn[f"{self.type_name}.receding_contact_angle"][self.id]
 
     @property
     def C_r(self):
-        if self._C_r is None:
-            self._C_r = self.pn[f"{self.type_name}.C_r"][self.id]
-        return self._C_r
+        return self.pn[f"{self.type_name}.C_r"][self.id]
 
     @property
     def C_a(self):
-        if self._C_a is None:
-            self._C_a = self.pn[f"{self.type_name}.C_a"][self.id]
-        return self._C_a
+        return self.pn[f"{self.type_name}.C_a"][self.id]
 
     @property
     def C_h(self):
-        if self._C_h is None:
-            self._C_h = self.pn[f"{self.type_name}.C_h"][self.id]
-        return self._C_h
+        return self.pn[f"{self.type_name}.C_h"][self.id]
 
     @property
     def shape(self):
-        if self._shape is None:
-            self._shape = self.pn[f"{self.type_name}.shape"][self.id]
-        return self._shape
+        return self.pn[f"{self.type_name}.shape"][self.id]
 
     @property
     def trapped(self):
-        if self._trapped is None:
-            self._trapped = self.pn[f"{self.type_name}.trapped"][self.id]
-        return self._trapped
+        return self.pn[f"{self.type_name}.trapped"][self.id]
 
     @property
     def oil_filled(self):
-        if self._oil_filled is None:
-            self._oil_filled = self.pn[f"{self.type_name}.oil_filled"][self.id]
-        return self._oil_filled
+        return self.pn[f"{self.type_name}.oil_filled"][self.id]
 
     @property
     def water_filled(self):
-        if self._water_filled is None:
-            self._water_filled = self.pn[f"{self.type_name}.water_filled"][self.id]
-        return self._water_filled
+        return self.pn[f"{self.type_name}.water_filled"][self.id]
 
     @property
     def n_corners(self):
-        if self._n_corners is None:
-            self._n_corners = self.pn[f"{self.type_name}.n_corners"][self.id]
-        return self._n_corners
+        return self.pn[f"{self.type_name}.n_corners"][self.id]
 
     @property
     def spontaneous_imbibition(self):
-        if self._spontaneous_imbibition is None:
-            self._spontaneous_imbibition = self.pn[f"{self.type_name}.spontaneous_imbibition"][self.id]
-        return self._spontaneous_imbibition
+        return self.pn[f"{self.type_name}.spontaneous_imbibition"][self.id]
 
     @property
     def beta(self):
-        if self._beta is None:
-            self._beta = self.pn[f"{self.type_name}.corner_half_angle"][self.id]
-        return self._beta
+        return self.pn[f"{self.type_name}.corner_half_angle"][self.id]
 
     @property
     def theta_h(self):
-        if self._theta_h is None:
-            self._theta_h = self.pn[f"{self.type_name}.hinging_contact_angle"][self.id]
-        return self._theta_h
+        return self.pn[f"{self.type_name}.hinging_contact_angle"][self.id]
 
     @property
     def b(self):
-        if self._b is None:
-            self._b = self.pn[f"{self.type_name}.b"][self.id]
-        return self._b
+        return self.pn[f"{self.type_name}.b"][self.id]
 
     @property
     def bo(self):
-        if self._bo is None:
-            self._bo = self.pn[f"{self.type_name}.bo"][self.id]
-        return self._bo
+        return self.pn[f"{self.type_name}.bo"][self.id]
 
     @property
     def corner_oil_layer(self):
-        if self._corner_oil_layer is None:
-            self._corner_oil_layer = self.pn[f"{self.type_name}.corner_oil_layer"][self.id]
-        return self._corner_oil_layer
+        return self.pn[f"{self.type_name}.corner_oil_layer"][self.id]
 
     @Sw.setter
     def Sw(self, value):

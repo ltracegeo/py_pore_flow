@@ -664,7 +664,6 @@ class TrapChecker:
         self.phase = phase
 
     def update_trapped_pores(self):
-        self.network.reset_property("trapped")
         self.network.pn["pore.trapped"] = False
         outlets_pore_id_list = self.network.get_outlets_ids()
         if self.phase == OIL:
