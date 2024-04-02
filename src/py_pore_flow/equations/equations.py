@@ -535,7 +535,7 @@ def calculate_oil_layer_collapse_pc(beta, theta_a, b):
 def calculate_oil_layer_element(corner_oil_layer, beta, theta_a, b, n_corners, pc):
     for i in range(n_corners):
         if corner_oil_layer[i]:
-            collapse_pc = calculate_oil_layer_collapse_pc(beta[i], theta_a, b[i])
+            collapse_pc = -calculate_oil_layer_collapse_pc(beta[i], theta_a, b[i])
             if pc < collapse_pc:
                 corner_oil_layer[i] = False
     return corner_oil_layer
