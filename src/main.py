@@ -39,7 +39,7 @@ def run():
 
     ppf.log.configure(output=ppf.log.STDOUT, level=ppf.log.DEBUG)
 
-    cycle, Pc, Sw, Krw, Kro = ppf.run_two_phase_simulation(pn, generate_vtu=True, debug=True)
+    cycle, Pc, Sw, Krw, Kro = ppf.run_two_phase_simulation(pn, generate_vtu=False, debug=True)
 
     time_elapsed = datetime.timedelta(seconds=int(time.time() - start))
 
