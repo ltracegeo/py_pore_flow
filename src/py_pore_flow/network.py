@@ -36,7 +36,7 @@ def initialize_pn(pn):
         pn[f"{element_type}.water_singlephase_conductance"] = 0.0
         pn[f"{element_type}.shape"] = 0
         pn[f"{element_type}.trapped"] = False
-        pn[f"{element_type}.n_corners"] = 0
+        pn[f"{element_type}.n_corners"] = int(0)
         pn[f"{element_type}.spontaneous_imbibition"] = True
 
 
@@ -316,11 +316,11 @@ class PnElement:
         self.pn[f"{self.type_name}.shape"][self.id] = shape
 
         if shape == TRIANGLE:
-            self._n_corners = 3
+            self._n_corners = int(3)
         elif shape == SQUARE:
-            self._n_corners = 4
+            self._n_corners = int(4)
         else:
-            self._n_corners = 0
+            self._n_corners = int(0)
         self.pn[f"{self.type_name}.n_corners"][self.id] = self._n_corners
 
     @trapped.setter

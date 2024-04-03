@@ -122,7 +122,7 @@ def calculate_imbibition_displacement(
 @njit
 def calculate_oil_layer_area(theta_a, theta_h, beta, bi, bo, n_corners, R, has_oil_layer):
     Ao = 0
-    for i in range(n_corners):
+    for i in range(int(n_corners)):
         if has_oil_layer[i]:
             b_tilde = bi[i] / bo[i]
             Ao += calculate_dimensionless_layer_area(b_tilde, beta[i], theta_h[i], theta_a)
@@ -195,7 +195,7 @@ def calculate_C(theta, beta, n_corners):
         C
     """
     C = 0
-    for i in range(n_corners):
+    for i in range(int(n_corners)):
         if beta[i] < pi / 2 - theta[i]:
             C += cos(theta[i]) * (cos(theta[i] + beta[i]) / sin(beta[i])) - (pi / 2 - theta[i] - beta[i])
 
@@ -232,7 +232,7 @@ def flow_rate(L, A, G, shape, phase, P, h):
 @njit
 def calculate_element_multiphase_water_conductance(theta_h, b, beta, n_corners):
     gw = 0
-    for i in range(n_corners):
+    for i in range(int(n_corners)):
         Ac = ((b[i] * sin(beta[i])) / cos(theta_h[i] + beta[i])) ** 2 * (
             cos(theta_h[i]) * cos(theta_h[i] + beta[i]) / sin(beta[i]) + theta_h[i] + beta[i] - pi / 2
         )
@@ -347,7 +347,7 @@ def calculate_hinging_contact_angle(Pc, beta, b, n_corners):
         return theta_h
 
     R = sigma / Pc
-    for i in range(n_corners):
+    for i in range(int(n_corners)):
         theta_h[i] = acos(b[i] * sin(beta[i]) / R) - beta[i]
     return theta_h
 
@@ -357,7 +357,7 @@ def calculate_drainage_b(beta, theta, n_corners, Pc_max):
     Rmin = sigma / Pc_max
 
     b = np.empty(MAX_NUMBER_OF_CORNERS, dtype=np.float64)
-    for i in range(n_corners):
+    for i in range(int(n_corners)):
         b[i] = Rmin * cos(theta[i] + beta[i]) / sin(beta[i])
     return b
 
@@ -376,7 +376,7 @@ def calculate_imbibition_network_b(beta, theta_r, theta_a, theta_h, n_corners, p
 @njit
 def calculate_imbibition_element_b(beta, theta_r, theta_a, theta_h, n_corners, R, Rmin):
     b = np.empty(MAX_NUMBER_OF_CORNERS, dtype=np.float64)
-    for i in range(n_corners):
+    for i in range(int(n_corners)):
         b[i] = calculate_imbibition_corner_b(beta[i], theta_r, theta_a, theta_h[i], R, Rmin)
     return b
 
@@ -414,7 +414,7 @@ def calculate_imbibition_network_bo(beta, theta_a, has_oil_layer, n_corners, pc)
 @njit
 def calculate_imbibition_element_bo(beta, theta_a, has_oil_layer, n_corners, R):
     b = np.empty(MAX_NUMBER_OF_CORNERS, dtype=np.float64)
-    for i in range(n_corners):
+    for i in range(int(n_corners)):
         if has_oil_layer[i]:
             b[i] = calculate_corner_bo(beta[i], theta_a, R)
     return b
@@ -520,7 +520,7 @@ def calculate_oil_layer(theta_a, beta, n_corners, pc):
         return np.full(MAX_NUMBER_OF_CORNERS, False, dtype=np.bool_)
 
     corner_oil_layer = np.empty(MAX_NUMBER_OF_CORNERS, dtype=np.bool_)
-    for i in range(n_corners):
+    for i in range(int(n_corners)):
         corner_oil_layer[i] = theta_a > pi / 2 + beta[i]
     return corner_oil_layer
 
@@ -533,7 +533,7 @@ def calculate_oil_layer_collapse_pc(beta, theta_a, b):
 
 @njit
 def calculate_oil_layer_element(corner_oil_layer, beta, theta_a, b, n_corners, pc):
-    for i in range(n_corners):
+    for i in range(int(n_corners)):
         if corner_oil_layer[i]:
             collapse_pc = -calculate_oil_layer_collapse_pc(beta[i], theta_a, b[i])
             if pc < collapse_pc:
@@ -559,7 +559,7 @@ def calculate_oil_layer_network(corner_oil_layer, beta, theta_a, b, n_corners, p
 @njit
 def calculate_spontaneous_imbibition_viability(theta_a, theta_r, beta, n_corners, r, G, Rmin):
     angle_sum = 0.0
-    for i in range(n_corners):
+    for i in range(int(n_corners)):
         angle_sum += cos(theta_r + beta[i])
 
     return theta_a <= acos((-4 * G * angle_sum) / (r / Rmin - cos(theta_r) + 12 * G * sin(theta_r)))
