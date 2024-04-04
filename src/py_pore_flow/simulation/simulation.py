@@ -105,7 +105,7 @@ def calculate_initial_values(network, max_pc):
 
 
 def calculate_element_initial_values(element, max_pc):
-    Rmin = calculate_r(max_pc)
+    Rmin = calculate_r(max_pc, 100000)
 
     element.shape = calculate_shape(element.G)
     element.beta = calculate_beta(element.G, element.shape)
