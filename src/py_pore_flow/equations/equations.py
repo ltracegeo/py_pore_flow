@@ -250,6 +250,9 @@ def flow_rate(L, A, G, shape, phase, P, h):
 def calculate_element_multiphase_water_conductance(theta_h, b, beta, n_corners):
     gw = 0
     for i in range(int(n_corners)):
+        if b[i] == 0.0:
+            continue
+
         Ac = ((b[i] * sin(beta[i])) / cos(theta_h[i] + beta[i])) ** 2 * (
             cos(theta_h[i]) * cos(theta_h[i] + beta[i]) / sin(beta[i]) + theta_h[i] + beta[i] - pi / 2
         )
@@ -372,7 +375,10 @@ def calculate_drainage_b(beta, theta, n_corners, Pc_max):
 
     b = np.empty(MAX_NUMBER_OF_CORNERS, dtype=np.float64)
     for i in range(int(n_corners)):
-        b[i] = Rmin * cos(theta[i] + beta[i]) / sin(beta[i])
+        if theta[i] + beta[i] > pi / 2:
+            b[i] = 0.0
+        else:
+            b[i] = Rmin * cos(theta[i] + beta[i]) / sin(beta[i])
     return b
 
 
@@ -411,6 +417,8 @@ def calculate_drainage_corner_b(beta, theta_r, Rmin):
 @njit
 def calculate_corner_bi(beta, theta, R):
     b = R * cos(theta + beta) / sin(beta)
+    if b < 0:
+        b = 0.0
     return b
 
 
@@ -436,6 +444,8 @@ def calculate_imbibition_element_bo(r, beta, theta_a, has_oil_layer, n_corners, 
 @njit
 def calculate_corner_bo(beta, theta, R):
     b = R * cos(theta - beta) / sin(beta)
+    if b < 0:
+        b = 0.0
     return b
 
 
@@ -552,9 +562,12 @@ def calculate_oil_layer_collapse_pc(beta, theta_a, b):
 def calculate_oil_layer_element(corner_oil_layer, beta, theta_a, b, n_corners, pc):
     for i in range(int(n_corners)):
         if corner_oil_layer[i]:
-            collapse_pc = -calculate_oil_layer_collapse_pc(beta[i], theta_a, b[i])
-            if pc < collapse_pc:
+            if b[i] == 0:
                 corner_oil_layer[i] = False
+            else:
+                collapse_pc = -calculate_oil_layer_collapse_pc(beta[i], theta_a, b[i])
+                if pc < collapse_pc:
+                    corner_oil_layer[i] = False
     return corner_oil_layer
 
 
