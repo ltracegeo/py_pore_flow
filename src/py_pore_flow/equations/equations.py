@@ -520,12 +520,16 @@ def calculate_snap_off_pc(r, beta, theta_a, theta_r, theta_h, Rmin, pc, h):
 
 @njit
 def calculate_r(pc, r):
-    if pc <= 0:
+    if pc == 0:
         R = r
     else:
         R = sigma / pc
-    return min(R, r)
 
+    if R > r:
+        R = r
+    elif R < -r:
+        R = -r
+    return R
 
 @njit
 def calculate_oil_layer(theta_a, beta, n_corners, pc):
