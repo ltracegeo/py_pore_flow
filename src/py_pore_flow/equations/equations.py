@@ -39,17 +39,17 @@ def calculate_drainage_pc(shape_factor, radius, receding_contact_angle, shape, C
 
 
 @njit
-def calculate_drainage_network_saturation(shape, c, pc, a, oil_filled):
+def calculate_drainage_network_saturation(shape, r, c, pc, a, oil_filled):
     number_of_elements = len(shape)
     sw = np.empty(number_of_elements, np.float64)
     so = np.empty(number_of_elements, np.float64)
     for i in range(number_of_elements):
-        sw[i], so[i] = calculate_drainage_displacement(shape[i], c[i], pc, a[i], oil_filled[i])
+        sw[i], so[i] = calculate_drainage_displacement(shape[i], r[i], c[i], pc, a[i], oil_filled[i])
     return sw, so
 
 
 @njit
-def calculate_drainage_displacement(shape, C_r, current_Pc, A, oil_filled):
+def calculate_drainage_displacement(shape, r, C_r, current_Pc, A, oil_filled):
     if not oil_filled:
         return 1.0, 0.0
 
@@ -60,7 +60,7 @@ def calculate_drainage_displacement(shape, C_r, current_Pc, A, oil_filled):
     elif Pc == 0:
         Aw = A
     else:
-        R = sigma / Pc
+        R = calculate_r(Pc, r)
         Aw = R**2 * C_r
 
     if Aw < A:
@@ -74,10 +74,8 @@ def calculate_drainage_displacement(shape, C_r, current_Pc, A, oil_filled):
 
 @njit
 def calculate_imbibition_network_saturation(
-    shape, c, pc, a, oil_filled, theta_a, theta_h, beta, bi, bo, n_corners, has_oil_layer
+    shape, r, c, pc, a, oil_filled, theta_a, theta_h, beta, bi, bo, n_corners, has_oil_layer
 ):
-    R = calculate_r(pc)
-
     number_of_elements = len(shape)
     sw = np.empty(number_of_elements, np.float64)
     so = np.empty(number_of_elements, np.float64)
@@ -94,7 +92,7 @@ def calculate_imbibition_network_saturation(
             bi[i],
             bo[i],
             n_corners[i],
-            R,
+            r[i],
             has_oil_layer[i],
         )
     return sw, so
@@ -102,7 +100,7 @@ def calculate_imbibition_network_saturation(
 
 @njit
 def calculate_imbibition_displacement(
-    shape, C_h, current_Pc, A, oil_filled, theta_a, theta_h, beta, bi, bo, n_corners, R, has_oil_layer
+    shape, C_h, pc, A, oil_filled, theta_a, theta_h, beta, bi, bo, n_corners, r, has_oil_layer
 ):
     if oil_filled:
         Aw = calculate_water_layer_area(bi, beta, theta_h, n_corners)
@@ -114,6 +112,7 @@ def calculate_imbibition_displacement(
             Sw = 1
         So = 1 - Sw
     else:
+        R = calculate_r(pc, r)
         Ao = calculate_oil_layer_area(theta_a, theta_h, beta, bi, bo, n_corners, R, has_oil_layer)
         if Ao < 0:
             So = 0
@@ -358,13 +357,10 @@ def calculate_conductance(L, gp):
 
 
 @njit
-def calculate_hinging_contact_angle(Pc, beta, b, n_corners):
+def calculate_hinging_contact_angle(Pc, r, beta, b, n_corners):
     theta_h = np.empty(MAX_NUMBER_OF_CORNERS, dtype=np.float64)
 
-    if Pc == 0:
-        return theta_h
-
-    R = sigma / Pc
+    R = calculate_r(Pc, r)
     for i in range(int(n_corners)):
         theta_h[i] = acos(b[i] * sin(beta[i]) / R) - beta[i]
     return theta_h
@@ -381,18 +377,18 @@ def calculate_drainage_b(beta, theta, n_corners, Pc_max):
 
 
 @njit
-def calculate_imbibition_network_b(beta, theta_r, theta_a, theta_h, n_corners, pc, Rmin):
+def calculate_imbibition_network_b(r, beta, theta_r, theta_a, theta_h, n_corners, pc, Rmin):
     number_of_elements = len(beta)
-    R = calculate_r(pc)
 
     b = np.empty((number_of_elements, MAX_NUMBER_OF_CORNERS), np.float64)
     for i in range(number_of_elements):
-        b[i] = calculate_imbibition_element_b(beta[i], theta_r[i], theta_a[i], theta_h[i], n_corners[i], R, Rmin)
+        b[i] = calculate_imbibition_element_b(r[i], beta[i], theta_r[i], theta_a[i], theta_h[i], n_corners[i], Rmin, pc)
     return b
 
 
 @njit
-def calculate_imbibition_element_b(beta, theta_r, theta_a, theta_h, n_corners, R, Rmin):
+def calculate_imbibition_element_b(r, beta, theta_r, theta_a, theta_h, n_corners, Rmin, pc):
+    R = calculate_r(pc, r)
     b = np.empty(MAX_NUMBER_OF_CORNERS, dtype=np.float64)
     for i in range(int(n_corners)):
         b[i] = calculate_imbibition_corner_b(beta[i], theta_r, theta_a, theta_h[i], R, Rmin)
@@ -419,18 +415,17 @@ def calculate_corner_bi(beta, theta, R):
 
 
 @njit
-def calculate_imbibition_network_bo(beta, theta_a, has_oil_layer, n_corners, pc):
+def calculate_imbibition_network_bo(r, beta, theta_a, has_oil_layer, n_corners, pc):
     number_of_elements = len(beta)
-    R = calculate_r(pc)
-
     b = np.empty((number_of_elements, MAX_NUMBER_OF_CORNERS), np.float64)
     for i in range(number_of_elements):
-        b[i] = calculate_imbibition_element_bo(beta[i], theta_a[i], has_oil_layer[i], n_corners[i], R)
+        b[i] = calculate_imbibition_element_bo(r[i], beta[i], theta_a[i], has_oil_layer[i], n_corners[i], pc)
     return b
 
 
 @njit
-def calculate_imbibition_element_bo(beta, theta_a, has_oil_layer, n_corners, R):
+def calculate_imbibition_element_bo(r, beta, theta_a, has_oil_layer, n_corners, pc):
+    R = calculate_r(pc, r)
     b = np.empty(MAX_NUMBER_OF_CORNERS, dtype=np.float64)
     for i in range(int(n_corners)):
         if has_oil_layer[i]:
@@ -524,12 +519,12 @@ def calculate_snap_off_pc(r, beta, theta_a, theta_r, theta_h, Rmin, pc, h):
 
 
 @njit
-def calculate_r(pc):
-    if pc == 0:
-        R = np.finfo(np.float64).max
+def calculate_r(pc, r):
+    if pc <= 0:
+        R = r
     else:
         R = sigma / pc
-    return R
+    return min(R, r)
 
 
 @njit

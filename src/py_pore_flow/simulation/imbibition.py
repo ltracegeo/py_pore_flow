@@ -66,7 +66,7 @@ def run_imbibition(network, pc_incrementer, end_at_sor=False, generate_vtu=False
 class ImbibitionSimulation(SimulationBase):
     def __init__(self, network, pc_max):
         super().__init__(network, WATER)
-        self.Rmin = calculate_r(pc_max)
+        self.Rmin = calculate_r(pc_max, 100000)
 
     def get_pores_left(self):
         return np.logical_not(self.network.pn["pore.water_filled"] | self.network.pn["pore.trapped"]).sum()
@@ -183,6 +183,7 @@ class ImbibitionSimulation(SimulationBase):
 
     def _update_b(self, pc):
         self.network.pn["pore.b"] = calculate_imbibition_network_b(
+            self.network.pn["pore.radius"],
             self.network.pn["pore.corner_half_angle"],
             self.network.pn["pore.receding_contact_angle"],
             self.network.pn["pore.advancing_contact_angle"],
@@ -192,6 +193,7 @@ class ImbibitionSimulation(SimulationBase):
             self.Rmin,
         )
         self.network.pn["throat.b"] = calculate_imbibition_network_b(
+            self.network.pn["throat.radius"],
             self.network.pn["throat.corner_half_angle"],
             self.network.pn["throat.receding_contact_angle"],
             self.network.pn["throat.advancing_contact_angle"],
@@ -202,6 +204,7 @@ class ImbibitionSimulation(SimulationBase):
         )
 
         self.network.pn["pore.bo"] = calculate_imbibition_network_bo(
+            self.network.pn["pore.radius"],
             self.network.pn["pore.corner_half_angle"],
             self.network.pn["pore.advancing_contact_angle"],
             self.network.pn["pore.corner_oil_layer"],
@@ -209,6 +212,7 @@ class ImbibitionSimulation(SimulationBase):
             pc,
         )
         self.network.pn["throat.bo"] = calculate_imbibition_network_bo(
+            self.network.pn["throat.radius"],
             self.network.pn["throat.corner_half_angle"],
             self.network.pn["throat.advancing_contact_angle"],
             self.network.pn["throat.corner_oil_layer"],
