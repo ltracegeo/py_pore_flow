@@ -577,7 +577,20 @@ class SimulationBase:
 
         self.saturation_calculator = SaturationCalculator(network, phase)
 
+        self.exported_a = False
+        self.exported_b = False
+
     def update_pc(self, pc):
+        self.pc = pc
+
+        if self.phase == WATER:
+            if self.pc < 795 and not self.exported_a:
+                export_network(self.network.pn, f"pn_glitch_before_{self.pc}.bin")
+                self.exported_a = True
+            elif self.pc < 791 and not self.exported_b:
+                export_network(self.network.pn, f"pn_glitch_after_{self.pc}.bin")
+                self.exported_b = True
+
         self._update_invasions(pc)
 
         self.trap_checker.update_trapped_pores()
@@ -761,3 +774,22 @@ class PcIncrementer:
             self.pc_step = min(self.pc_step, self.pc_step_max)
         else:
             self.pc_step = self.pc_step_initial
+
+
+def export_network(pn, filename):
+    import pickle
+
+    with open(filename, "wb") as fp:
+        pickle.dump(pn.copy(), fp)
+
+
+def import_network(filename):
+    # print(f"Importing {filename}")
+    import pickle
+
+    pn = openpnm.network.Network()
+    with open(filename, "rb") as fp:
+        data = pickle.load(fp)
+        pn.update(data)
+    return pn
+
