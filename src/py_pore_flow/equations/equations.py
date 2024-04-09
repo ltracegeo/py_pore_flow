@@ -403,7 +403,7 @@ def calculate_imbibition_element_b(r, beta, theta_r, theta_a, theta_h, n_corners
 
 @njit
 def calculate_imbibition_corner_b(beta, theta_r, theta_a, theta_h, R, Rmin):
-    if theta_h >= theta_a:
+    if theta_h - theta_a > -1e-10:
         return calculate_corner_bi(beta, theta_a, R)
     else:
         return calculate_corner_bi(beta, theta_r, Rmin)
