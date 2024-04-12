@@ -21,7 +21,7 @@ from .valvatne_equations import (
     calculate_element_singlephase_conductance,
     calculate_pc,
 )
-from py_pore_flow.constants import g, mio, miw, po, pw, sigma
+import py_pore_flow.constants as c
 
 
 @njit
@@ -227,7 +227,7 @@ def calculate_element_multiphase_water_conductance(theta_h, b, beta, n_corners):
         )
         G2 = sin(beta[i]) * cos(beta[i]) / (4 * (1 + sin(beta[i])) ** 2)
         Cw = 0.364 + 0.28 * (G2 / Gc)
-        gw += Cw * (Ac**2 * Gc / miw)
+        gw += Cw * (Ac**2 * Gc / c.miw)
     return gw
 
 
@@ -238,7 +238,7 @@ def calculate_singlephase_conductance(L, A, G, shape, phase=WATER):
     k = 1  # Pore 2
 
     gp = np.empty(3, dtype=np.float64)
-    mi = miw if phase == WATER else mio
+    mi = c.miw if phase == WATER else c.mio
     for n in [i, j, k]:
         gp[n] = calculate_element_singlephase_conductance(A[n], G[n], shape[n], mi)
     Gp = 1 / ((L[i] / gp[i]) + (L[j] / gp[j]) + (L[k] / gp[k]))
@@ -279,7 +279,7 @@ def calculate_multiphase_oil_conductance(
     gp = np.empty(3, dtype=np.float64)
     for n in [i, j, k]:
         if has_oil_in_center[n]:
-            gp[n] = So[n] * calculate_element_singlephase_conductance(A[n], G[n], shape[n], mio)
+            gp[n] = So[n] * calculate_element_singlephase_conductance(A[n], G[n], shape[n], c.mio)
         else:
             gp[n] = calculate_element_multiphase_oil_conductance(
                 b[n], bo[n], beta[n], theta_h[n], theta_a[n], n_corners[n]
@@ -309,7 +309,7 @@ def calculate_multiphase_water_conductance(L, A, G, shape, Sw, theta_h, b, beta,
     gp = np.empty(3, dtype=np.float64)
     for n in [i, j, k]:
         if has_water_in_center[n]:
-            gp[n] = Sw[n] * calculate_element_singlephase_conductance(A[n], G[n], shape[n], miw)
+            gp[n] = Sw[n] * calculate_element_singlephase_conductance(A[n], G[n], shape[n], c.miw)
         else:
             gp[n] = calculate_element_multiphase_water_conductance(theta_h[n], b[n], beta[n], n_corners[n])
     return calculate_conductance(L, gp)
@@ -337,7 +337,7 @@ def calculate_hinging_contact_angle(Pc, r, beta, b, n_corners):
 
 @njit
 def calculate_drainage_b(beta, theta, n_corners, Pc_max):
-    Rmin = sigma / Pc_max
+    Rmin = c.sigma / Pc_max
 
     b = np.empty(MAX_NUMBER_OF_CORNERS, dtype=np.float64)
     for i in range(int(n_corners)):
@@ -444,9 +444,9 @@ def calculate_imbibition_piston_like_displacement_pc(
 @njit
 def calculate_absolute_permeability(phase, qts, A, L, fi_inlet, fi_outlet):
     if phase == WATER:
-        mi = miw
+        mi = c.miw
     else:
-        mi = mio
+        mi = c.mio
     K = (mi * qts * L) / (A * (fi_inlet - fi_outlet))
     return K
 
@@ -465,9 +465,9 @@ def calculate_pore_body_filling_pc(r, theta_a, K, oil_filled_throats_n, h):
             lamb[i] = 0.03 / sqrt(K / (1.01325 * 10**15))
 
     for i in range(oil_filled_throats_n):
-        lambda_sum = lamb[i] * x[i] - (pw - po) * g * h
+        lambda_sum = lamb[i] * x[i] - (c.pw - c.po) * c.g * h
 
-    Pc = 2 * sigma * cos(theta_a) / r - sigma * lambda_sum
+    Pc = 2 * c.sigma * cos(theta_a) / r - c.sigma * lambda_sum
 
     return Pc
 
@@ -476,20 +476,22 @@ def calculate_pore_body_filling_pc(r, theta_a, K, oil_filled_throats_n, h):
 def calculate_snap_off_pc(r, beta, theta_a, theta_r, theta_h, Rmin, pc, h):
     if pc > 0:
         Pc_0 = (
-            sigma
+            c.sigma
             / r
             * (cos(theta_a) * cot(beta[0]) - sin(theta_a) + cos(theta_h[2]) * cot(beta[2]) - sin(theta_h[1]))
             / (cot(beta[0]) + cot(beta[1]))
-            - (pw - po) * g * h
+            - (c.pw - c.po) * c.g * h
         )
-        Pc_1 = sigma / r * (cos(theta_a) - (2 * sin(theta_a) / (cot(beta[0]) + cot(beta[1])))) - (pw - po) * g * h
+        Pc_1 = (
+            c.sigma / r * (cos(theta_a) - (2 * sin(theta_a) / (cot(beta[0]) + cot(beta[1])))) - (c.pw - c.po) * c.g * h
+        )
         Pc = max(Pc_0, Pc_1)
     else:
-        new_Pc = (sigma * cos(theta_a + beta[0]) / Rmin * cos(theta_r + beta[0])) - (pw - po) * g * h
+        new_Pc = (c.sigma * cos(theta_a + beta[0]) / Rmin * cos(theta_r + beta[0])) - (c.pw - c.po) * c.g * h
         if new_Pc <= (pi - beta[0]):
             Pc = new_Pc
         else:
-            Pc = (-sigma / Rmin * cos(theta_r + beta[0])) - (pw - po) * g * h
+            Pc = (-c.sigma / Rmin * cos(theta_r + beta[0])) - (c.pw - c.po) * c.g * h
 
     return Pc
 
@@ -499,13 +501,14 @@ def calculate_r(pc, r):
     if pc == 0:
         R = r
     else:
-        R = sigma / pc
+        R = c.sigma / pc
 
     if R > r:
         R = r
     elif R < -r:
         R = -r
     return R
+
 
 @njit
 def calculate_oil_layer(theta_a, beta, n_corners, pc):
@@ -520,7 +523,7 @@ def calculate_oil_layer(theta_a, beta, n_corners, pc):
 
 @njit
 def calculate_oil_layer_collapse_pc(beta, theta_a, b):
-    Pc = sigma * cos(acos(2 * sin(beta) + cos(theta_a)) + beta) / (b * sin(beta))
+    Pc = c.sigma * cos(acos(2 * sin(beta) + cos(theta_a)) + beta) / (b * sin(beta))
     return Pc
 
 

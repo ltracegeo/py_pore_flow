@@ -4,7 +4,7 @@ from math import cos, log, pi, sin, sqrt
 from numba import njit
 
 from .common_equations import CIRCLE, SQUARE, TRIANGLE, calculate_dimensionless_layer_area
-from py_pore_flow.constants import mio, sigma
+import py_pore_flow.constants as c
 
 
 @njit
@@ -46,7 +46,7 @@ def calculate_pc(shape_factor, radius, theta, shape, C, beta, n_corners):
         D = S1 - 2 * S2 * cos(theta) + S3
         Fd = (1 + sqrt(1 + (4 * G * D / cos(theta) ** 2))) / (1 + 2 * sqrt(pi * G))
 
-    Pc = sigma * cos(theta) / r * (1 + 2 * sqrt(pi * G)) * Fd
+    Pc = c.sigma * cos(theta) / r * (1 + 2 * sqrt(pi * G)) * Fd
     return Pc
 
 
@@ -65,7 +65,7 @@ def calculate_dimensionless_layer_conductance(bi, bo, beta, theta_i, theta_o):
 
     gl = math.e ** (a1 * log(Al**3 * Gl) ** 2 + a2 * log(Al**3 * Gl) + a3)
 
-    gpl = bo**4 * gl / mio
+    gpl = bo**4 * gl / c.mio
 
     return gpl
 
