@@ -74,16 +74,13 @@ def calculate_drainage_displacement(shape, r, C_r, current_Pc, A, oil_filled):
 
 @njit
 def calculate_imbibition_network_saturation(
-    shape, r, c, pc, a, oil_filled, theta_a, theta_h, beta, bi, bo, n_corners, has_oil_layer
+    shape, a, oil_filled, theta_a, theta_h, beta, bi, bo, n_corners, has_oil_layer
 ):
     number_of_elements = len(shape)
     sw = np.empty(number_of_elements, np.float64)
     so = np.empty(number_of_elements, np.float64)
     for i in range(number_of_elements):
         sw[i], so[i] = calculate_imbibition_displacement(
-            shape[i],
-            c[i],
-            pc,
             a[i],
             oil_filled[i],
             theta_a[i],
@@ -92,16 +89,13 @@ def calculate_imbibition_network_saturation(
             bi[i],
             bo[i],
             n_corners[i],
-            r[i],
             has_oil_layer[i],
         )
     return sw, so
 
 
 @njit
-def calculate_imbibition_displacement(
-    shape, C_h, pc, A, oil_filled, theta_a, theta_h, beta, bi, bo, n_corners, r, has_oil_layer
-):
+def calculate_imbibition_displacement(A, oil_filled, theta_a, theta_h, beta, bi, bo, n_corners, has_oil_layer):
     if oil_filled:
         Aw = calculate_water_layer_area(bi, beta, theta_h, n_corners)
         if Aw < 0:
@@ -112,8 +106,7 @@ def calculate_imbibition_displacement(
             Sw = 1
         So = 1 - Sw
     else:
-        R = calculate_r(pc, r)
-        Ao = calculate_oil_layer_area(theta_a, theta_h, beta, bi, bo, n_corners, R, has_oil_layer)
+        Ao = calculate_oil_layer_area(theta_a, theta_h, beta, bi, bo, n_corners, has_oil_layer)
         if Ao < 0:
             So = 0
         elif Ao < A:
@@ -126,7 +119,7 @@ def calculate_imbibition_displacement(
 
 
 @njit
-def calculate_oil_layer_area(theta_a, theta_h, beta, bi, bo, n_corners, R, has_oil_layer):
+def calculate_oil_layer_area(theta_a, theta_h, beta, bi, bo, n_corners, has_oil_layer):
     Ao = 0
     for i in range(int(n_corners)):
         if has_oil_layer[i]:
@@ -217,33 +210,6 @@ def calculate_C(theta, beta, n_corners):
             C += cos(theta[i]) * (cos(theta[i] + beta[i]) / sin(beta[i])) - (pi / 2 - theta[i] - beta[i])
 
     return C
-
-
-def flow_rate(L, A, G, shape, phase, P, h):
-    i = 0  # Pore 1
-    j = 2  # Throat connecting pore 0 and 1
-    k = 1  # Pore 2
-
-    gp = [None] * 3
-    for n in [i, j, k]:
-        if phase[n] == WATER:
-            mi = miw
-        else:
-            mi = mio
-        gp[n] = calculate_element_singlephase_conductance(A[n], G[n], shape[n], mi)
-
-    fi = [None] * 2
-    for n in [i, k]:
-        if phase[n] == WATER:
-            pp = pw
-        else:
-            pp = po
-        fi[n] = P[n] - pp * g * h
-
-    Gp = 1 / ((L[i] / gp[i]) + (L[j] / gp[j]) + (L[k] / gp[k]))
-    q = Gp * (fi[i] - fi[k])
-
-    return q
 
 
 @njit

@@ -460,9 +460,6 @@ class SaturationCalculator:
             self.network.pn["pore.oil_saturation"],
         ) = calculate_imbibition_network_saturation(
             self.network.pn["pore.shape"],
-            self.network.pn["pore.radius"],
-            self.network.pn["pore.C_h"],
-            pc,
             self.network.pn["pore.area"],
             self.network.pn["pore.oil_filled"],
             self.network.pn["pore.advancing_contact_angle"],
@@ -478,9 +475,6 @@ class SaturationCalculator:
             self.network.pn["throat.oil_saturation"],
         ) = calculate_imbibition_network_saturation(
             self.network.pn["throat.shape"],
-            self.network.pn["throat.radius"],
-            self.network.pn["throat.C_h"],
-            pc,
             self.network.pn["throat.cross_sectional_area"],
             self.network.pn["throat.oil_filled"],
             self.network.pn["throat.advancing_contact_angle"],
