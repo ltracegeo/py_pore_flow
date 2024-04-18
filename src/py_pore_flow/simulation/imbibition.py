@@ -146,10 +146,7 @@ class ImbibitionSimulation(SimulationBase):
             pc,
         )
 
-    def _check_invasion_condition(self, pc, element):
-        if pc > 0 and not element.spontaneous_imbibition:
-            return False
-
+    def _update_pc(self, element, pc):
         if element.is_pore():
             K = self.krel_calculator.get_absolute_permeability()
             number_of_oil_filled_neighbors = 0
@@ -179,7 +176,21 @@ class ImbibitionSimulation(SimulationBase):
                 element.beta,
                 element.n_corners,
             )
-        return element_pc > pc
+        element.set_pc(element_pc)
+
+    def _get_element_to_fill(self, pc, border_elements):
+        element_list = []
+        for pore_id in border_elements.get_pores_ids():
+            element_list.append(self.network.get_pore(pore_id))
+        for throat_id in border_elements.get_throats_ids():
+            element_list.append(self.network.get_throat(throat_id))
+        element_list.sort(key=lambda x: x.get_pc(), reverse=True)
+
+        for element in element_list:
+            if pc < 0 or element.spontaneous_imbibition:
+                if element.get_pc() > pc and not element.trapped and not element.water_filled:
+                    return element
+        return None
 
     def _update_b(self, pc):
         self.network.pn["pore.b"] = calculate_imbibition_network_b(
