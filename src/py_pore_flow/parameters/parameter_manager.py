@@ -133,8 +133,8 @@ class ParameterManager:
                 fraction_size = round(size * fraction)
                 indexes = list(range(size))
                 random.shuffle(indexes)
-                first_dist_indexes = indexes[0:fraction_size]
-                second_dist_indexes = indexes[fraction_size:]
+                first_dist_indexes = indexes[fraction_size:]
+                second_dist_indexes = indexes[0:fraction_size]
                 intrisic_ca_array = np.empty(size, dtype=np.float64)
                 intrisic_ca_array[first_dist_indexes] = self.__generate_fraction_cas(
                     "equilibrium", len(first_dist_indexes), radius_array[first_dist_indexes]
