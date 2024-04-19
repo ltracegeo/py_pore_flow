@@ -574,8 +574,6 @@ class SimulationBase:
     def update_pc(self, pc):
         self._update_invasions(pc)
 
-        self.trap_checker.update_trapped_pores()
-
         self._update_b(pc)
         self.__update_hinging_contact_angles(pc)
         self.saturation_calculator.update_saturations(pc)
@@ -622,6 +620,7 @@ class SimulationBase:
                 break
             self._fill_element(element, pc)
             self._on_element_invaded(pc, element)
+            self.trap_checker.update_trapped_pores()
 
     def _fill_element(self, element, pc):
         element.set_filled(self.phase, True)
