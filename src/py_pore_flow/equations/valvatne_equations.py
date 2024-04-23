@@ -3,7 +3,7 @@ from math import cos, log, pi, sin, sqrt
 
 from numba import njit
 
-from .common_equations import CIRCLE, SQUARE, TRIANGLE, calculate_dimensionless_layer_area
+from .common_equations import CIRCLE, SQUARE, TRIANGLE, calculate_corner_C, calculate_dimensionless_layer_area
 import py_pore_flow.constants as c
 
 
@@ -35,11 +35,12 @@ def calculate_pc(shape_factor, radius, theta, shape, C, beta, n_corners):
     if shape == CIRCLE:
         Fd = 1
     else:
-        S1 = C
+        S1 = 0
         S2 = 0
         S3 = 0
         for i in range(n_corners):
             if beta[i] < pi / 2 - theta:
+                S1 += calculate_corner_C(theta, beta[i])
                 S2 += cos(theta + beta[i]) / sin(beta[i])
                 S3 += pi / 2 - theta - beta[i]
         S3 = 2 * S3

@@ -140,11 +140,6 @@ def calculate_water_layer_area(b, beta, theta, n_corners):
 
 
 @njit
-def calculate_corner_C(theta, beta):
-    return cos(theta) * (cos(theta + beta) / sin(beta)) - (pi / 2 - theta - beta)
-
-
-@njit
 def calculate_sw_total(Sw, V, Vclay):
     sum_a = 0
     sum_b = 0

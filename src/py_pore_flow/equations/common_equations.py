@@ -31,3 +31,8 @@ def calculate_dimensionless_layer_area(b_tilde, beta, theta_i, theta_o):
     Al = Ao - Ai
 
     return Al
+
+
+@njit
+def calculate_corner_C(theta, beta):
+    return cos(theta) * (cos(theta + beta) / sin(beta)) - (pi / 2 - theta - beta)
