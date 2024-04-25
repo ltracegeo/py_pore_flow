@@ -121,7 +121,7 @@ class ParameterManager:
             separation_angle,
         )
         # ParameterManager.show_histogram(np.degrees(intrinsic_ca_array))
-        # ParameterManager.show_points(intrinsic_ca_array, receding_ca_array, advancing_ca_array)
+        # ParameterManager.show_points(np.degrees(intrinsic_ca_array), np.degrees(receding_ca_array), np.degrees(advancing_ca_array))
         return advancing_ca_array, receding_ca_array
 
     def __generate_intrinsic_cas(self, prefix, size, radius_array):
@@ -227,7 +227,7 @@ class ParameterManager:
 
         app = QtWidgets.QApplication([])
         win = pg.GraphicsLayoutWidget()
-        plot_item = win.addPlot(left="Krel", bottom="Sw")
+        plot_item = win.addPlot(left="Adv/Rec Cas", bottom="Intrinsic CAs")
 
         curve_item0 = pg.ScatterPlotItem(
             intrinsic, advancing, stepMode=False, pen=pg.mkPen(QtGui.QColor(0, 255, 255), width=2)
