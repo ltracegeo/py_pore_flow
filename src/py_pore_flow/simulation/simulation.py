@@ -72,6 +72,8 @@ class Simulation:
         initialize_pn(pn)
         self.network = Network(pn)
 
+        self.parameter_manager.generate_contact_angles(self.network)
+
         if generate_vtu:
             pn_to_vtu(pn, self.pc_incrementer.get_pc(), 1, 0)
 
