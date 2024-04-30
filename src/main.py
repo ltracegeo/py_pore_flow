@@ -9,7 +9,7 @@ import py_pore_flow as ppf
 
 
 def see_props():
-    pn = openpnm.io.network_from_statoil("statoil", "a")
+    pn = openpnm.io.network_from_statoil("tests/resources/statoil", "a")
     print(pn.props())
 
 
@@ -32,20 +32,27 @@ def show_graph(cycle, Sw, Krw, Kro):
     app.exec()
 
 
-def run():
+def run(debug=True):
     pn = openpnm.io.network_from_statoil("tests/resources/statoil", "a")
 
     start = time.time()
 
     ppf.log.configure(output=ppf.log.STDOUT, level=ppf.log.DEBUG)
 
-    cycle, Pc, Sw, Krw, Kro = ppf.run_two_phase_simulation(pn, generate_vtu=True, debug=True)
+    cycle, Pc, Sw, Krw, Kro = ppf.run_two_phase_simulation(pn, generate_vtu=debug, debug=debug)
 
     time_elapsed = datetime.timedelta(seconds=int(time.time() - start))
 
     print(f"Time elapsed: {time_elapsed}")
 
-    show_graph(cycle, Sw, Krw, Kro)
+    if debug:
+        show_graph(cycle, Sw, Krw, Kro)
+
+
+def profile():
+    import cProfile
+
+    cProfile.run("run(False)", filename="profile_results")
 
 
 if __name__ == "__main__":

@@ -242,10 +242,10 @@ def calculate_singlephase_conductance(L, A, G, shape, phase=WATER):
 
 @njit
 def calculate_multiphase_network_oil_conductance(
-    L, A, G, shape, So, b, bo, beta, theta_h, theta_a, n_corners, has_oil_in_center, number_of_elements
+    L, A, G, shape, So, b, bo, beta, theta_h, theta_a, n_corners, has_oil_in_center, number_of_elements, throat_id_list
 ):
     multiphase_conductance = np.empty(number_of_elements, np.float64)
-    for i in range(number_of_elements):
+    for i in throat_id_list:
         multiphase_conductance[i] = calculate_multiphase_oil_conductance(
             L[i],
             A[i],
