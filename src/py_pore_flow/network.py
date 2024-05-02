@@ -39,6 +39,25 @@ def initialize_pn(pn):
         pn[f"{element_type}.n_corners"] = int(0)
         pn[f"{element_type}.spontaneous_imbibition"] = True
 
+    # Initialize connection properties
+    pn["throat.n_conns"] = int(2)
+    pn["pore.n_conns"] = int(0)
+
+    number_of_pores = len(pn["pore.all"])
+
+    pore_n_conns_list = [0] * number_of_pores
+    pore_conns_list = [None] * number_of_pores
+    for pore_id in pn.pores():
+        neighbor_throats_list = pn.find_neighbor_throats(pore_id)
+        pore_n_conns_list[pore_id] = len(neighbor_throats_list)
+        pore_conns_list[pore_id] = neighbor_throats_list
+
+    max_n_conns = max(pore_n_conns_list)
+    pn["pore.conns"] = np.empty((number_of_pores, max_n_conns), np.int32)
+    for pore_id in pn.pores():
+        pn["pore.n_conns"][pore_id] = pore_n_conns_list[pore_id]
+        pn["pore.conns"][pore_id] = np.resize(pore_conns_list[pore_id], max_n_conns)
+
 
 class Network:
     def __init__(self, network):

@@ -1,3 +1,4 @@
+import numba as nb
 import numpy as np
 
 from py_pore_flow import log
@@ -76,56 +77,99 @@ class ImbibitionSimulation(SimulationBase):
         self.__update_snap_offs(pc)
         self.__update_oil_layers(pc)
 
-    def __update_snap_offs(self, pc):
-        for throat in self.network.get_throat_list():
-            if not throat.is_filled(self.phase) and throat.shape != CIRCLE:
-                for pore in self.network.get_neighbor_pores(throat.get_id()):
-                    if pore.is_filled(self.phase):
+    @staticmethod
+    @nb.njit
+    def snap_off(
+        throat_id_list,
+        throat_conns,
+        throat_n_conns,
+        throat_water_filled,
+        throat_shape,
+        throat_r,
+        throat_beta,
+        throat_theta_a,
+        throat_theta_r,
+        throat_theta_h,
+        pore_water_filled,
+        Rmin,
+        pc,
+        border_elements,
+        is_throats=True,
+    ):
+        for throat_id in throat_id_list:
+            if not throat_water_filled[throat_id] and throat_shape[throat_id] != CIRCLE:
+                for i in range(throat_n_conns[throat_id]):
+                    pore_id = throat_conns[throat_id][i]
+                    if pore_water_filled[pore_id]:
                         continue
                 if (
                     calculate_snap_off_pc(
-                        throat.r,
-                        throat.beta,
-                        throat.advancing_contact_angle,
-                        throat.receding_contact_angle,
-                        throat.theta_h,
-                        self.Rmin,
+                        throat_r[throat_id],
+                        throat_beta[throat_id],
+                        throat_theta_a[throat_id],
+                        throat_theta_r[throat_id],
+                        throat_theta_h[throat_id],
+                        Rmin,
                         pc,
                         0,
                     )
                     > pc
                 ):
-                    throat.set_filled(self.phase, True)
-                    self.border_elements.remove_throat(throat.get_id())
-                    neighbor_pore_list = self.network.get_neighbor_pores(throat.get_id())
-                    for neighbor_pore in neighbor_pore_list:
-                        if not neighbor_pore.is_filled(self.phase):
-                            self.border_elements.add_pore(neighbor_pore.get_id())
+                    throat_water_filled[throat_id] = True
+                    if is_throats:
+                        border_elements.remove_throat(throat_id)
+                    else:
+                        border_elements.remove_pore(throat_id)
+                    for i in range(throat_n_conns[throat_id]):
+                        pore_id = throat_conns[throat_id][i]
+                        if not pore_water_filled[pore_id]:
+                            if is_throats:
+                                border_elements.add_pore(pore_id)
+                            else:
+                                border_elements.add_throat(pore_id)
 
-        for pore in self.network.get_pore_list():
-            if not pore.is_filled(self.phase) and pore.shape != CIRCLE:
-                for throat in self.network.get_neighbor_throats(pore.get_id()):
-                    if throat.is_filled(self.phase):
-                        continue
-                    if (
-                        calculate_snap_off_pc(
-                            pore.r,
-                            pore.beta,
-                            pore.advancing_contact_angle,
-                            pore.receding_contact_angle,
-                            pore.theta_h,
-                            self.Rmin,
-                            pc,
-                            0,
-                        )
-                        > pc
-                    ):
-                        pore.set_filled(self.phase, True)
-                        self.border_elements.remove_pore(pore.get_id())
-                        neighbor_throat_list = self.network.get_neighbor_throats(pore.get_id())
-                        for neighbor_throat in neighbor_throat_list:
-                            if not neighbor_throat.is_filled(self.phase):
-                                self.border_elements.add_throat(neighbor_throat.get_id())
+    def __update_snap_offs(self, pc):
+        throat_conns = self.network.pn["throat.conns"]
+        throat_n_conns = self.network.pn["throat.n_conns"]
+        pore_water_filled = self.network.pn["pore.water_filled"]
+        self.snap_off(
+            self.network.pn.throats(),
+            throat_conns,
+            throat_n_conns,
+            self.network.pn["throat.water_filled"],
+            self.network.pn["throat.shape"],
+            self.network.pn["throat.radius"],
+            self.network.pn["throat.corner_half_angle"],
+            self.network.pn["throat.advancing_contact_angle"],
+            self.network.pn["throat.receding_contact_angle"],
+            self.network.pn["throat.hinging_contact_angle"],
+            pore_water_filled,
+            self.Rmin,
+            pc,
+            self.border_elements,
+            is_throats=True,
+        )
+
+        pore_conns = self.network.pn["pore.conns"]
+        pore_n_conns = self.network.pn["pore.n_conns"]
+        throat_water_filled = self.network.pn["throat.water_filled"]
+        self.snap_off(
+            self.network.pn.pores(),
+            pore_conns,
+            pore_n_conns,
+            self.network.pn["pore.water_filled"],
+            self.network.pn["pore.shape"],
+            self.network.pn["pore.radius"],
+            self.network.pn["pore.corner_half_angle"],
+            self.network.pn["pore.advancing_contact_angle"],
+            self.network.pn["pore.receding_contact_angle"],
+            self.network.pn["pore.hinging_contact_angle"],
+            throat_water_filled,
+            self.Rmin,
+            pc,
+            self.border_elements,
+            is_throats=False,
+        )
 
     def __update_oil_layers(self, pc):
         self.network.pn[f"pore.corner_oil_layer"] = calculate_oil_layer_network(
