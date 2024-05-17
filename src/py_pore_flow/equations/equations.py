@@ -431,9 +431,10 @@ def calculate_imbibition_piston_like_displacement_pc(
 ):
     if pc < 0:
         theta = pi - advancing_contact_angle
+        return -calculate_pc(shape_factor, radius, theta, shape, C_a, beta, n_corners)
     else:
         theta = advancing_contact_angle
-    return calculate_pc(shape_factor, radius, theta, shape, C_a, beta, n_corners)
+        return calculate_pc(shape_factor, radius, theta, shape, C_a, beta, n_corners)
 
 
 @njit
