@@ -6,6 +6,7 @@ from PyQt6 import QtWidgets, QtGui
 import pyqtgraph as pg
 
 import py_pore_flow as ppf
+from py_pore_flow.graphic.element_graphic import WATER, OIL, ElementGraphic, ElementPlotter
 
 
 def see_props():
@@ -47,6 +48,48 @@ def run(debug=True):
 
     if debug:
         show_graph(cycle, Sw, Krw, Kro)
+
+
+def draw():
+    initial_element = ElementGraphic(
+        [80, 70, 30], 1, [0, 0, 0], [80, 80, 80], [0, 0, 0], [20, 20, 20], phase_in_middle=WATER
+    )
+    initial_element.set_name("initial state")
+    initial_element.update()
+
+    oil_filled_element = ElementGraphic(
+        [80, 70, 30], 1, [0.5, 0.2, 0.1], [80, 80, 80], [0, 0, 0], [20, 20, 20], phase_in_middle=OIL
+    )
+    oil_filled_element.set_name("oil filled")
+    oil_filled_element.update()
+
+    water_filled_element = ElementGraphic(
+        [80, 70, 30], 1, [0.5, 0.2, 0.1], [80, 80, 80], [0.7, 0.4, 0.3], [20, 20, 20], phase_in_middle=WATER
+    )
+    water_filled_element.set_name("water filled")
+    water_filled_element.update()
+
+    square_element = ElementGraphic(
+        [90, 90, 90, 90], 1, [0.5, 0.2, 0.1, 0.1], [80, 80, 80, 80], [0, 0, 0, 0], [20, 20, 20, 20], phase_in_middle=OIL
+    )
+    square_element.set_name("square")
+    square_element.update()
+
+    circle_element = ElementGraphic([], 1, [], [], [], [], phase_in_middle=OIL)
+    circle_element.set_name("circle")
+    circle_element.update()
+
+    element_plotter = ElementPlotter()
+    element_plotter.add_element_graphic(initial_element)
+    element_plotter.add_element_graphic(oil_filled_element)
+    element_plotter.add_element_graphic(water_filled_element)
+    element_plotter.add_element_graphic(square_element)
+    element_plotter.add_element_graphic(circle_element)
+
+    for i in range(4):
+        oil_filled_element.distance = [0.5 + 0.1 * i, 0.2, 0.1]
+        oil_filled_element.update()
+        element_plotter.show(pause=1, block=False)
 
 
 def profile():
