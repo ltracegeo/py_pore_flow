@@ -181,7 +181,7 @@ def calculate_shape(G):
     Return:
         TRIANGLE, SQUARE or CIRCLE
     """
-    if G > 0 and G < sqrt(3) / 36:
+    if G > 0 and G <= sqrt(3) / 36:
         return TRIANGLE
     elif G <= 1 / 16:
         return SQUARE
