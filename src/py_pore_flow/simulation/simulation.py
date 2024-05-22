@@ -74,28 +74,40 @@ class Simulation:
 
         self.parameter_manager.generate_contact_angles(self.network)
 
+        calculate_initial_values(self.network)
+
         if generate_vtu:
             pn_to_vtu(pn, self.pc_incrementer.get_pc(), 1, 0)
 
     def run_drainage(self):
         self.parameter_manager.update_initial_cas(self.network)
-        calculate_initial_values(self.network, self.pc_incrementer.get_pc_max())
+        calculate_drainage_values(self.network, self.pc_incrementer.get_pc_max())
         return run_drainage(self.network, self.pc_incrementer, self.generate_vtu, debug=self.debug)
 
     def run_imbibition(self):
         self.parameter_manager.update_equilibrium_cas(self.network)
-        calculate_initial_values(self.network, self.pc_incrementer.get_pc_max())
+        calculate_imbibition_values(self.network, self.pc_incrementer.get_pc_max())
         return run_imbibition(
             self.network, self.pc_incrementer, self.parameter_manager.end_at_sor, self.generate_vtu, debug=self.debug
         )
 
 
-def calculate_initial_values(network, max_pc):
+def calculate_initial_values(network):
     for pore in network.pore_list:
-        calculate_element_initial_values(pore, max_pc)
+        calculate_element_initial_values(pore)
 
     for throat in network.throat_list:
-        calculate_element_initial_values(throat, max_pc)
+        calculate_element_initial_values(throat)
+
+    return network
+
+
+def calculate_drainage_values(network, max_pc):
+    for pore in network.pore_list:
+        calculate_element_drainage_values(pore, max_pc)
+
+    for throat in network.throat_list:
+        calculate_element_drainage_values(throat, max_pc)
 
     conductance_calculator = ConductanceCalculator(network)
     oil_singlephase_conductance = conductance_calculator.calculate_singlephase_conductance(OIL)
@@ -106,11 +118,55 @@ def calculate_initial_values(network, max_pc):
     return network
 
 
-def calculate_element_initial_values(element, max_pc):
-    Rmin = calculate_r(max_pc, 100000)
+def calculate_imbibition_values(network, max_pc):
+    for pore in network.pore_list:
+        calculate_element_imbibition_values(pore, max_pc)
 
+    for throat in network.throat_list:
+        calculate_element_imbibition_values(throat, max_pc)
+
+    conductance_calculator = ConductanceCalculator(network)
+    oil_singlephase_conductance = conductance_calculator.calculate_singlephase_conductance(OIL)
+    water_singlephase_conductance = conductance_calculator.calculate_singlephase_conductance(WATER)
+    network.pn["throat.oil_singlephase_conductance"] = oil_singlephase_conductance
+    network.pn["throat.water_singlephase_conductance"] = water_singlephase_conductance
+
+    return network
+
+
+def calculate_element_initial_values(
+    element,
+):
     element.shape = calculate_shape(element.G)
     element.beta = calculate_beta(element.G, element.shape)
+
+
+def calculate_element_drainage_values(element, max_pc):
+    element.b = calculate_drainage_b(
+        element.beta, np.full(element.n_corners, element.receding_contact_angle), element.n_corners, max_pc
+    )
+    element.C_r = calculate_C(
+        np.full(element.n_corners, element.receding_contact_angle), element.beta, element.n_corners
+    )
+    element.C_a = calculate_C(
+        np.full(element.n_corners, element.advancing_contact_angle), element.beta, element.n_corners
+    )
+    element.set_pc(
+        calculate_drainage_pc(
+            element.G,
+            element.r,
+            element.receding_contact_angle,
+            element.shape,
+            element.C_r,
+            element.beta,
+            element.n_corners,
+        )
+    )
+
+
+def calculate_element_imbibition_values(element, max_pc):
+    Rmin = calculate_r(max_pc, 100000)
+
     element.b = calculate_drainage_b(
         element.beta, np.full(element.n_corners, element.receding_contact_angle), element.n_corners, max_pc
     )
@@ -128,15 +184,4 @@ def calculate_element_initial_values(element, max_pc):
         element.r,
         element.G,
         Rmin,
-    )
-    element.set_pc(
-        calculate_drainage_pc(
-            element.G,
-            element.r,
-            element.receding_contact_angle,
-            element.shape,
-            element.C_r,
-            element.beta,
-            element.n_corners,
-        )
     )

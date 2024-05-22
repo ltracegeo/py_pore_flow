@@ -24,8 +24,8 @@ def initialize_pn(pn):
         pn[f"{element_type}.water_saturation"] = 1.0
         pn[f"{element_type}.corner_half_angle"] = np.empty((number_of_elements, MAX_NUMBER_OF_CORNERS), np.float64)
         pn[f"{element_type}.hinging_contact_angle"] = np.empty((number_of_elements, MAX_NUMBER_OF_CORNERS), np.float64)
-        pn[f"{element_type}.b"] = np.empty((number_of_elements, MAX_NUMBER_OF_CORNERS), np.float64)
-        pn[f"{element_type}.bo"] = np.empty((number_of_elements, MAX_NUMBER_OF_CORNERS), np.float64)
+        pn[f"{element_type}.b"] = np.full((number_of_elements, MAX_NUMBER_OF_CORNERS), 0.0, np.float64)
+        pn[f"{element_type}.bo"] = np.full((number_of_elements, MAX_NUMBER_OF_CORNERS), 0.0, np.float64)
         pn[f"{element_type}.corner_oil_layer"] = np.full((number_of_elements, MAX_NUMBER_OF_CORNERS), False, np.bool_)
         pn[f"{element_type}.C_r"] = 0.0
         pn[f"{element_type}.C_a"] = 0.0
