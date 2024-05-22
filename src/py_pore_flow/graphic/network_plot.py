@@ -41,14 +41,14 @@ class ElementPlot:
         self.n_corners = self.pn[f"{self.element_type}.n_corners"][self.id]
 
         self.graphic = ElementGraphic()
-        self.graphic.angles = self.pn[f"{self.element_type}.corner_half_angle"][self.id] * 2
+        self.graphic.angles = np.resize(self.pn[f"{self.element_type}.corner_half_angle"][self.id] * 2, self.n_corners)
         self.graphic.radius = self.pn[f"{self.element_type}.radius"][self.id]
         self.update()
 
     def update(self):
-        self.graphic.distance = np.resize(self.pn[f"{self.element_type}.b"][self.id], self.n_corners)
+        self.graphic.distance = np.abs(np.resize(self.pn[f"{self.element_type}.b"][self.id], self.n_corners))
         self.graphic.theta = np.resize(self.pn[f"{self.element_type}.hinging_contact_angle"][self.id], self.n_corners)
-        self.graphic.distance_o = np.resize(self.pn[f"{self.element_type}.bo"][self.id], self.n_corners)
+        self.graphic.distance_o = np.abs(np.resize(self.pn[f"{self.element_type}.bo"][self.id], self.n_corners))
         self.graphic.theta_o = np.resize(
             self.pn[f"{self.element_type}.advancing_contact_angle"][self.id], self.n_corners
         )
