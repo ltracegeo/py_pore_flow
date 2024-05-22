@@ -658,7 +658,10 @@ class SimulationBase:
 
     def _fill_element(self, element, pc):
         element.set_filled(self.phase, True)
-        self.border_elements.remove_pore(element.get_id())
+        if element.is_pore():
+            self.border_elements.remove_pore(element.get_id())
+        else:
+            self.border_elements.remove_throat(element.get_id())
 
         neighbor_list = self.network.get_neighbors(element)
         for neighbor in neighbor_list:
