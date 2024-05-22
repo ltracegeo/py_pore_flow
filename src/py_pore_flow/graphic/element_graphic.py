@@ -49,10 +49,14 @@ class ElementPlotter:
             self.line_color,
         )
 
+        axis.text(0.0, -0.2, element_graphic.description, size=12, ha="left", transform=axis.transAxes)
+
     @staticmethod
     def reset_axes(number_of_plots):
         plt.close()
         fig, ax = plt.subplots(*ElementPlotter.find_2d_dimensions(number_of_plots))
+        fig.tight_layout(pad=1)
+
         if number_of_plots > 1:
             axis_list = ax.flat
         else:
@@ -129,9 +133,13 @@ class ElementGraphic:
         self.outter_arcs = None
 
         self.name = ""
+        self.description = ""
 
     def set_name(self, name):
         self.name = name
+
+    def set_description(self, description):
+        self.description = description
 
     def update(self):
         self.vertices, self.inner_arcs, self.outter_arcs = self.draw_element(

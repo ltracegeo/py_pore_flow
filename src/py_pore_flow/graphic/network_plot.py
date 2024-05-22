@@ -54,6 +54,9 @@ class ElementPlot:
         )
         self.graphic.phase_in_middle = OIL if self.pn[f"{self.element_type}.oil_filled"][self.id] else WATER
 
+        sw = self.pn[f"{self.element_type}.water_saturation"][self.id]
+        self.graphic.description = f"Sw: {sw}"
+
         self.graphic.update()
 
     def get_graphic(self):
