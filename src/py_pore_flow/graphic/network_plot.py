@@ -25,11 +25,11 @@ class NetworkPlot:
         self.element_plotter.add_element_graphic(new_plot.get_graphic())
         return new_plot
 
-    def update(self):
+    def update(self, pause=0.1):
         for plot in self.plot_list:
             plot.update()
 
-        self.element_plotter.show(pause=0.001)
+        self.element_plotter.show(pause=pause)
 
 
 class ElementPlot:
@@ -55,7 +55,12 @@ class ElementPlot:
         self.graphic.phase_in_middle = OIL if self.pn[f"{self.element_type}.oil_filled"][self.id] else WATER
 
         sw = self.pn[f"{self.element_type}.water_saturation"][self.id]
-        self.graphic.description = f"Sw: {sw}"
+        string = f"Sw: {sw:.2f}\n"
+
+        theta_list = np.resize(self.pn[f"{self.element_type}.hinging_contact_angle"][self.id], self.n_corners)
+        for theta in theta_list:
+            string += f"{theta:.2f} "
+        self.graphic.description = string
 
         self.graphic.update()
 

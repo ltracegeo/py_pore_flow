@@ -19,9 +19,12 @@ from py_pore_flow.output import pn_to_vtu
 from py_pore_flow.simulation.drainage import run_drainage
 from py_pore_flow.simulation.imbibition import run_imbibition
 from py_pore_flow.simulation.simulation_base import ConductanceCalculator, PcIncrementer
+from py_pore_flow.graphic.network_plot import WATER, OIL, NetworkPlot
 
 
-def run_two_phase_simulation(pn, parameters_dict=DEFAULT_PARAMETERS, generate_vtu=False, debug=False):
+def run_two_phase_simulation(
+    pn, parameters_dict=DEFAULT_PARAMETERS, generate_vtu=False, plot_elements=False, debug=False
+):
     previous_limit = sys.getrecursionlimit()
 
     number_of_elements = len(pn["pore.all"]) + len(pn["throat.all"])
@@ -36,7 +39,7 @@ def run_two_phase_simulation(pn, parameters_dict=DEFAULT_PARAMETERS, generate_vt
     Krw = [None] * 2
     Kro = [None] * 2
 
-    simulation = Simulation(pn, parameters, generate_vtu, debug)
+    simulation = Simulation(pn, parameters, generate_vtu, plot_elements, debug)
     Pc[0], Sw[0], Krw[0], Kro[0] = simulation.run_drainage()
     Pc[1], Sw[1], Krw[1], Kro[1] = simulation.run_imbibition()
 
@@ -55,8 +58,9 @@ def run_two_phase_simulation(pn, parameters_dict=DEFAULT_PARAMETERS, generate_vt
 
 
 class Simulation:
-    def __init__(self, pn, parameters_dict=DEFAULT_PARAMETERS, generate_vtu=False, debug=False):
+    def __init__(self, pn, parameters_dict=DEFAULT_PARAMETERS, generate_vtu=False, plot_elements=False, debug=False):
         self.debug = debug
+        self.plot_elements = plot_elements
         self.generate_vtu = generate_vtu
 
         self.parameter_manager = ParameterManager(parameters_dict)
@@ -79,16 +83,30 @@ class Simulation:
         if generate_vtu:
             pn_to_vtu(pn, self.pc_incrementer.get_pc(), 1, 0)
 
+        if self.plot_elements:
+            self.network_plot = NetworkPlot(pn)
+            for id in self.network.pn.throats():
+                self.network_plot.create_throat_plot(id)
+            for id in self.network.pn.pores():
+                self.network_plot.create_pore_plot(id)
+        else:
+            self.network_plot = None
+
     def run_drainage(self):
         self.parameter_manager.update_initial_cas(self.network)
         calculate_drainage_values(self.network, self.pc_incrementer.get_pc_max())
-        return run_drainage(self.network, self.pc_incrementer, self.generate_vtu, debug=self.debug)
+        return run_drainage(self.network, self.pc_incrementer, self.network_plot, self.generate_vtu, debug=self.debug)
 
     def run_imbibition(self):
         self.parameter_manager.update_equilibrium_cas(self.network)
         calculate_imbibition_values(self.network, self.pc_incrementer.get_pc_max())
         return run_imbibition(
-            self.network, self.pc_incrementer, self.parameter_manager.end_at_sor, self.generate_vtu, debug=self.debug
+            self.network,
+            self.pc_incrementer,
+            self.network_plot,
+            self.parameter_manager.end_at_sor,
+            self.generate_vtu,
+            debug=self.debug,
         )
 
 

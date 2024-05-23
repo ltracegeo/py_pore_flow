@@ -6,7 +6,7 @@ from py_pore_flow.output import pn_to_vtu
 from py_pore_flow.simulation.simulation_base import SimulationBase
 
 
-def run_drainage(network, pc_incrementer, generate_vtu=False, debug=False):
+def run_drainage(network, pc_incrementer, network_plot, generate_vtu=False, debug=False):
     if debug:
         log.info("Start drainage")
 
@@ -34,6 +34,9 @@ def run_drainage(network, pc_incrementer, generate_vtu=False, debug=False):
             log.info(
                 f"Pc: {Pc:8.2f}, Sw: {Sw:.6f}, Krw: {Krw:.6f}, Kro: {Kro:.6f}, Filled: {pores_filled:4}/{total_pores} ({percentage:2}%)."
             )
+
+        if network_plot is not None:
+            network_plot.update()
 
         if generate_vtu:
             pn_to_vtu(network.pn, Pc, Sw, 1)

@@ -33,14 +33,16 @@ def show_graph(cycle, Sw, Krw, Kro):
     app.exec()
 
 
-def run(debug=True):
-    pn = openpnm.io.network_from_statoil("tests/resources/statoil", "a")
+def run(sample="a", generate_vtu=False, plot_elements=False, debug=True):
+    pn = openpnm.io.network_from_statoil("tests/resources/statoil", sample)
 
     start = time.time()
 
     ppf.log.configure(output=ppf.log.STDOUT, level=ppf.log.DEBUG)
 
-    cycle, Pc, Sw, Krw, Kro = ppf.run_two_phase_simulation(pn, generate_vtu=debug, debug=debug)
+    cycle, Pc, Sw, Krw, Kro = ppf.run_two_phase_simulation(
+        pn, generate_vtu=generate_vtu, debug=debug, plot_elements=plot_elements
+    )
 
     time_elapsed = datetime.timedelta(seconds=int(time.time() - start))
 
