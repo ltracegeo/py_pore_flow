@@ -98,7 +98,6 @@ def draw():
 def manual_sim():
     pn = openpnm.io.network_from_statoil("tests/resources/statoil", "Image")
     simulation = ManualSimulationPlot(pn)
-    simulation.add_throat(5)
     simulation.show()
 
 

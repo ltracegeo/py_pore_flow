@@ -1,7 +1,8 @@
 import matplotlib.pyplot as plt
 from matplotlib.widgets import RadioButtons, TextBox
 
-from py_pore_flow.graphic.network_plot import NetworkPlot
+from py_pore_flow.graphic.element_graphic import ElementPlotter
+from py_pore_flow.graphic.network_plot import PorePlot, ThroatPlot
 from py_pore_flow.network import initialize_pn, Network
 from py_pore_flow.parameters.parameter_manager import DEFAULT_PARAMETERS, ParameterManager
 from py_pore_flow.simulation.drainage import DrainageSimulation
@@ -15,19 +16,22 @@ from py_pore_flow.simulation.simulation import (
 
 class ManualSimulationPlot:
     def __init__(self, pn, parameters_dict=DEFAULT_PARAMETERS):
+        self.pn = pn
         self.manuel_simulation = ManualSimulation(pn, parameters_dict)
         self.manuel_simulation.set_max_pc(40000)
-        self.network_plot = NetworkPlot(pn)
+        self.element_plotter = ElementPlotter()
 
-    def add_pore(self, pore_id):
-        self.network_plot.create_pore_plot(pore_id)
+        self.element_plot = None
 
-    def add_throat(self, throat_id):
-        self.network_plot.create_throat_plot(throat_id)
+    def set_pore(self, pore_id):
+        self.element_plot = PorePlot(self.pn, pore_id)
+
+    def set_throat(self, throat_id):
+        self.element_plot = ThroatPlot(self.pn, throat_id)
 
     def show(self):
         plt.close()
-        fig, self.axis = plt.subplot_mosaic("A;B;C", gridspec_kw=dict(height_ratios=[1, 0.2, 0.2]))
+        fig, self.axis = plt.subplot_mosaic("D;A;B;C", gridspec_kw=dict(height_ratios=[0.2, 1, 0.2, 0.2]))
         fig.tight_layout(pad=1)
 
         fig.suptitle("Elements")
@@ -35,16 +39,23 @@ class ManualSimulationPlot:
 
         self.__update_plot()
 
+        self.element_text_box = TextBox(self.axis["D"], "ID", initial="0")
+        self.element_text_box.on_submit(self.__on_element_changed)
+
         self.radio_buttons = RadioButtons(self.axis["B"], ["drainage", "imbibition"])
         self.radio_buttons.on_clicked(self.__on_cycle_changed)
 
-        self.text_box = TextBox(self.axis["C"], "Pc", initial="0.0")
-        self.text_box.on_submit(self.__on_pc_changed)
+        self.pc_text_box = TextBox(self.axis["C"], "Pc", initial="0.0")
+        self.pc_text_box.on_submit(self.__on_pc_changed)
 
         self.__on_cycle_changed("drainage")
         self.__on_pc_changed("0.0")
 
         plt.show()
+
+    def __on_element_changed(self, text):
+        self.set_throat(int(text))
+        self.__update_plot()
 
     def __on_cycle_changed(self, text):
         self.manuel_simulation.set_cycle(text)
@@ -55,9 +66,11 @@ class ManualSimulationPlot:
         self.__update_plot()
 
     def __update_plot(self):
-        self.network_plot.plot_list[0].update()
-        element_plotter = self.network_plot.element_plotter
-        element_plotter.plot_element(self.axis["A"], element_plotter.element_graphic_list[0])
+        if not self.element_plot:
+            return
+
+        self.element_plot.update()
+        self.element_plotter.plot_element(self.axis["A"], self.element_plot.get_graphic())
         plt.draw()
 
 
