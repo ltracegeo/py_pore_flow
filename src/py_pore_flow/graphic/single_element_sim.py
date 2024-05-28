@@ -1,5 +1,9 @@
-import matplotlib.pyplot as plt
-from matplotlib.widgets import RadioButtons, TextBox
+import math
+
+import numpy as np
+import pandas as pd
+from PyQt6 import QtWidgets
+import pyqtgraph as pg
 
 from py_pore_flow.graphic.element_graphic import ElementPlotter
 from py_pore_flow.graphic.network_plot import PorePlot, ThroatPlot
@@ -30,31 +34,56 @@ class ManualSimulationPlot:
         self.element_plot = ThroatPlot(self.pn, throat_id)
 
     def show(self):
-        plt.close()
-        fig, self.axis = plt.subplot_mosaic("D;A;B;C", gridspec_kw=dict(height_ratios=[0.2, 1, 0.2, 0.2]))
-        fig.tight_layout(pad=1)
+        app = QtWidgets.QApplication([])
 
-        fig.suptitle("Elements")
-        plt.grid(False)
+        self.element_type_combobox = QtWidgets.QComboBox()
+        self.element_type_combobox.addItem("Throat")
+        self.element_type_combobox.addItem("Pore")
+        self.element_id_input = QtWidgets.QLineEdit()
+        self.element_id_input.editingFinished.connect(lambda: self.__on_element_changed(self.element_id_input.text()))
+        pg.setConfigOption("background", "w")
+        pg.setConfigOption("foreground", "k")
+        self.graph = pg.GraphicsLayoutWidget()
+        self.table = QtWidgets.QTableWidget()
+        self.plot = self.graph.addPlot()
+        self.cycle_combobox = QtWidgets.QComboBox()
+        self.cycle_combobox.addItem("drainage")
+        self.cycle_combobox.addItem("imbibition")
+        self.cycle_combobox.currentTextChanged.connect(self.__on_cycle_changed)
+        self.pc_input = QtWidgets.QLineEdit()
+        self.pc_input.editingFinished.connect(lambda: self.__on_pc_changed(self.pc_input.text()))
 
-        self.__update_plot()
+        element_selection_layout = QtWidgets.QHBoxLayout()
+        element_selection_layout.addWidget(self.element_type_combobox)
+        element_selection_layout.addWidget(QtWidgets.QLabel("ID:"))
+        element_selection_layout.addWidget(self.element_id_input)
 
-        self.element_text_box = TextBox(self.axis["D"], "ID", initial="0")
-        self.element_text_box.on_submit(self.__on_element_changed)
+        element_layout = QtWidgets.QSplitter()
+        element_layout.addWidget(self.graph)
+        element_layout.addWidget(self.table)
+        element_layout.setSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Expanding)
 
-        self.radio_buttons = RadioButtons(self.axis["B"], ["drainage", "imbibition"])
-        self.radio_buttons.on_clicked(self.__on_cycle_changed)
+        central_widget = QtWidgets.QFrame()
+        layout = QtWidgets.QFormLayout(central_widget)
+        layout.addRow(element_selection_layout)
+        layout.addRow(element_layout)
+        layout.addRow("Cycle:", self.cycle_combobox)
+        layout.addRow("Pc:", self.pc_input)
 
-        self.pc_text_box = TextBox(self.axis["C"], "Pc", initial="0.0")
-        self.pc_text_box.on_submit(self.__on_pc_changed)
+        win = QtWidgets.QMainWindow()
+        win.setCentralWidget(central_widget)
+        win.show()
 
         self.__on_cycle_changed("drainage")
         self.__on_pc_changed("0.0")
 
-        plt.show()
+        app.exec()
 
     def __on_element_changed(self, text):
-        self.set_throat(int(text))
+        if self.element_type_combobox.currentText() == "Throat":
+            self.set_throat(int(text))
+        else:
+            self.set_pore(int(text))
         self.__update_plot()
 
     def __on_cycle_changed(self, text):
@@ -70,8 +99,66 @@ class ManualSimulationPlot:
             return
 
         self.element_plot.update()
-        self.element_plotter.plot_element(self.axis["A"], self.element_plot.get_graphic())
-        plt.draw()
+        self.element_plotter.plot_pyqtgraph_element(self.plot, self.element_plot.get_graphic())
+        self.__update_table()
+
+    def __update_table(self):
+        element_type = self.element_plot.element_type
+        id = self.element_plot.id
+        n_corners = self.element_plot.n_corners
+
+        radius = self.__pad_with_nan(self.pn[f"{element_type}.radius"][id], n_corners)
+        beta = np.degrees(np.resize(self.pn[f"{element_type}.corner_half_angle"][id], n_corners))
+        sw = self.__pad_with_nan(self.pn[f"{element_type}.water_saturation"][id], n_corners)
+        theta_h = np.degrees(np.resize(self.pn[f"{element_type}.hinging_contact_angle"][id], n_corners))
+        theta_a = np.degrees(np.resize(self.pn[f"{element_type}.advancing_contact_angle"][id], n_corners))
+        theta_r = np.degrees(np.resize(self.pn[f"{element_type}.receding_contact_angle"][id], n_corners))
+        b = np.resize(self.pn[f"{element_type}.b"][id], n_corners)
+        bo = np.resize(self.pn[f"{element_type}.bo"][id], n_corners)
+        corner_oil_layer = np.resize(self.pn[f"{element_type}.corner_oil_layer"][id], n_corners)
+
+        df = pd.DataFrame.from_dict(
+            {
+                "radius:": radius,
+                "beta:": beta,
+                "Sw": sw,
+                "theta_h": theta_h,
+                "theta_a": theta_a,
+                "theta_r": theta_r,
+                "bi": b,
+                "bo": bo,
+                "corner_oil_layer": corner_oil_layer,
+            },
+            orient="index",
+        )
+
+        self.__df_to_widget(df, self.table)
+
+    @staticmethod
+    def __df_to_widget(dataframe, table_widget: QtWidgets.QTableWidget):
+        num_rows, num_cols = dataframe.shape
+        table_widget.setRowCount(num_rows)
+        table_widget.setColumnCount(num_cols)
+
+        for row_idx, row_item in enumerate(dataframe.iterrows()):
+            row_name, row_data = row_item
+            table_widget.setVerticalHeaderItem(row_idx, QtWidgets.QTableWidgetItem(row_name))
+            for col_idx, value in enumerate(row_data):
+                if math.isnan(value):
+                    item = QtWidgets.QTableWidgetItem("")
+                else:
+                    item = QtWidgets.QTableWidgetItem(str(value))
+                table_widget.setItem(row_idx, col_idx, item)
+
+        table_widget.resizeColumnsToContents()
+        table_widget.resizeRowsToContents()
+
+    @staticmethod
+    def __pad_with_nan(value, size):
+        if size > 1:
+            return np.pad(np.array([value], dtype="float64"), (0, size - 1), constant_values=np.nan)
+        else:
+            return np.array([value])
 
 
 class ManualSimulation:

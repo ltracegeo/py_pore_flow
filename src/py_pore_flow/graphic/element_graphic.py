@@ -2,6 +2,9 @@ import math
 
 import matplotlib.pyplot as plt
 import numpy as np
+from PyQt6 import QtCore, QtGui, QtWidgets
+import pyqtgraph as pg
+
 
 WATER = 0
 OIL = 1
@@ -51,6 +54,24 @@ class ElementPlotter:
 
         axis.text(0.0, -0.2, element_graphic.description, size=12, ha="left", transform=axis.transAxes)
 
+    def plot_pyqtgraph_element(self, plot, element_graphic):
+        center_color = self.oil_color if element_graphic.phase_in_middle == OIL else self.water_color
+        inner_layers_color = self.water_color
+        outter_layers_color = self.oil_color
+
+        plot.clear()
+        self.plot_pyqtgraph_graphic(
+            plot,
+            element_graphic.name,
+            element_graphic.vertices,
+            element_graphic.inner_arcs,
+            element_graphic.outter_arcs,
+            center_color,
+            inner_layers_color,
+            outter_layers_color,
+            self.line_color,
+        )
+
     @staticmethod
     def reset_axes(number_of_plots):
         plt.close()
@@ -95,6 +116,16 @@ class ElementPlotter:
         axis.set_title(name)
         axis.set_aspect("equal", adjustable="box")
         axis.label_outer()
+
+    @staticmethod
+    def plot_pyqtgraph_graphic(
+        plot, name, vertices, inner_arcs, outter_arcs, center_color, inner_layers_color, outter_layers_color, line_color
+    ):
+        element_item = ElementItem(
+            name, vertices, inner_arcs, outter_arcs, center_color, inner_layers_color, outter_layers_color, line_color
+        )
+        plot.setAspectLocked(lock=True, ratio=1)
+        plot.addItem(element_item)
 
     @staticmethod
     def find_2d_dimensions(n):
@@ -281,3 +312,53 @@ class ElementGraphic:
                 arc_y = np.append(arc_y, v1[1])
                 arcs[i] = (arc_x, arc_y)
         return arcs
+
+
+class ElementItem(pg.GraphicsObject):
+    def __init__(
+        self, name, vertices, inner_arcs, outter_arcs, center_color, inner_layers_color, outter_layers_color, line_color
+    ):
+        super().__init__()
+
+        self.picture = QtGui.QPicture()
+        painter = QtGui.QPainter(self.picture)
+
+        polygon = QtGui.QPolygonF()
+        for x, y in zip(vertices[:, 0], vertices[:, 1]):
+            polygon.append(QtCore.QPointF(x, y))
+        painter.setPen(pg.mkPen(QtGui.QColor(line_color), width=2))
+        painter.setBrush(pg.mkBrush(QtGui.QColor(center_color)))
+        painter.drawPolygon(polygon)
+
+        for arc_x, arc_y in outter_arcs:
+            if arc_x is None:
+                continue
+            polygon = QtGui.QPolygonF()
+            for i in range(len(arc_x)):
+                polygon.append(QtCore.QPointF(arc_x[i], arc_y[i]))
+            painter.setPen(pg.mkPen(QtGui.QColor(line_color), width=2))
+            painter.setBrush(pg.mkBrush(QtGui.QColor(outter_layers_color)))
+            painter.drawPolygon(polygon)
+
+        for arc_x, arc_y in inner_arcs:
+            if arc_x is None:
+                continue
+            polygon = QtGui.QPolygonF()
+            for i in range(len(arc_x)):
+                polygon.append(QtCore.QPointF(arc_x[i], arc_y[i]))
+            painter.setPen(pg.mkPen(QtGui.QColor(line_color), width=2))
+            painter.setBrush(pg.mkBrush(QtGui.QColor(inner_layers_color)))
+            painter.drawPolygon(polygon)
+
+        painter.end()
+
+        self.rect = QtCore.QRectF(
+            QtCore.QPointF(np.min(vertices[:, 0]), np.min(vertices[:, 1])),
+            QtCore.QPointF(np.max(vertices[:, 0]), np.max(vertices[:, 1])),
+        )
+
+    def paint(self, painter, option, widget=None):
+        painter.drawPicture(0, 0, self.picture)
+
+    def boundingRect(self):
+        return self.rect
