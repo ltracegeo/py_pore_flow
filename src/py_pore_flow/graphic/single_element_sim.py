@@ -163,6 +163,7 @@ class ElementWidget(QtWidgets.QFrame):
         radius = self.__pad_with_nan(self.pn[f"{element_type}.radius"][id], n_corners)
         beta = np.degrees(np.resize(self.pn[f"{element_type}.corner_half_angle"][id], n_corners))
         conns = np.resize(self.pn[f"{element_type}.conns"][id], self.pn[f"{element_type}.n_conns"][id])
+        oil_filled = self.pn[f"{element_type}.oil_filled"][id]
         sw = self.__pad_with_nan(self.pn[f"{element_type}.water_saturation"][id], n_corners)
         theta_h = np.degrees(np.resize(self.pn[f"{element_type}.hinging_contact_angle"][id], n_corners))
         theta_a = np.degrees(np.resize(self.pn[f"{element_type}.advancing_contact_angle"][id], max(n_corners, 1)))
@@ -184,6 +185,7 @@ class ElementWidget(QtWidgets.QFrame):
                 "radius:": radius,
                 "beta:": beta,
                 "conns": [str(conns)],
+                "oil_filled": [str(oil_filled)],
                 "Sw": sw,
                 "theta_h": theta_h,
                 "theta_a": theta_a,
