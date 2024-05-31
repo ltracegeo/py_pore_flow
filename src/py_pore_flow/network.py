@@ -38,6 +38,7 @@ def initialize_pn(pn):
         pn[f"{element_type}.trapped"] = False
         pn[f"{element_type}.n_corners"] = int(0)
         pn[f"{element_type}.spontaneous_imbibition"] = True
+        pn[f"{element_type}.entry_pressure"] = 0.0
 
     # Initialize connection properties
     pn["throat.n_conns"] = int(2)
@@ -415,6 +416,7 @@ class PnElement:
 
     def set_pc(self, pc):
         self.pc = pc
+        self.pn[f"{self.type_name}.entry_pressure"][self.id] = pc
 
     @abstractmethod
     def is_pore(self):
