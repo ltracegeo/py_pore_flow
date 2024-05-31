@@ -1,4 +1,5 @@
 import math
+import re
 
 import numpy as np
 import pandas as pd
@@ -26,9 +27,11 @@ class ManualSimulationPlot:
 
     def set_pore(self, pore_id):
         self.element_widget.set_pore(pore_id)
+        self.__update_conn_combobox(self.element_widget.get_conns(), "Throat")
 
     def set_throat(self, throat_id):
         self.element_widget.set_throat(throat_id)
+        self.__update_conn_combobox(self.element_widget.get_conns(), "Pore")
 
     def show(self):
         app = QtWidgets.QApplication([])
@@ -39,6 +42,9 @@ class ManualSimulationPlot:
         self.element_id_input = QtWidgets.QLineEdit()
         self.element_id_input.setValidator(QtGui.QIntValidator())
         self.element_id_input.editingFinished.connect(lambda: self.__on_element_changed(self.element_id_input.text()))
+        self.element_conn_combobox = QtWidgets.QComboBox()
+        self.element_conn_combobox.setPlaceholderText("Go to connection")
+        self.element_conn_combobox.currentTextChanged.connect(self.__on_element_conn_changed)
         pg.setConfigOption("background", "w")
         pg.setConfigOption("foreground", "k")
         self.cycle_combobox = QtWidgets.QComboBox()
@@ -53,6 +59,7 @@ class ManualSimulationPlot:
         element_selection_layout.addWidget(self.element_type_combobox)
         element_selection_layout.addWidget(QtWidgets.QLabel("ID:"))
         element_selection_layout.addWidget(self.element_id_input)
+        element_selection_layout.addWidget(self.element_conn_combobox)
 
         self.element_widget = ElementWidget(self.pn)
 
@@ -78,6 +85,23 @@ class ManualSimulationPlot:
         else:
             self.set_pore(int(text))
         self.element_widget.update()
+
+    def __update_conn_combobox(self, conns, element_type):
+        self.element_conn_combobox.blockSignals(True)
+        self.element_conn_combobox.clear()
+        for conn_id in conns:
+            self.element_conn_combobox.addItem(f"{element_type} {conn_id}")
+        self.element_conn_combobox.blockSignals(False)
+
+    def __on_element_conn_changed(self, text):
+        pattern = re.compile("(Throat|Pore) (\d+)")
+        re_match = pattern.match(text)
+        if re_match:
+            element_type = re_match[1]
+            element_id = int(re_match[2])
+            self.element_type_combobox.setCurrentText(element_type)
+            self.element_id_input.setText(str(element_id))
+            self.__on_element_changed(str(element_id))
 
     def __on_cycle_changed(self, text):
         self.manual_simulation.set_cycle(text)
@@ -122,6 +146,13 @@ class ElementWidget(QtWidgets.QFrame):
         self.element_plot.update()
         self.element_plotter.plot_pyqtgraph_element(self.plot, self.element_plot.get_graphic())
         self.__update_table(self.element_plot)
+
+    def get_conns(self):
+        if not self.element_plot:
+            return []
+        element_type = self.element_plot.element_type
+        id = self.element_plot.id
+        return np.resize(self.pn[f"{element_type}.conns"][id], self.pn[f"{element_type}.n_conns"][id])
 
     def __update_table(self, element_plot):
         element_type = element_plot.element_type
