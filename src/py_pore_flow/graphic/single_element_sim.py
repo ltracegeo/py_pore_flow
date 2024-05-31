@@ -159,13 +159,14 @@ class ElementWidget(QtWidgets.QFrame):
         id = element_plot.id
         n_corners = element_plot.n_corners
 
+        G = self.__pad_with_nan(self.pn[f"{element_type}.shape_factor"][id], n_corners)
         radius = self.__pad_with_nan(self.pn[f"{element_type}.radius"][id], n_corners)
         beta = np.degrees(np.resize(self.pn[f"{element_type}.corner_half_angle"][id], n_corners))
         conns = np.resize(self.pn[f"{element_type}.conns"][id], self.pn[f"{element_type}.n_conns"][id])
         sw = self.__pad_with_nan(self.pn[f"{element_type}.water_saturation"][id], n_corners)
         theta_h = np.degrees(np.resize(self.pn[f"{element_type}.hinging_contact_angle"][id], n_corners))
-        theta_a = np.degrees(np.resize(self.pn[f"{element_type}.advancing_contact_angle"][id], n_corners))
-        theta_r = np.degrees(np.resize(self.pn[f"{element_type}.receding_contact_angle"][id], n_corners))
+        theta_a = np.degrees(np.resize(self.pn[f"{element_type}.advancing_contact_angle"][id], max(n_corners, 1)))
+        theta_r = np.degrees(np.resize(self.pn[f"{element_type}.receding_contact_angle"][id], max(n_corners, 1)))
         b = np.resize(self.pn[f"{element_type}.b"][id], n_corners)
         bo = np.resize(self.pn[f"{element_type}.bo"][id], n_corners)
         corner_oil_layer = np.resize(self.pn[f"{element_type}.corner_oil_layer"][id], n_corners)
@@ -179,6 +180,7 @@ class ElementWidget(QtWidgets.QFrame):
 
         df = pd.DataFrame.from_dict(
             {
+                "G:": G,
                 "radius:": radius,
                 "beta:": beta,
                 "conns": [str(conns)],
