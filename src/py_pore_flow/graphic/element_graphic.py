@@ -217,7 +217,7 @@ class ElementGraphic:
             vertices = ElementGraphic.square_vertices(radius)
 
         inner_arcs = ElementGraphic.arcs_in_corners(vertices, distance, theta)
-        outter_arcs = ElementGraphic.arcs_in_corners(vertices, distance_o, theta_o)
+        outter_arcs = ElementGraphic.arcs_in_corners(vertices, distance_o, np.pi - theta_o)
 
         return vertices, inner_arcs, outter_arcs
 
