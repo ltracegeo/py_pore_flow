@@ -378,9 +378,7 @@ def calculate_drainage_corner_b(beta, theta_r, Rmin):
 @njit
 def calculate_corner_bi(beta, theta, R):
     b = R * cos(theta + beta) / sin(beta)
-    if b < 0:
-        b = 0.0
-    return b
+    return abs(b)
 
 
 @njit
@@ -394,7 +392,7 @@ def calculate_imbibition_network_bo(r, beta, theta_a, has_oil_layer, n_corners, 
 
 @njit
 def calculate_imbibition_element_bo(r, beta, theta_a, has_oil_layer, n_corners, pc):
-    R = calculate_r(pc, r)
+    R = calculate_r(-pc, r)
     b = np.empty(MAX_NUMBER_OF_CORNERS, dtype=np.float64)
     for i in range(int(n_corners)):
         if has_oil_layer[i]:
@@ -405,9 +403,7 @@ def calculate_imbibition_element_bo(r, beta, theta_a, has_oil_layer, n_corners, 
 @njit
 def calculate_corner_bo(beta, theta, R):
     b = R * cos(theta - beta) / sin(beta)
-    if b < 0:
-        b = 0.0
-    return b
+    return abs(b)
 
 
 # Imbibition
@@ -494,15 +490,13 @@ def calculate_snap_off_pc(r, beta, theta_a, theta_r, theta_h, Rmin, pc, h):
 
 @njit
 def calculate_r(pc, r):
-    if pc == 0:
+    if pc <= 0:
         R = r
     else:
-        R = c.sigma / pc
+        R = abs(c.sigma / pc)
 
     if R > r:
         R = r
-    elif R < -r:
-        R = -r
     return R
 
 
