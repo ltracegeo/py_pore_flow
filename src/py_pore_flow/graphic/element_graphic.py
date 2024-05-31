@@ -245,28 +245,14 @@ class ElementGraphic:
         if not np.isclose(np.sum(angles), np.pi):
             raise ValueError("The sum of the angles must be 180 degrees.")
 
-        # Calculate the semi-perimeter (s) using the formula: s = r * (A + B + C) / 2
-        s = radius * (np.sum(angles)) / 2
-
-        # Calculate the sides of the triangle using the formula: side = 2 * r * tan(angle / 2)
-        sides = 2 * radius * np.tan(angles / 2)
-
-        # Calculate the coordinates of the vertices
-        # Assume the first vertex is at the origin (0,0)
+        half_angles = angles / 2
+        half_lengths = radius / np.tan(half_angles)
         A = (0, 0)
+        B = (half_lengths[0] + half_lengths[1], 0)
+        secound_length = half_lengths[0] + half_lengths[2]
+        C = (secound_length * np.cos(angles[0]), secound_length * np.sin(angles[0]))
 
-        # Second vertex at (side_a, 0)
-        B = (sides[0], 0)
-
-        # Third vertex calculated using law of cosines and coordinates geometry
-        Cx = sides[1] * np.cos(angles[2])
-        Cy = sides[1] * np.sin(angles[2])
-        C = (Cx, Cy)
-
-        # Define vertices of the triangle
-        vertices = np.array([A, B, C])
-
-        return vertices
+        return np.array([A, B, C])
 
     @staticmethod
     def point_on_side(v1, v2, dist):

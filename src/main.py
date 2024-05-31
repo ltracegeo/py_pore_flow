@@ -67,7 +67,7 @@ def draw():
     oil_filled_element.update()
 
     water_filled_element = ElementGraphic(
-        [80, 70, 30], 1, [0.5, 0.2, 0.1], [80, 80, 80], [0.7, 0.4, 0.3], [20, 20, 20], phase_in_middle=WATER
+        [80, 70, 30], 1, [0.5, 0.2, 0.1], [80, 80, 80], [1.2, 0.9, 0.8], [20, 20, 20], phase_in_middle=WATER
     )
     water_filled_element.set_name("water filled")
     water_filled_element.update()
