@@ -477,27 +477,41 @@ def calculate_pore_body_filling_pc(r, theta_a, K, oil_filled_throats_n, h):
 
 
 @njit
-def calculate_snap_off_pc(r, beta, theta_a, theta_r, theta_h, Rmin, pc, h):
-    if pc > 0:
-        Pc_0 = (
-            c.sigma
-            / r
-            * (cos(theta_a) * cot(beta[0]) - sin(theta_a) + cos(theta_h[2]) * cot(beta[2]) - sin(theta_h[1]))
-            / (cot(beta[0]) + cot(beta[1]))
-            - (c.pw - c.po) * c.g * h
-        )
-        Pc_1 = (
-            c.sigma / r * (cos(theta_a) - (2 * sin(theta_a) / (cot(beta[0]) + cot(beta[1])))) - (c.pw - c.po) * c.g * h
-        )
-        Pc = max(Pc_0, Pc_1)
+def calculate_snap_off_pc(r, beta, theta_a, theta_r, theta_h, n_corners, Rmin, pc, h):
+    if theta_a < (pi / 2 - np.min(beta[:n_corners])):
+        Pc = calculate_waterwet_snapoff_pc(r, beta, theta_a, theta_h, n_corners, h)
     else:
-        new_Pc = (c.sigma * cos(theta_a + beta[0]) / Rmin * cos(theta_r + beta[0])) - (c.pw - c.po) * c.g * h
-        if new_Pc <= (pi - beta[0]):
-            Pc = new_Pc
-        else:
-            Pc = (-c.sigma / Rmin * cos(theta_r + beta[0])) - (c.pw - c.po) * c.g * h
-
+        Pc = calculate_oilwet_snapoff_pc(beta, theta_a, theta_r, n_corners, Rmin, h)
     return Pc
+
+
+@njit
+def calculate_waterwet_snapoff_pc(r, beta, theta_a, theta_h, n_corners, h):
+    i0 = np.argmin(beta[:n_corners])
+    i1 = (i0 + 1) % n_corners
+    i2 = (i0 - 1) % n_corners
+    if beta[i1] > beta[i2]:
+        i1, i2 = i2, i1
+    Pc_0 = (
+        c.sigma
+        / r
+        * (cos(theta_a) * cot(beta[i0]) - sin(theta_a) + cos(theta_h[i2]) * cot(beta[i2]) - sin(theta_h[i1]))
+        / (cot(beta[i0]) + cot(beta[i1]))
+        - (c.pw - c.po) * c.g * h
+    )
+    Pc_1 = c.sigma / r * (cos(theta_a) - (2 * sin(theta_a) / (cot(beta[i0]) + cot(beta[i1])))) - (c.pw - c.po) * c.g * h
+    Pc = max(Pc_0, Pc_1)
+    return Pc
+
+
+@njit
+def calculate_oilwet_snapoff_pc(beta, theta_a, theta_r, n_corners, Rmin, h):
+    i = np.argmin(beta[:n_corners])
+    if theta_a <= (pi - beta[i]):
+        Pc = (c.sigma * cos(theta_a + beta[i]) / (Rmin * cos(theta_r + beta[i]))) - (c.pw - c.po) * c.g * h
+    else:
+        Pc = (-c.sigma / (Rmin * cos(theta_r + beta[i]))) - (c.pw - c.po) * c.g * h
+    return -Pc
 
 
 @njit

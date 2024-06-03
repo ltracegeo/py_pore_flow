@@ -84,6 +84,7 @@ class ImbibitionSimulation(SimulationBase):
     @nb.njit
     def snap_off(
         throat_id_list,
+        throat_n_corners,
         throat_conns,
         throat_n_conns,
         throat_water_filled,
@@ -106,19 +107,18 @@ class ImbibitionSimulation(SimulationBase):
                     pore_id = throat_conns[throat_id][i]
                     if pore_water_filled[pore_id]:
                         continue
-                if (
-                    calculate_snap_off_pc(
-                        throat_r[throat_id],
-                        throat_beta[throat_id],
-                        throat_theta_a[throat_id],
-                        throat_theta_r[throat_id],
-                        throat_theta_h[throat_id],
-                        Rmin,
-                        pc,
-                        0,
-                    )
-                    > pc
-                ):
+                snap_off_pc = calculate_snap_off_pc(
+                    throat_r[throat_id],
+                    throat_beta[throat_id],
+                    throat_theta_a[throat_id],
+                    throat_theta_r[throat_id],
+                    throat_theta_h[throat_id],
+                    throat_n_corners[throat_id],
+                    Rmin,
+                    pc,
+                    0,
+                )
+                if snap_off_pc > pc:
                     throat_water_filled[throat_id] = True
                     throat_oil_filled[throat_id] = False
                     if is_throats:
@@ -136,6 +136,7 @@ class ImbibitionSimulation(SimulationBase):
     def __update_snap_offs(self, pc):
         self.snap_off(
             self.network.pn.throats(),
+            self.network.pn["throat.n_corners"],
             self.network.pn["throat.conns"],
             self.network.pn["throat.n_conns"],
             self.network.pn["throat.water_filled"],
@@ -155,6 +156,7 @@ class ImbibitionSimulation(SimulationBase):
 
         self.snap_off(
             self.network.pn.pores(),
+            self.network.pn["pore.n_corners"],
             self.network.pn["pore.conns"],
             self.network.pn["pore.n_conns"],
             self.network.pn["pore.water_filled"],
