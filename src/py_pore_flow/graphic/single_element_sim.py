@@ -53,7 +53,7 @@ class ManualSimulationPlot:
         self.cycle_combobox.currentTextChanged.connect(self.__on_cycle_changed)
         self.pc_input = QtWidgets.QLineEdit()
         self.pc_input.setValidator(QtGui.QDoubleValidator())
-        self.pc_input.editingFinished.connect(lambda: self.__on_pc_changed(self.pc_input.text()))
+        self.pc_input.editingFinished.connect(self.__on_pc_changed)
 
         element_selection_layout = QtWidgets.QHBoxLayout()
         element_selection_layout.addWidget(self.element_type_combobox)
@@ -75,7 +75,8 @@ class ManualSimulationPlot:
         win.show()
 
         self.__on_cycle_changed("drainage")
-        self.__on_pc_changed("0.0")
+        self.pc_input.setText("0.0")
+        self.__on_pc_changed()
 
         app.exec()
 
@@ -105,10 +106,15 @@ class ManualSimulationPlot:
 
     def __on_cycle_changed(self, text):
         self.manual_simulation.set_cycle(text)
+        self.__on_pc_changed()
         self.element_widget.update()
 
-    def __on_pc_changed(self, text):
-        self.manual_simulation.update(float(text))
+    def __on_pc_changed(self):
+        try:
+            pc = float(self.pc_input.text())
+        except ValueError:
+            return
+        self.manual_simulation.update(pc)
         self.element_widget.update()
 
 
