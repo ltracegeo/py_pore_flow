@@ -12,7 +12,6 @@ from .common_equations import (
     TRIANGLE,
     WATER,
     MAX_NUMBER_OF_CORNERS,
-    calculate_dimensionless_layer_area,
 )
 
 # from .starfish_equations import calculate_pc
@@ -106,7 +105,7 @@ def calculate_imbibition_displacement(A, oil_filled, theta_a, theta_h, beta, bi,
             Sw = 1
         So = 1 - Sw
     else:
-        Ao = calculate_oil_layer_area(theta_a, theta_h, beta, bi, bo, n_corners, has_oil_layer)
+        Ao = calculate_element_oil_layer_area(theta_a, theta_h, beta, bi, bo, n_corners, has_oil_layer)
         if Ao < 0:
             So = 0
         elif Ao < A:
@@ -119,13 +118,26 @@ def calculate_imbibition_displacement(A, oil_filled, theta_a, theta_h, beta, bi,
 
 
 @njit
-def calculate_oil_layer_area(theta_a, theta_h, beta, bi, bo, n_corners, has_oil_layer):
+def calculate_element_oil_layer_area(theta_a, theta_h, beta, bi, bo, n_corners, has_oil_layer):
     Ao = 0
     for i in range(int(n_corners)):
         if has_oil_layer[i]:
-            b_tilde = bi[i] / bo[i]
-            Ao += calculate_dimensionless_layer_area(b_tilde, beta[i], theta_h[i], theta_a)
+            Ao += calculate_corner_oil_layer_area(bi[i], bo[i], beta[i], theta_h[i], theta_a)
     return Ao
+
+
+@njit
+def calculate_corner_oil_layer_area(bi, bo, beta, theta_i, theta_o):
+    Ao = (bo * sin(beta) / cos(theta_o - beta)) ** 2 * (
+        (cos(theta_o) * cos(theta_o - beta) / sin(beta)) - theta_o + beta + pi / 2
+    )
+    Ai = (bi * sin(beta) / cos(theta_i + beta)) ** 2 * (
+        (cos(theta_i) * cos(theta_i + beta) / sin(beta)) + theta_i + beta - pi / 2
+    )
+
+    Al = Ao - Ai
+
+    return Al
 
 
 @njit
