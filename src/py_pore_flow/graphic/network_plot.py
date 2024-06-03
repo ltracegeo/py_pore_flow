@@ -46,7 +46,16 @@ class ElementPlot:
         self.update()
 
     def update(self):
-        self.graphic.distance = np.abs(np.resize(self.pn[f"{self.element_type}.b"][self.id], self.n_corners))
+        oil_filled = self.pn[f"{self.element_type}.oil_filled"][self.id]
+        corner_oil_layer = np.resize(self.pn[f"{self.element_type}.corner_oil_layer"][self.id], self.n_corners)
+        if oil_filled:
+            b = np.resize(self.pn[f"{self.element_type}.b"][self.id], self.n_corners)
+        else:
+            b = np.full(self.n_corners, 0.0, np.float64)
+            b[corner_oil_layer] = np.resize(self.pn[f"{self.element_type}.b"][self.id], self.n_corners)[
+                corner_oil_layer
+            ]
+        self.graphic.distance = np.abs(b)
         self.graphic.theta = np.resize(self.pn[f"{self.element_type}.hinging_contact_angle"][self.id], self.n_corners)
         self.graphic.distance_o = np.abs(np.resize(self.pn[f"{self.element_type}.bo"][self.id], self.n_corners))
         self.graphic.theta_o = np.resize(

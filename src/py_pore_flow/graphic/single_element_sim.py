@@ -174,9 +174,13 @@ class ElementWidget(QtWidgets.QFrame):
         theta_h = np.degrees(np.resize(self.pn[f"{element_type}.hinging_contact_angle"][id], n_corners))
         theta_a = np.degrees(np.resize(self.pn[f"{element_type}.advancing_contact_angle"][id], max(n_corners, 1)))
         theta_r = np.degrees(np.resize(self.pn[f"{element_type}.receding_contact_angle"][id], max(n_corners, 1)))
-        b = np.resize(self.pn[f"{element_type}.b"][id], n_corners)
-        bo = np.resize(self.pn[f"{element_type}.bo"][id], n_corners)
         corner_oil_layer = np.resize(self.pn[f"{element_type}.corner_oil_layer"][id], n_corners)
+        if oil_filled:
+            b = np.resize(self.pn[f"{element_type}.b"][id], n_corners)
+        else:
+            b = np.full(n_corners, 0.0, np.float64)
+            b[corner_oil_layer] = np.resize(self.pn[f"{element_type}.b"][id], n_corners)[corner_oil_layer]
+        bo = np.resize(self.pn[f"{element_type}.bo"][id], n_corners)
         entry_pressure = self.__pad_with_nan(self.pn[f"{element_type}.entry_pressure"][id], n_corners)
 
         if element_type == "pore":
