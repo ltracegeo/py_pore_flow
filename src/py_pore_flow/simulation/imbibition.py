@@ -87,6 +87,7 @@ class ImbibitionSimulation(SimulationBase):
         throat_conns,
         throat_n_conns,
         throat_water_filled,
+        throat_oil_filled,
         throat_shape,
         throat_r,
         throat_beta,
@@ -119,6 +120,7 @@ class ImbibitionSimulation(SimulationBase):
                     > pc
                 ):
                     throat_water_filled[throat_id] = True
+                    throat_oil_filled[throat_id] = False
                     if is_throats:
                         border_elements.remove_throat(throat_id)
                     else:
@@ -132,42 +134,38 @@ class ImbibitionSimulation(SimulationBase):
                                 border_elements.add_throat(pore_id)
 
     def __update_snap_offs(self, pc):
-        throat_conns = self.network.pn["throat.conns"]
-        throat_n_conns = self.network.pn["throat.n_conns"]
-        pore_water_filled = self.network.pn["pore.water_filled"]
         self.snap_off(
             self.network.pn.throats(),
-            throat_conns,
-            throat_n_conns,
+            self.network.pn["throat.conns"],
+            self.network.pn["throat.n_conns"],
             self.network.pn["throat.water_filled"],
+            self.network.pn["throat.oil_filled"],
             self.network.pn["throat.shape"],
             self.network.pn["throat.radius"],
             self.network.pn["throat.corner_half_angle"],
             self.network.pn["throat.advancing_contact_angle"],
             self.network.pn["throat.receding_contact_angle"],
             self.network.pn["throat.hinging_contact_angle"],
-            pore_water_filled,
+            self.network.pn["pore.water_filled"],
             self.Rmin,
             pc,
             self.border_elements,
             is_throats=True,
         )
 
-        pore_conns = self.network.pn["pore.conns"]
-        pore_n_conns = self.network.pn["pore.n_conns"]
-        throat_water_filled = self.network.pn["throat.water_filled"]
         self.snap_off(
             self.network.pn.pores(),
-            pore_conns,
-            pore_n_conns,
+            self.network.pn["pore.conns"],
+            self.network.pn["pore.n_conns"],
             self.network.pn["pore.water_filled"],
+            self.network.pn["pore.oil_filled"],
             self.network.pn["pore.shape"],
             self.network.pn["pore.radius"],
             self.network.pn["pore.corner_half_angle"],
             self.network.pn["pore.advancing_contact_angle"],
             self.network.pn["pore.receding_contact_angle"],
             self.network.pn["pore.hinging_contact_angle"],
-            throat_water_filled,
+            self.network.pn["throat.water_filled"],
             self.Rmin,
             pc,
             self.border_elements,
