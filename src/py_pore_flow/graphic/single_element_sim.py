@@ -175,6 +175,7 @@ class ElementWidget(QtWidgets.QFrame):
         theta_a = np.degrees(np.resize(self.pn[f"{element_type}.advancing_contact_angle"][id], max(n_corners, 1)))
         theta_r = np.degrees(np.resize(self.pn[f"{element_type}.receding_contact_angle"][id], max(n_corners, 1)))
         corner_oil_layer = np.resize(self.pn[f"{element_type}.corner_oil_layer"][id], n_corners)
+        corner_water_layer = np.resize(self.pn[f"{element_type}.corner_water_layer"][id], n_corners)
         if oil_filled:
             b = np.resize(self.pn[f"{element_type}.b"][id], n_corners)
         else:
@@ -203,6 +204,7 @@ class ElementWidget(QtWidgets.QFrame):
                 "bi": b,
                 "bo": bo,
                 "corner_oil_layer": corner_oil_layer,
+                "corner_water_layer": corner_water_layer,
                 "entry_pressure": entry_pressure,
             },
             orient="index",

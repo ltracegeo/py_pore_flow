@@ -1,7 +1,7 @@
 import numpy as np
 
 from py_pore_flow import log
-from py_pore_flow.equations import OIL
+from py_pore_flow.equations import OIL, check_water_layer
 from py_pore_flow.output import pn_to_vtu
 from py_pore_flow.simulation.simulation_base import SimulationBase
 
@@ -71,3 +71,6 @@ class DrainageSimulation(SimulationBase):
             if pc > element.get_pc() and not element.trapped and not element.oil_filled:
                 return element
         return None
+
+    def _on_element_invaded(self, pc, element):
+        element.corner_water_layer = check_water_layer(element.corner_oil_layer, element.oil_filled)

@@ -356,21 +356,24 @@ def calculate_drainage_b(beta, theta, n_corners, Pc_max):
 
 
 @njit
-def calculate_imbibition_network_b(r, beta, theta_r, theta_a, theta_h, n_corners, pc, Rmin):
+def calculate_imbibition_network_b(r, beta, theta_r, theta_a, theta_h, has_water_layer, n_corners, pc, Rmin):
     number_of_elements = len(beta)
 
     b = np.empty((number_of_elements, MAX_NUMBER_OF_CORNERS), np.float64)
     for i in range(number_of_elements):
-        b[i] = calculate_imbibition_element_b(r[i], beta[i], theta_r[i], theta_a[i], theta_h[i], n_corners[i], Rmin, pc)
+        b[i] = calculate_imbibition_element_b(
+            r[i], beta[i], theta_r[i], theta_a[i], theta_h[i], has_water_layer[i], n_corners[i], Rmin, pc
+        )
     return b
 
 
 @njit
-def calculate_imbibition_element_b(r, beta, theta_r, theta_a, theta_h, n_corners, Rmin, pc):
+def calculate_imbibition_element_b(r, beta, theta_r, theta_a, theta_h, has_water_layer, n_corners, Rmin, pc):
     R = calculate_r(pc, r)
-    b = np.empty(MAX_NUMBER_OF_CORNERS, dtype=np.float64)
+    b = np.full(MAX_NUMBER_OF_CORNERS, 0, dtype=np.float64)
     for i in range(int(n_corners)):
-        b[i] = calculate_imbibition_corner_b(beta[i], theta_r, theta_a, theta_h[i], R, Rmin)
+        if has_water_layer[i]:
+            b[i] = calculate_imbibition_corner_b(beta[i], theta_r, theta_a, theta_h[i], R, Rmin)
     return b
 
 
@@ -405,7 +408,7 @@ def calculate_imbibition_network_bo(r, beta, theta_a, has_oil_layer, n_corners, 
 @njit
 def calculate_imbibition_element_bo(r, beta, theta_a, has_oil_layer, n_corners, pc):
     R = calculate_r(-pc, r)
-    b = np.empty(MAX_NUMBER_OF_CORNERS, dtype=np.float64)
+    b = np.full(MAX_NUMBER_OF_CORNERS, 0, dtype=np.float64)
     for i in range(int(n_corners)):
         if has_oil_layer[i]:
             b[i] = calculate_corner_bo(beta[i], theta_a, R)
@@ -535,6 +538,23 @@ def calculate_oil_layer(theta_a, beta, n_corners, pc):
     for i in range(int(n_corners)):
         corner_oil_layer[i] = theta_a > pi / 2 + beta[i]
     return corner_oil_layer
+
+
+@njit
+def check_water_layer(has_oil_layer, filled_with_oil):
+    if filled_with_oil:
+        return np.full(MAX_NUMBER_OF_CORNERS, True, dtype=np.bool_)
+    else:
+        return has_oil_layer.copy()
+
+
+@njit
+def check_water_layer_network(corner_oil_layer, filled_with_oil):
+    number_of_elements = len(filled_with_oil)
+    corner_water_layer = np.full((number_of_elements, MAX_NUMBER_OF_CORNERS), False, np.bool_)
+    for i in range(number_of_elements):
+        corner_water_layer[i] = check_water_layer(corner_oil_layer[i], filled_with_oil[i])
+    return corner_water_layer
 
 
 @njit

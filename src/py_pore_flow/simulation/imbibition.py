@@ -13,6 +13,7 @@ from py_pore_flow.equations import (
     calculate_oil_layer_network,
     calculate_r,
     calculate_snap_off_pc,
+    check_water_layer_network,
 )
 from py_pore_flow.output import pn_to_vtu
 from py_pore_flow.simulation.simulation_base import SimulationBase
@@ -79,6 +80,7 @@ class ImbibitionSimulation(SimulationBase):
         super()._update_invasions(pc)
         self.__update_snap_offs(pc)
         self.__update_oil_layers(pc)
+        self.__update_water_layers()
 
     @staticmethod
     @nb.njit
@@ -193,6 +195,14 @@ class ImbibitionSimulation(SimulationBase):
             pc,
         )
 
+    def __update_water_layers(self):
+        self.network.pn[f"throat.corner_water_layer"] = check_water_layer_network(
+            self.network.pn[f"throat.corner_oil_layer"], self.network.pn[f"throat.oil_filled"]
+        )
+        self.network.pn[f"pore.corner_water_layer"] = check_water_layer_network(
+            self.network.pn[f"pore.corner_oil_layer"], self.network.pn[f"pore.oil_filled"]
+        )
+
     def _update_pc(self, element, pc):
         if element.is_pore():
             K = self.krel_calculator.get_absolute_permeability()
@@ -246,6 +256,7 @@ class ImbibitionSimulation(SimulationBase):
             self.network.pn["pore.receding_contact_angle"],
             self.network.pn["pore.advancing_contact_angle"],
             self.network.pn["pore.hinging_contact_angle"],
+            self.network.pn["pore.corner_water_layer"],
             self.network.pn["pore.n_corners"],
             pc,
             self.Rmin,
@@ -256,6 +267,7 @@ class ImbibitionSimulation(SimulationBase):
             self.network.pn["throat.receding_contact_angle"],
             self.network.pn["throat.advancing_contact_angle"],
             self.network.pn["throat.hinging_contact_angle"],
+            self.network.pn["throat.corner_water_layer"],
             self.network.pn["throat.n_corners"],
             pc,
             self.Rmin,

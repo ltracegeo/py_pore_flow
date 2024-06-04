@@ -26,6 +26,7 @@ def initialize_pn(pn):
         pn[f"{element_type}.hinging_contact_angle"] = np.empty((number_of_elements, MAX_NUMBER_OF_CORNERS), np.float64)
         pn[f"{element_type}.b"] = np.full((number_of_elements, MAX_NUMBER_OF_CORNERS), 0.0, np.float64)
         pn[f"{element_type}.bo"] = np.full((number_of_elements, MAX_NUMBER_OF_CORNERS), 0.0, np.float64)
+        pn[f"{element_type}.corner_water_layer"] = np.full((number_of_elements, MAX_NUMBER_OF_CORNERS), False, np.bool_)
         pn[f"{element_type}.corner_oil_layer"] = np.full((number_of_elements, MAX_NUMBER_OF_CORNERS), False, np.bool_)
         pn[f"{element_type}.C_r"] = 0.0
         pn[f"{element_type}.C_a"] = 0.0
@@ -294,6 +295,10 @@ class PnElement:
         return self.pn[f"{self.type_name}.bo"][self.id]
 
     @property
+    def corner_water_layer(self):
+        return self.pn[f"{self.type_name}.corner_water_layer"][self.id]
+
+    @property
     def corner_oil_layer(self):
         return self.pn[f"{self.type_name}.corner_oil_layer"][self.id]
 
@@ -387,6 +392,10 @@ class PnElement:
     def corner_oil_layer(self, corner_oil_layer):
         self._corner_oil_layer = corner_oil_layer
         self.pn[f"{self.type_name}.corner_oil_layer"][self.id] = corner_oil_layer
+
+    @corner_water_layer.setter
+    def corner_water_layer(self, corner_water_layer):
+        self.pn[f"{self.type_name}.corner_water_layer"][self.id] = corner_water_layer
 
     def get_id(self):
         return self.id
