@@ -383,7 +383,7 @@ class PnElement:
         self._b = b
         self.pn[f"{self.type_name}.b"][self.id] = b
 
-    @b.setter
+    @bo.setter
     def bo(self, bo):
         self._bo = bo
         self.pn[f"{self.type_name}.bo"][self.id] = bo
