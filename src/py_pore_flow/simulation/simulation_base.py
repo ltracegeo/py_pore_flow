@@ -470,7 +470,6 @@ class SaturationCalculator:
             self.network.pn["pore.oil_saturation"],
         ) = calculate_drainage_network_saturation(
             self.network.pn["pore.shape"],
-            self.network.pn["pore.radius"],
             self.network.pn["pore.C_r"],
             pc,
             self.network.pn["pore.area"],
@@ -481,7 +480,6 @@ class SaturationCalculator:
             self.network.pn["throat.oil_saturation"],
         ) = calculate_drainage_network_saturation(
             self.network.pn["throat.shape"],
-            self.network.pn["throat.radius"],
             self.network.pn["throat.C_r"],
             pc,
             self.network.pn["throat.cross_sectional_area"],
@@ -674,7 +672,7 @@ class SimulationBase:
 
     def __update_hinging_contact_angles(self, pc):
         for pore in self.network.get_pore_list():
-            hinging_contact_angle = calculate_hinging_contact_angle(pc, pore.r, pore.beta, pore.b, pore.n_corners)
+            hinging_contact_angle = calculate_hinging_contact_angle(pc, pore.beta, pore.b, pore.n_corners)
             hinging_contact_angle = np.clip(
                 hinging_contact_angle, pore.receding_contact_angle, pore.advancing_contact_angle
             )
@@ -683,9 +681,7 @@ class SimulationBase:
                 pore.C_h = calculate_C(pore.theta_h, pore.beta, pore.n_corners)
 
         for throat in self.network.get_throat_list():
-            hinging_contact_angle = calculate_hinging_contact_angle(
-                pc, throat.r, throat.beta, throat.b, throat.n_corners
-            )
+            hinging_contact_angle = calculate_hinging_contact_angle(pc, throat.beta, throat.b, throat.n_corners)
             hinging_contact_angle = np.clip(
                 hinging_contact_angle, throat.receding_contact_angle, throat.advancing_contact_angle
             )

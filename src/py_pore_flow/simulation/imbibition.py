@@ -251,8 +251,8 @@ class ImbibitionSimulation(SimulationBase):
 
     def _update_b(self, pc):
         self.network.pn["pore.b"] = calculate_imbibition_network_b(
-            self.network.pn["pore.radius"],
             self.network.pn["pore.corner_half_angle"],
+            self.network.pn["pore.max_b"],
             self.network.pn["pore.receding_contact_angle"],
             self.network.pn["pore.advancing_contact_angle"],
             self.network.pn["pore.hinging_contact_angle"],
@@ -262,8 +262,8 @@ class ImbibitionSimulation(SimulationBase):
             self.Rmin,
         )
         self.network.pn["throat.b"] = calculate_imbibition_network_b(
-            self.network.pn["throat.radius"],
             self.network.pn["throat.corner_half_angle"],
+            self.network.pn["throat.max_b"],
             self.network.pn["throat.receding_contact_angle"],
             self.network.pn["throat.advancing_contact_angle"],
             self.network.pn["throat.hinging_contact_angle"],
@@ -274,16 +274,16 @@ class ImbibitionSimulation(SimulationBase):
         )
 
         self.network.pn["pore.bo"] = calculate_imbibition_network_bo(
-            self.network.pn["pore.radius"],
             self.network.pn["pore.corner_half_angle"],
+            self.network.pn["pore.max_b"],
             self.network.pn["pore.advancing_contact_angle"],
             self.network.pn["pore.corner_oil_layer"],
             self.network.pn["pore.n_corners"],
             pc,
         )
         self.network.pn["throat.bo"] = calculate_imbibition_network_bo(
-            self.network.pn["throat.radius"],
             self.network.pn["throat.corner_half_angle"],
+            self.network.pn["throat.max_b"],
             self.network.pn["throat.advancing_contact_angle"],
             self.network.pn["throat.corner_oil_layer"],
             self.network.pn["throat.n_corners"],

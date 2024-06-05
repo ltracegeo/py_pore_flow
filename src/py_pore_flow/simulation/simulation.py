@@ -8,8 +8,10 @@ from py_pore_flow.equations import (
     calculate_C,
     calculate_drainage_b,
     calculate_drainage_pc,
+    calculate_max_b,
     calculate_r,
     calculate_shape,
+    calculate_sides,
     calculate_spontaneous_imbibition_viability,
     WATER,
     OIL,
@@ -157,6 +159,8 @@ def calculate_element_initial_values(
 ):
     element.shape = calculate_shape(element.G)
     element.beta = calculate_beta(element.G, element.shape)
+    element.sides = calculate_sides(element.beta, element.r, element.n_corners)
+    element.max_b = calculate_max_b(element.sides, element.n_corners)
 
 
 def calculate_element_drainage_values(element, max_pc):
