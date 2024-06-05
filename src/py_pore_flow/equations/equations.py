@@ -275,7 +275,21 @@ def calculate_singlephase_conductance(L, A, G, shape, phase=WATER):
 
 @njit
 def calculate_multiphase_network_oil_conductance(
-    L, A, G, shape, So, b, bo, beta, theta_h, theta_a, n_corners, has_oil_in_center, number_of_elements, throat_id_list
+    L,
+    A,
+    G,
+    shape,
+    So,
+    b,
+    bo,
+    beta,
+    theta_h,
+    theta_a,
+    corner_oil_layer,
+    n_corners,
+    has_oil_in_center,
+    number_of_elements,
+    throat_id_list,
 ):
     multiphase_conductance = np.empty(number_of_elements, np.float64)
     for i in throat_id_list:
@@ -290,6 +304,7 @@ def calculate_multiphase_network_oil_conductance(
             beta[i],
             theta_h[i],
             theta_a[i],
+            corner_oil_layer[i],
             n_corners[i],
             has_oil_in_center[i],
         )
@@ -298,7 +313,7 @@ def calculate_multiphase_network_oil_conductance(
 
 @njit
 def calculate_multiphase_oil_conductance(
-    L, A, G, shape, So, b, bo, beta, theta_h, theta_a, n_corners, has_oil_in_center
+    L, A, G, shape, So, b, bo, beta, theta_h, theta_a, corner_oil_layer, n_corners, has_oil_in_center
 ):
     i = 0  # Pore 1
     j = 2  # Throat connecting pore 0 and 1
@@ -310,7 +325,7 @@ def calculate_multiphase_oil_conductance(
             gp[n] = So[n] * calculate_element_singlephase_conductance(A[n], G[n], shape[n], c.mio)
         else:
             gp[n] = calculate_element_multiphase_oil_conductance(
-                b[n], bo[n], beta[n], theta_h[n], theta_a[n], n_corners[n]
+                b[n], bo[n], beta[n], theta_h[n], theta_a[n], corner_oil_layer[n], n_corners[n]
             )
     Gp = 1 / ((L[i] / gp[i]) + (L[j] / gp[j]) + (L[k] / gp[k]))
     return Gp

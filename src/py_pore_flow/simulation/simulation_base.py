@@ -79,6 +79,7 @@ class ConductanceCalculator:
                 self.network.pn["throat.oil_filled"],
                 self.network.pn["throat.advancing_contact_angle"],
                 self.network.pn["throat.bo"],
+                self.network.pn["throat.corner_oil_layer"],
                 self.network.pn["pore.radius"],
                 self.network.pn["pore.area"],
                 self.network.pn["pore.shape_factor"],
@@ -91,6 +92,7 @@ class ConductanceCalculator:
                 self.network.pn["pore.oil_filled"],
                 self.network.pn["pore.advancing_contact_angle"],
                 self.network.pn["pore.bo"],
+                self.network.pn["pore.corner_oil_layer"],
             )
 
     @staticmethod
@@ -111,6 +113,7 @@ class ConductanceCalculator:
         throat_oilfilled,
         throat_thetaa,
         throat_bo,
+        throat_oillayer,
         pore_l,
         pore_a,
         pore_g,
@@ -123,6 +126,7 @@ class ConductanceCalculator:
         pore_oilfilled,
         pore_thetaa,
         pore_bo,
+        pore_oillayer,
     ):
         L = np.empty((number_of_throats, 3), np.float64)
         A = np.empty((number_of_throats, 3), np.float64)
@@ -136,6 +140,7 @@ class ConductanceCalculator:
         beta = np.empty((number_of_throats, 3, MAX_NUMBER_OF_CORNERS), np.float64)
         theta_a = np.empty((number_of_throats, 3, MAX_NUMBER_OF_CORNERS), np.float64)
         bo = np.empty((number_of_throats, 3, MAX_NUMBER_OF_CORNERS), np.float64)
+        corner_oil_layer = np.empty((number_of_throats, 3, MAX_NUMBER_OF_CORNERS), np.bool_)
 
         for throat_id in throat_id_list:
             connections = throat_conns[throat_id]
@@ -159,6 +164,7 @@ class ConductanceCalculator:
             new_b = [pore_b[pore_0_id], throat_b[throat_id], pore_b[pore_1_id]]
             new_beta = [pore_beta[pore_0_id], throat_beta[throat_id], pore_beta[pore_1_id]]
             new_bo = [pore_bo[pore_0_id], throat_bo[throat_id], pore_bo[pore_1_id]]
+            new_corner_oil_layer = [pore_oillayer[pore_0_id], throat_oillayer[throat_id], pore_oillayer[pore_1_id]]
 
             for j in range(3):
                 theta_a[throat_id][j] = new_theta_a[j]
@@ -166,9 +172,24 @@ class ConductanceCalculator:
                 b[throat_id][j] = new_b[j]
                 beta[throat_id][j] = new_beta[j]
                 bo[throat_id][j] = new_bo[j]
+                corner_oil_layer[throat_id][j] = new_corner_oil_layer[j]
 
         return calculate_multiphase_network_oil_conductance(
-            L, A, G, shape, So, b, bo, beta, theta_h, theta_a, n_corners, oil_filled, number_of_throats, throat_id_list
+            L,
+            A,
+            G,
+            shape,
+            So,
+            b,
+            bo,
+            beta,
+            theta_h,
+            theta_a,
+            corner_oil_layer,
+            n_corners,
+            oil_filled,
+            number_of_throats,
+            throat_id_list,
         )
 
     @staticmethod

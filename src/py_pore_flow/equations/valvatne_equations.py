@@ -20,10 +20,11 @@ def calculate_element_singlephase_conductance(A, G, shape, mi):
 
 
 @njit
-def calculate_element_multiphase_oil_conductance(bi, bo, beta, theta_i, theta_o, n_corners):
+def calculate_element_multiphase_oil_conductance(bi, bo, beta, theta_i, theta_o, corner_oil_layer, n_corners):
     go = 0
     for i in range(n_corners):
-        go += calculate_dimensionless_layer_conductance(bi[i], bo[i], beta[i], theta_i[i], theta_o[i])
+        if corner_oil_layer[i]:
+            go += calculate_dimensionless_layer_conductance(bi[i], bo[i], beta[i], theta_i[i], theta_o[i])
     return go
 
 
