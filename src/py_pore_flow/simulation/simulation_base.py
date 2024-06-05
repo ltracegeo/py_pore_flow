@@ -128,7 +128,7 @@ class ConductanceCalculator:
         A = np.empty((number_of_throats, 3), np.float64)
         G = np.empty((number_of_throats, 3), np.float64)
         shape = np.empty((number_of_throats, 3), np.float64)
-        n_corners = np.empty((number_of_throats, 3), np.float64)
+        n_corners = np.empty((number_of_throats, 3), np.int32)
         So = np.empty((number_of_throats, 3), np.float64)
         oil_filled = np.empty((number_of_throats, 3), np.bool_)
         theta_h = np.empty((number_of_throats, 3, MAX_NUMBER_OF_CORNERS), np.float64)
@@ -205,9 +205,9 @@ class ConductanceCalculator:
         theta_h = np.empty((number_of_throats, 3, 4), np.float64)
         b = np.empty((number_of_throats, 3, 4), np.float64)
         beta = np.empty((number_of_throats, 3, 4), np.float64)
-        n_corners = np.empty((number_of_throats, 3), np.float64)
+        n_corners = np.empty((number_of_throats, 3), np.int32)
         Sw = np.empty((number_of_throats, 3), np.float64)
-        water_filled = np.empty((number_of_throats, 3), np.float64)
+        water_filled = np.empty((number_of_throats, 3), np.bool_)
 
         for throat_id in throat_id_list:
             connections = throat_conns[throat_id]
