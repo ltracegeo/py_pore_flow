@@ -261,6 +261,7 @@ class ManualSimulation:
             self.parameter_manager.update_initial_cas(self.network)
             calculate_drainage_values(self.network, self.max_pc)
             self.simulation = DrainageSimulation(self.network)
+            self.max_pc = 0
         else:
             self.parameter_manager.update_equilibrium_cas(self.network)
             calculate_imbibition_values(self.network, self.max_pc)
@@ -268,6 +269,7 @@ class ManualSimulation:
 
     def update(self, pc):
         # 17125.8354
+        self.max_pc = max(self.max_pc, pc)
         self.simulation.update_pc(pc)
         Sw = self.simulation.calculate_sw_total()
         Krw, Kro = self.simulation.calculate_krel()
