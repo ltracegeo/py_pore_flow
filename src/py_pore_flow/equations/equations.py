@@ -440,6 +440,8 @@ def calculate_drainage_corner_b(beta, theta_r, Rmin):
 
 @njit
 def calculate_corner_bi(beta, theta, R):
+    if R < 0:
+        return 0
     b = R * cos(theta + beta) / sin(beta)
     return max(0, b)
 
@@ -568,12 +570,12 @@ def calculate_oilwet_snapoff_pc(beta, theta_a, theta_r, n_corners, Rmin, h):
 @njit
 def calculate_r(pc, limit=None):
     if limit is None:
-        R = abs(c.sigma / pc)
+        R = c.sigma / pc
     else:
         if pc == 0:
             R = limit
         else:
-            R = abs(c.sigma / pc)
+            R = c.sigma / pc
             R = min(R, limit)
     return R
 
