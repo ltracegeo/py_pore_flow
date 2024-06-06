@@ -377,13 +377,16 @@ def calculate_hinging_contact_angle(Pc, beta, b, n_corners):
             theta_h[i] = pi / 2 - beta[i]
     else:
         R = calculate_r(Pc)
-        for i in range(int(n_corners)):
-            x = b[i] * sin(beta[i]) / R
-            if x > 1:
-                x = 1
-            elif x < -1:
-                x = -1
-            theta_h[i] = acos(x) - beta[i]
+        if R == 0:
+            theta_h[i] = 0
+        else:
+            for i in range(int(n_corners)):
+                x = b[i] * sin(beta[i]) / R
+                if x > 1:
+                    x = 1
+                elif x < -1:
+                    x = -1
+                theta_h[i] = acos(x) - beta[i]
     return theta_h
 
 
@@ -438,7 +441,7 @@ def calculate_drainage_corner_b(beta, theta_r, Rmin):
 @njit
 def calculate_corner_bi(beta, theta, R):
     b = R * cos(theta + beta) / sin(beta)
-    return abs(b)
+    return max(0, b)
 
 
 @njit
@@ -463,7 +466,7 @@ def calculate_imbibition_element_bo(beta, max_b, theta_a, has_oil_layer, n_corne
 @njit
 def calculate_corner_bo(beta, theta, R):
     b = R * cos(theta - beta) / sin(beta)
-    return abs(b)
+    return max(0, b)
 
 
 # Imbibition
