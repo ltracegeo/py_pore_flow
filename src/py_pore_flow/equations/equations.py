@@ -653,5 +653,8 @@ def calculate_spontaneous_imbibition_viability(theta_a, theta_r, beta, n_corners
 
 @njit
 def calculate_snap_off_viability(theta_r, beta, n_corners):
-    beta_min = np.min(beta[:n_corners])
-    return theta_r + beta_min < pi / 2
+    if n_corners > 0:
+        beta_min = np.min(beta[:n_corners])
+        return theta_r + beta_min < pi / 2
+    else:
+        return False
