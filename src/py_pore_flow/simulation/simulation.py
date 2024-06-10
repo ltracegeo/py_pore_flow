@@ -12,6 +12,7 @@ from py_pore_flow.equations import (
     calculate_r,
     calculate_shape,
     calculate_sides,
+    calculate_snap_off_viability,
     calculate_spontaneous_imbibition_viability,
     WATER,
     OIL,
@@ -206,4 +207,10 @@ def calculate_element_imbibition_values(element, max_pc):
         element.r,
         element.G,
         Rmin,
+    )
+
+    element.snap_off_viability = calculate_snap_off_viability(
+        element.receding_contact_angle,
+        element.beta,
+        element.n_corners,
     )

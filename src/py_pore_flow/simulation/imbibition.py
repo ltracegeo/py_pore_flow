@@ -97,6 +97,7 @@ class ImbibitionSimulation(SimulationBase):
         throat_theta_a,
         throat_theta_r,
         throat_theta_h,
+        throat_snap_off_viability,
         pore_water_filled,
         Rmin,
         pc,
@@ -104,7 +105,11 @@ class ImbibitionSimulation(SimulationBase):
         is_throats=True,
     ):
         for throat_id in throat_id_list:
-            if not throat_water_filled[throat_id] and throat_shape[throat_id] != CIRCLE:
+            if (
+                throat_snap_off_viability[throat_id]
+                and not throat_water_filled[throat_id]
+                and throat_shape[throat_id] != CIRCLE
+            ):
                 for i in range(throat_n_conns[throat_id]):
                     pore_id = throat_conns[throat_id][i]
                     if pore_water_filled[pore_id]:
@@ -149,6 +154,7 @@ class ImbibitionSimulation(SimulationBase):
             self.network.pn["throat.advancing_contact_angle"],
             self.network.pn["throat.receding_contact_angle"],
             self.network.pn["throat.hinging_contact_angle"],
+            self.network.pn["throat.snap_off_viability"],
             self.network.pn["pore.water_filled"],
             self.Rmin,
             pc,
@@ -169,6 +175,7 @@ class ImbibitionSimulation(SimulationBase):
             self.network.pn["pore.advancing_contact_angle"],
             self.network.pn["pore.receding_contact_angle"],
             self.network.pn["pore.hinging_contact_angle"],
+            self.network.pn["pore.snap_off_viability"],
             self.network.pn["throat.water_filled"],
             self.Rmin,
             pc,

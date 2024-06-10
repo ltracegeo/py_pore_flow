@@ -41,6 +41,7 @@ def initialize_pn(pn):
         pn[f"{element_type}.trapped"] = False
         pn[f"{element_type}.n_corners"] = int(0)
         pn[f"{element_type}.spontaneous_imbibition"] = True
+        pn[f"{element_type}.snap_off_viability"] = True
         pn[f"{element_type}.entry_pressure"] = 0.0
 
     # Initialize connection properties
@@ -281,6 +282,10 @@ class PnElement:
         return self.pn[f"{self.type_name}.spontaneous_imbibition"][self.id]
 
     @property
+    def snap_off_viability(self):
+        return self.pn[f"{self.type_name}.snap_off_viability"][self.id]
+
+    @property
     def beta(self):
         return self.pn[f"{self.type_name}.corner_half_angle"][self.id]
 
@@ -373,6 +378,10 @@ class PnElement:
     def spontaneous_imbibition(self, spontaneous_imbibition):
         self._spontaneous_imbibition = spontaneous_imbibition
         self.pn[f"{self.type_name}.spontaneous_imbibition"][self.id] = spontaneous_imbibition
+
+    @snap_off_viability.setter
+    def snap_off_viability(self, snap_off_viability):
+        self.pn[f"{self.type_name}.snap_off_viability"][self.id] = snap_off_viability
 
     @beta.setter
     def beta(self, beta):
