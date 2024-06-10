@@ -39,6 +39,7 @@ class ManualSimulationPlot:
         self.element_type_combobox = QtWidgets.QComboBox()
         self.element_type_combobox.addItem("Throat")
         self.element_type_combobox.addItem("Pore")
+        self.element_type_combobox.currentTextChanged.connect(lambda text: self.__on_element_changed(self.element_id_input.text()))
         self.element_id_input = QtWidgets.QLineEdit()
         self.element_id_input.setValidator(QtGui.QIntValidator())
         self.element_id_input.editingFinished.connect(lambda: self.__on_element_changed(self.element_id_input.text()))
