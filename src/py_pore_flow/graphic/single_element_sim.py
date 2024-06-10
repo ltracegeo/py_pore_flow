@@ -20,9 +20,9 @@ from py_pore_flow.simulation.simulation import (
 
 
 class ManualSimulationPlot:
-    def __init__(self, pn, parameters_dict=DEFAULT_PARAMETERS):
+    def __init__(self, pn, parameters_dict=DEFAULT_PARAMETERS, generate_cas=True):
         self.pn = pn
-        self.manual_simulation = ManualSimulation(pn, parameters_dict)
+        self.manual_simulation = ManualSimulation(pn, parameters_dict, generate_cas=generate_cas)
         self.manual_simulation.set_max_pc(40000)
 
     def set_pore(self, pore_id):
@@ -241,7 +241,7 @@ class ElementWidget(QtWidgets.QFrame):
 
 
 class ManualSimulation:
-    def __init__(self, pn, parameters_dict=DEFAULT_PARAMETERS):
+    def __init__(self, pn, parameters_dict=DEFAULT_PARAMETERS, generate_cas=True):
         self.simulation = None
         self.max_pc = None
 
@@ -250,7 +250,8 @@ class ManualSimulation:
         initialize_pn(pn)
         self.network = Network(pn)
 
-        self.parameter_manager.generate_contact_angles(self.network)
+        if generate_cas:
+            self.parameter_manager.generate_contact_angles(self.network)
 
         calculate_initial_values(self.network)
 
