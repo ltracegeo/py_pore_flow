@@ -39,7 +39,9 @@ class ManualSimulationPlot:
         self.element_type_combobox = QtWidgets.QComboBox()
         self.element_type_combobox.addItem("Throat")
         self.element_type_combobox.addItem("Pore")
-        self.element_type_combobox.currentTextChanged.connect(lambda text: self.__on_element_changed(self.element_id_input.text()))
+        self.element_type_combobox.currentTextChanged.connect(
+            lambda text: self.__on_element_changed(self.element_id_input.text())
+        )
         self.element_id_input = QtWidgets.QLineEdit()
         self.element_id_input.setValidator(QtGui.QIntValidator())
         self.element_id_input.editingFinished.connect(lambda: self.__on_element_changed(self.element_id_input.text()))
@@ -101,7 +103,9 @@ class ManualSimulationPlot:
         if re_match:
             element_type = re_match[1]
             element_id = int(re_match[2])
+            self.element_type_combobox.blockSignals(True)
             self.element_type_combobox.setCurrentText(element_type)
+            self.element_type_combobox.blockSignals(False)
             self.element_id_input.setText(str(element_id))
             self.__on_element_changed(str(element_id))
 
@@ -275,6 +279,7 @@ class ManualSimulation:
         self.simulation.update_pc(pc)
         Sw = self.simulation.calculate_sw_total()
         Krw, Kro = self.simulation.calculate_krel()
+        # Krw, Kro = 0, 0
         pores_filled, total_pores, percentage = self.simulation.get_oil_filled_percentage()
         print(
             f"Pc: {pc:8.2f}, Sw: {Sw:.6f}, Krw: {Krw:.6f}, Kro: {Kro:.6f}, Filled: {pores_filled:4}/{total_pores} ({percentage:2}%)."
