@@ -98,7 +98,10 @@ def draw():
 def manual_sim():
     pn = openpnm.io.network_from_statoil("tests/resources/statoil", "Image")
     simulation = ManualSimulationPlot(pn)
+
+    app = QtWidgets.QApplication([])
     simulation.show()
+    app.exec()
 
 
 def profile():

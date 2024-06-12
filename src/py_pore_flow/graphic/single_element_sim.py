@@ -34,8 +34,6 @@ class ManualSimulationPlot:
         self.__update_conn_combobox(self.element_widget.get_conns(), "Pore")
 
     def show(self):
-        app = QtWidgets.QApplication([])
-
         self.element_type_combobox = QtWidgets.QComboBox()
         self.element_type_combobox.addItem("Throat")
         self.element_type_combobox.addItem("Pore")
@@ -64,7 +62,8 @@ class ManualSimulationPlot:
         element_selection_layout.addWidget(self.element_id_input)
         element_selection_layout.addWidget(self.element_conn_combobox)
 
-        self.element_widget = ElementWidget(self.pn)
+        self.element_widget = ElementWidget()
+        self.element_widget.set_pn(self.pn)
 
         central_widget = QtWidgets.QFrame()
         layout = QtWidgets.QFormLayout(central_widget)
@@ -73,17 +72,18 @@ class ManualSimulationPlot:
         layout.addRow("Cycle:", self.cycle_combobox)
         layout.addRow("Pc:", self.pc_input)
 
-        win = QtWidgets.QMainWindow()
-        win.setCentralWidget(central_widget)
-        win.show()
+        self.win = QtWidgets.QMainWindow()
+        self.win.setCentralWidget(central_widget)
+        self.win.show()
 
         self.__on_cycle_changed("drainage")
         self.pc_input.setText("0.0")
         self.__on_pc_changed()
 
-        app.exec()
-
     def __on_element_changed(self, text):
+        if not text:
+            return
+
         if self.element_type_combobox.currentText() == "Throat":
             self.set_throat(int(text))
         else:
@@ -124,10 +124,10 @@ class ManualSimulationPlot:
 
 
 class ElementWidget(QtWidgets.QFrame):
-    def __init__(self, pn):
+    def __init__(self):
         super().__init__()
 
-        self.pn = pn
+        self.pn = None
 
         self.element_plotter = ElementPlotter()
         self.element_plot = None
@@ -143,6 +143,9 @@ class ElementWidget(QtWidgets.QFrame):
 
         self.layout = QtWidgets.QHBoxLayout(self)
         self.layout.addWidget(splitter)
+
+    def set_pn(self, pn):
+        self.pn = pn
 
     def set_pore(self, pore_id):
         self.element_plot = PorePlot(self.pn, pore_id)
