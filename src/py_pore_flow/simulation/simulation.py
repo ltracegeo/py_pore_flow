@@ -2,7 +2,7 @@ import sys
 
 import numpy as np
 
-from py_pore_flow.parameters.parameter_manager import DEFAULT_PARAMETERS, ParameterManager
+from py_pore_flow import log
 from py_pore_flow.equations import (
     calculate_beta,
     calculate_C,
@@ -19,8 +19,9 @@ from py_pore_flow.equations import (
 )
 from py_pore_flow.network import initialize_pn, Network
 from py_pore_flow.output import pn_to_vtu
-from py_pore_flow.simulation.drainage import run_drainage
-from py_pore_flow.simulation.imbibition import run_imbibition
+from py_pore_flow.parameters.parameter_manager import DEFAULT_PARAMETERS, ParameterManager
+from py_pore_flow.simulation.drainage import DrainageSimulation
+from py_pore_flow.simulation.imbibition import ImbibitionSimulation
 from py_pore_flow.simulation.simulation_base import ConductanceCalculator, PcIncrementer
 
 
@@ -61,11 +62,13 @@ def run_two_phase_simulation(
 
 class Simulation:
     def __init__(self, pn, parameters_dict=DEFAULT_PARAMETERS, generate_vtu=False, plot_elements=False, debug=False):
+        self.step_simulation = StepSimulation(pn, parameters_dict, generate_cas=True)
+        self.parameter_manager = self.step_simulation.get_parameter_manager()
+
         self.debug = debug
         self.plot_elements = plot_elements
         self.generate_vtu = generate_vtu
 
-        self.parameter_manager = ParameterManager(parameters_dict)
         self.pc_incrementer = PcIncrementer(
             self.parameter_manager.pc_step,
             self.parameter_manager.pc_step_min,
@@ -75,31 +78,60 @@ class Simulation:
             self.parameter_manager.pc_minimum,
         )
 
-        initialize_pn(pn)
-        self.network = Network(pn)
-
-        self.parameter_manager.generate_contact_angles(self.network)
-
-        calculate_initial_values(self.network)
-
         if generate_vtu:
             pn_to_vtu(pn, self.pc_incrementer.get_pc(), 1, 0)
 
     def run_drainage(self):
-        self.parameter_manager.update_initial_cas(self.network)
-        calculate_drainage_values(self.network, self.pc_incrementer.get_pc_max())
-        return run_drainage(self.network, self.pc_incrementer, self.generate_vtu, debug=self.debug)
+        self.step_simulation.set_max_pc(self.parameter_manager.pc_maximum)
+        return self.__run_cycle("drainage")
 
     def run_imbibition(self):
-        self.parameter_manager.update_equilibrium_cas(self.network)
-        calculate_imbibition_values(self.network, self.pc_incrementer.get_pc_max())
-        return run_imbibition(
-            self.network,
-            self.pc_incrementer,
-            self.parameter_manager.end_at_sor,
-            self.generate_vtu,
-            debug=self.debug,
-        )
+        return self.__run_cycle("imbibition")
+
+    def __run_cycle(self, cycle_name):
+        if self.debug:
+            log.info(f"Start {cycle_name}")
+
+        self.step_simulation.set_cycle(cycle_name)
+
+        Pc_array = []
+        Sw_array = []
+        Krw_array = []
+        Kro_array = []
+
+        while True:
+            Pc = self.pc_incrementer.get_pc()
+
+            _, Sw, Krw, Kro, pores_filled, total_pores, percentage = self.step_simulation.update(Pc)
+
+            Pc_array.append(Pc)
+            Sw_array.append(Sw)
+            Krw_array.append(Krw)
+            Kro_array.append(Kro)
+
+            if self.debug:
+                log.info(
+                    f"Pc: {Pc:8.2f}, Sw: {Sw:.6f}, Krw: {Krw:.6f}, Kro: {Kro:.6f}, Filled: {pores_filled:4}/{total_pores} ({percentage:2}%)."
+                )
+
+            if self.generate_vtu:
+                pn_to_vtu(self.network.pn, Pc, Sw, 1 if cycle_name == "drainage" else 2)
+
+            if self.step_simulation.get_pores_left() == 0:
+                break
+            elif self.parameter_manager.end_at_sor and cycle_name == "imbibition" and Kro <= 0:
+                break
+            elif Pc >= self.pc_incrementer.get_pc_max():
+                break
+            elif Pc <= self.pc_incrementer.get_pc_min():
+                break
+
+            if cycle_name == "drainage":
+                self.pc_incrementer.increment(Sw)
+            else:
+                self.pc_incrementer.decrement(Sw)
+
+        return Pc_array, Sw_array, Krw_array, Kro_array
 
 
 def calculate_initial_values(network):
@@ -203,3 +235,49 @@ def calculate_element_imbibition_values(element, max_pc):
         element.beta,
         element.n_corners,
     )
+
+
+class StepSimulation:
+    def __init__(self, pn, parameters_dict=DEFAULT_PARAMETERS, generate_cas=True):
+        self.simulation = None
+        self.max_pc = None
+
+        self.parameter_manager = ParameterManager(parameters_dict)
+
+        initialize_pn(pn)
+        self.network = Network(pn)
+
+        if generate_cas:
+            self.parameter_manager.generate_contact_angles(self.network)
+
+        calculate_initial_values(self.network)
+
+    def set_max_pc(self, max_pc):
+        self.max_pc = max_pc
+
+    def set_cycle(self, cycle="imbibition"):
+        if cycle == "drainage":
+            self.parameter_manager.update_initial_cas(self.network)
+            calculate_drainage_values(self.network, self.max_pc)
+            self.simulation = DrainageSimulation(self.network)
+            self.max_pc = 0
+        else:
+            self.parameter_manager.update_equilibrium_cas(self.network)
+            calculate_imbibition_values(self.network, self.max_pc)
+            self.simulation = ImbibitionSimulation(self.network, self.max_pc)
+
+    def update(self, pc):
+        self.max_pc = max(self.max_pc, pc)
+        self.simulation.update_pc(pc)
+        Sw = self.simulation.calculate_sw_total()
+        Krw, Kro = self.simulation.calculate_krel()
+
+        pores_filled, total_pores, percentage = self.simulation.get_oil_filled_percentage()
+
+        return pc, Sw, Krw, Kro, pores_filled, total_pores, percentage
+
+    def get_pores_left(self):
+        return self.simulation.get_pores_left()
+
+    def get_parameter_manager(self):
+        return self.parameter_manager

@@ -3,8 +3,9 @@ import openpnm as op
 from PyQt6 import QtCore, QtGui, QtTest, QtWidgets
 import pyqtgraph as pg
 
-from py_pore_flow.graphic.single_element_sim import ElementWidget, ManualSimulationPlot, ManualSimulation
+from py_pore_flow.graphic.single_element_sim import ElementWidget
 from py_pore_flow.parameters.parameter_manager import DEFAULT_PARAMETERS
+from py_pore_flow.simulation.simulation import StepSimulation
 
 
 class TestDisplay:
@@ -15,7 +16,7 @@ class TestDisplay:
 
     def set_pn(self, pn, parameters_dict=DEFAULT_PARAMETERS):
         self.pn = pn
-        self.manual_simulation = ManualSimulation(pn, parameters_dict, generate_cas=False)
+        self.manual_simulation = StepSimulation(pn, parameters_dict, generate_cas=False)
         self.manual_simulation.set_max_pc(40000)
         self.element_widget.set_pn(self.pn)
 

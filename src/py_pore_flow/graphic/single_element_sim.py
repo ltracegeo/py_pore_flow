@@ -8,21 +8,14 @@ import pyqtgraph as pg
 
 from py_pore_flow.graphic.element_graphic import ElementPlotter
 from py_pore_flow.graphic.network_plot import PorePlot, ThroatPlot
-from py_pore_flow.network import initialize_pn, Network
-from py_pore_flow.parameters.parameter_manager import DEFAULT_PARAMETERS, ParameterManager
-from py_pore_flow.simulation.drainage import DrainageSimulation
-from py_pore_flow.simulation.imbibition import ImbibitionSimulation
-from py_pore_flow.simulation.simulation import (
-    calculate_drainage_values,
-    calculate_imbibition_values,
-    calculate_initial_values,
-)
+from py_pore_flow.parameters.parameter_manager import DEFAULT_PARAMETERS
+from py_pore_flow.simulation.simulation import StepSimulation
 
 
 class ManualSimulationPlot:
     def __init__(self, pn, parameters_dict=DEFAULT_PARAMETERS, generate_cas=True):
         self.pn = pn
-        self.manual_simulation = ManualSimulation(pn, parameters_dict, generate_cas=generate_cas)
+        self.manual_simulation = StepSimulation(pn, parameters_dict, generate_cas=generate_cas)
         self.manual_simulation.set_max_pc(40000)
 
     def set_pore(self, pore_id):
@@ -245,45 +238,3 @@ class ElementWidget(QtWidgets.QFrame):
             return np.pad(np.array([value], dtype="float64"), (0, size - 1), constant_values=np.nan)
         else:
             return np.array([value])
-
-
-class ManualSimulation:
-    def __init__(self, pn, parameters_dict=DEFAULT_PARAMETERS, generate_cas=True):
-        self.simulation = None
-        self.max_pc = None
-
-        self.parameter_manager = ParameterManager(parameters_dict)
-
-        initialize_pn(pn)
-        self.network = Network(pn)
-
-        if generate_cas:
-            self.parameter_manager.generate_contact_angles(self.network)
-
-        calculate_initial_values(self.network)
-
-    def set_max_pc(self, max_pc):
-        self.max_pc = max_pc
-
-    def set_cycle(self, cycle="imbibition"):
-        if cycle == "drainage":
-            self.parameter_manager.update_initial_cas(self.network)
-            calculate_drainage_values(self.network, self.max_pc)
-            self.simulation = DrainageSimulation(self.network)
-            self.max_pc = 0
-        else:
-            self.parameter_manager.update_equilibrium_cas(self.network)
-            calculate_imbibition_values(self.network, self.max_pc)
-            self.simulation = ImbibitionSimulation(self.network, self.max_pc)
-
-    def update(self, pc):
-        # 17125.8354
-        self.max_pc = max(self.max_pc, pc)
-        self.simulation.update_pc(pc)
-        Sw = self.simulation.calculate_sw_total()
-        Krw, Kro = self.simulation.calculate_krel()
-        # Krw, Kro = 0, 0
-        pores_filled, total_pores, percentage = self.simulation.get_oil_filled_percentage()
-        print(
-            f"Pc: {pc:8.2f}, Sw: {Sw:.6f}, Krw: {Krw:.6f}, Kro: {Kro:.6f}, Filled: {pores_filled:4}/{total_pores} ({percentage:2}%)."
-        )
