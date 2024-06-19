@@ -22,7 +22,7 @@ from py_pore_flow.output import pn_to_vtu
 from py_pore_flow.parameters.parameter_manager import DEFAULT_PARAMETERS, ParameterManager
 from py_pore_flow.simulation.drainage import DrainageSimulation
 from py_pore_flow.simulation.imbibition import ImbibitionSimulation
-from py_pore_flow.simulation.simulation_base import ConductanceCalculator, PcIncrementer
+from py_pore_flow.simulation.cycle_simulation import ConductanceCalculator, PcIncrementer
 
 
 def run_two_phase_simulation(

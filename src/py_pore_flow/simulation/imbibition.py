@@ -16,10 +16,10 @@ from py_pore_flow.equations import (
     check_water_layer_network,
 )
 from py_pore_flow.output import pn_to_vtu
-from py_pore_flow.simulation.simulation_base import SimulationBase
+from py_pore_flow.simulation.cycle_simulation import CycleSimulation
 
 
-class ImbibitionSimulation(SimulationBase):
+class ImbibitionSimulation(CycleSimulation):
     def __init__(self, network, pc_max):
         super().__init__(network, WATER)
         self.Rmin = calculate_r(pc_max, 100000)

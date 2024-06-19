@@ -3,10 +3,10 @@ import numpy as np
 from py_pore_flow import log
 from py_pore_flow.equations import OIL, check_water_layer
 from py_pore_flow.output import pn_to_vtu
-from py_pore_flow.simulation.simulation_base import SimulationBase
+from py_pore_flow.simulation.cycle_simulation import CycleSimulation
 
 
-class DrainageSimulation(SimulationBase):
+class DrainageSimulation(CycleSimulation):
     def __init__(self, network):
         super().__init__(network, OIL)
 

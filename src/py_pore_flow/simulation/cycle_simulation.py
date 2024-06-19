@@ -607,7 +607,7 @@ class BorderElements:
             self.pores_ids.remove(pore_id)
 
 
-class SimulationBase:
+class CycleSimulation:
     def __init__(self, network, phase):
         self.network = network
         self.phase = phase
