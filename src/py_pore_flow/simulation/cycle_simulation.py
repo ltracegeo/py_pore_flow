@@ -347,7 +347,8 @@ class FlowRateCalculator:
         else:
             phase_name = "oil"
 
-        multiphase_throats = self.network.pn[f"throat.{phase_name}_saturation"] != 1
+        # multiphase_throats = self.network.pn[f"throat.{phase_name}_saturation"] != 1
+        multiphase_throats = self.network.pn["throat.all"]
         multiphase_throat_id_list = np.where(multiphase_throats)[0]
 
         conductance_calculator = ConductanceCalculator(self.network)
