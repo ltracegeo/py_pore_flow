@@ -5,6 +5,7 @@ from numba.experimental import jitclass
 import numpy as np
 import openpnm
 
+from py_pore_flow import log
 from py_pore_flow.equations import (
     calculate_absolute_permeability,
     calculate_C,
@@ -449,6 +450,7 @@ class KrelCalculator:
         if len(valid_clusters) == 1:
             choosen_cluster = valid_clusters[0]
         else:
+            log.warning(f"Multiple connecting clusters")
             # Get bigger cluster
             cluster_sizes = []
             for cluster_number in valid_clusters:
