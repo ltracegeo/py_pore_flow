@@ -3,7 +3,7 @@ import openpnm as op
 from PyQt6 import QtCore, QtGui, QtTest, QtWidgets
 import pyqtgraph as pg
 
-from py_pore_flow.graphic.single_element_sim import ElementWidget
+from py_pore_flow.graphic.manual_simulation import ElementWidget
 from py_pore_flow.parameters.parameter_manager import DEFAULT_PARAMETERS
 from py_pore_flow.simulation.simulation import StepSimulation
 

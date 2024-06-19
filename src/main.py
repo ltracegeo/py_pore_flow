@@ -7,7 +7,7 @@ import pyqtgraph as pg
 
 import py_pore_flow as ppf
 from py_pore_flow.graphic.element_graphic import WATER, OIL, ElementGraphic, ElementPlotter
-from py_pore_flow.graphic.single_element_sim import ManualSimulationPlot
+from py_pore_flow.graphic.manual_simulation import ManualSimulationPlot
 
 
 def see_props():
