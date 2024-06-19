@@ -15,7 +15,9 @@ from py_pore_flow.simulation.simulation import StepSimulation
 class ManualSimulationPlot:
     def __init__(self, pn, parameters_dict=DEFAULT_PARAMETERS, generate_cas=True):
         self.pn = pn
-        self.manual_simulation = StepSimulation(pn, parameters_dict, generate_cas=generate_cas)
+        self.manual_simulation = StepSimulation(
+            pn, parameters_dict, generate_cas=generate_cas, calculate_full_conductance=True
+        )
         self.manual_simulation.set_max_pc(40000)
 
     def set_pore(self, pore_id):
@@ -132,11 +134,16 @@ class ElementWidget(QtWidgets.QFrame):
 
         self.graph = pg.GraphicsLayoutWidget()
         self.table = QtWidgets.QTableWidget()
+        self.table = QtWidgets.QTableWidget()
+        self.water_conductance_bar = ConductanceBarWidget("#05B8CC")
+        self.oil_conductance_bar = ConductanceBarWidget("#efafaf")
         self.plot = self.graph.addPlot()
 
         splitter = QtWidgets.QSplitter()
         splitter.addWidget(self.graph)
         splitter.addWidget(self.table)
+        splitter.addWidget(self.water_conductance_bar)
+        splitter.addWidget(self.oil_conductance_bar)
         splitter.setSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Expanding)
 
         self.layout = QtWidgets.QHBoxLayout(self)
@@ -195,6 +202,15 @@ class ElementWidget(QtWidgets.QFrame):
                 conns = ["inlet"] + conns.tolist()
             elif self.pn["pore.outlets"][id]:
                 conns = ["outlet"] + conns.tolist()
+            water_single_conductance = ""
+            water_multi_conductance = ""
+            oil_single_conductance = ""
+            oil_multi_conductance = ""
+        else:
+            water_single_conductance = self.pn[f"throat.water_singlephase_conductance"][id]
+            water_multi_conductance = self.pn[f"throat.water_multiphase_conductance"][id]
+            oil_single_conductance = self.pn[f"throat.oil_singlephase_conductance"][id]
+            oil_multi_conductance = self.pn[f"throat.oil_multiphase_conductance"][id]
 
         df = pd.DataFrame.from_dict(
             {
@@ -212,11 +228,23 @@ class ElementWidget(QtWidgets.QFrame):
                 "corner_oil_layer": corner_oil_layer,
                 "corner_water_layer": corner_water_layer,
                 "entry_pressure": entry_pressure,
+                "water_single_conductance": [water_single_conductance],
+                "water_multi_conductance": [water_multi_conductance],
+                "oil_single_conductance": [oil_single_conductance],
+                "oil_multi_conductance": [oil_multi_conductance],
             },
             orient="index",
         )
 
         self.__df_to_widget(df, self.table)
+
+        if element_type == "throat":
+            self.water_conductance_bar.set_max_conductance(water_single_conductance)
+            self.water_conductance_bar.set_current_conductance(water_multi_conductance)
+            self.water_conductance_bar.update()
+            self.oil_conductance_bar.set_max_conductance(oil_single_conductance)
+            self.oil_conductance_bar.set_current_conductance(oil_multi_conductance)
+            self.oil_conductance_bar.update()
 
     @staticmethod
     def __df_to_widget(dataframe, table_widget: QtWidgets.QTableWidget):
@@ -243,3 +271,30 @@ class ElementWidget(QtWidgets.QFrame):
             return np.pad(np.array([value], dtype="float64"), (0, size - 1), constant_values=np.nan)
         else:
             return np.array([value])
+
+
+class ConductanceBarWidget(QtWidgets.QProgressBar):
+    def __init__(self, color="#05B8CC"):
+        super().__init__()
+        self.setOrientation(QtCore.Qt.Orientation.Vertical)
+        self.setTextVisible(False)
+        self.setRange(0, 100)
+        self.setValue(0)
+        self.setStyleSheet(
+            """
+QProgressBar::chunk {
+    background-color: %s;
+}
+"""
+            % (color)
+        )
+
+    def set_max_conductance(self, max_conductance):
+        self.max_conductance = max_conductance
+
+    def set_current_conductance(self, current_conductance):
+        self.current_conductance = current_conductance
+
+    def update(self):
+        ratio = int(100 * (self.current_conductance / self.max_conductance))
+        self.setValue(ratio)

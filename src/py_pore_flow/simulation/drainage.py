@@ -7,8 +7,8 @@ from py_pore_flow.simulation.cycle_simulation import CycleSimulation
 
 
 class DrainageSimulation(CycleSimulation):
-    def __init__(self, network):
-        super().__init__(network, OIL)
+    def __init__(self, network, calculate_full_conductance=False):
+        super().__init__(network, OIL, calculate_full_conductance)
 
     def get_pores_left(self):
         return np.logical_not(self.network.pn["pore.oil_filled"] | self.network.pn["pore.trapped"]).sum()

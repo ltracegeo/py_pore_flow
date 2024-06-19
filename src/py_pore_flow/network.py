@@ -37,6 +37,8 @@ def initialize_pn(pn):
         pn[f"{element_type}.receding_contact_angle"] = 0.0
         pn[f"{element_type}.oil_singlephase_conductance"] = 0.0
         pn[f"{element_type}.water_singlephase_conductance"] = 0.0
+        pn[f"{element_type}.oil_multiphase_conductance"] = 0.0
+        pn[f"{element_type}.water_multiphase_conductance"] = 0.0
         pn[f"{element_type}.shape"] = 0
         pn[f"{element_type}.trapped"] = False
         pn[f"{element_type}.n_corners"] = int(0)

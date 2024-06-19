@@ -320,25 +320,9 @@ class FlowRateCalculator:
         flow_rate = (inlet_flow[0] - outlet_flow[0]) / 2
         return flow_rate
 
-    def calculate_total_flow_rate(self, phase):
-        if phase == WATER:
-            phase_name = "water"
-        else:
-            phase_name = "oil"
-
-        multiphase_throats = self.network.pn[f"throat.{phase_name}_saturation"] != 1
-        multiphase_throat_id_list = np.where(multiphase_throats)[0]
-
-        conductance_calculator = ConductanceCalculator(self.network)
-        multiphase_conductance = conductance_calculator.calculate_multiphase_conductance(
-            phase, multiphase_throat_id_list
-        )
-
-        self.network.pn["throat.hydraulic_conductance"] = np.where(
-            multiphase_throats,
-            multiphase_conductance,
-            self.network.pn[f"throat.{phase_name}_singlephase_conductance"],
-        )
+    def calculate_total_flow_rate(self, phase, update_hydraulic_conductance=True):
+        if update_hydraulic_conductance:
+            self.update_hydraulic_conductance(phase)
 
         if phase == WATER:
             phase = openpnm.phase.Water(network=self.network.pn)
@@ -357,10 +341,28 @@ class FlowRateCalculator:
         flow_rate = (inlet_flow[0] - outlet_flow[0]) / 2
         return flow_rate
 
+    def update_hydraulic_conductance(self, phase):
+        if phase == WATER:
+            phase_name = "water"
+        else:
+            phase_name = "oil"
+
+        multiphase_throats = self.network.pn[f"throat.{phase_name}_saturation"] != 1
+        multiphase_throat_id_list = np.where(multiphase_throats)[0]
+
+        conductance_calculator = ConductanceCalculator(self.network)
+        multiphase_conductance = conductance_calculator.calculate_multiphase_conductance(
+            phase, multiphase_throat_id_list
+        )
+
+        self.network.pn[f"throat.{phase_name}_multiphase_conductance"] = multiphase_conductance
+        self.network.pn["throat.hydraulic_conductance"] = self.network.pn[f"throat.{phase_name}_multiphase_conductance"]
+
 
 class KrelCalculator:
-    def __init__(self, network):
+    def __init__(self, network, calculate_full_conductance=False):
         self.network = network
+        self.calculate_full_conductance = calculate_full_conductance
 
         flow_rate_calculator = FlowRateCalculator(self.network)
 
@@ -370,6 +372,13 @@ class KrelCalculator:
         self.absolute_permeability = self.__calculate_K()
 
     def calculate_kro(self):
+        if self.calculate_full_conductance:
+            update_hydraulic_conductance = False
+            flow_rate_calculator = FlowRateCalculator(self.network)
+            flow_rate_calculator.update_hydraulic_conductance(OIL)
+        else:
+            update_hydraulic_conductance = True
+
         network_clone = openpnm.network.Network()
         network_clone.update(self.network.pn.copy())
         pore_id_to_remove_list = np.where(network_clone["pore.oil_saturation"] == 0)[0]
@@ -383,10 +392,17 @@ class KrelCalculator:
         if len(new_network.get_inlets_ids()) == 0 or len(new_network.get_outlets_ids()) == 0:
             return 0
         flow_rate_calculator = FlowRateCalculator(new_network)
-        flow_rate = flow_rate_calculator.calculate_total_flow_rate(OIL)
+        flow_rate = flow_rate_calculator.calculate_total_flow_rate(OIL, update_hydraulic_conductance)
         return flow_rate / self.singlephase_flow_rate[OIL]
 
     def calculate_krw(self):
+        if self.calculate_full_conductance:
+            update_hydraulic_conductance = False
+            flow_rate_calculator = FlowRateCalculator(self.network)
+            flow_rate_calculator.update_hydraulic_conductance(WATER)
+        else:
+            update_hydraulic_conductance = True
+
         network_clone = openpnm.network.Network()
         network_clone.update(self.network.pn.copy())
         pore_id_to_remove_list = np.where(network_clone["pore.water_saturation"] == 0)[0]
@@ -400,7 +416,7 @@ class KrelCalculator:
         if len(new_network.get_inlets_ids()) == 0 or len(new_network.get_outlets_ids()) == 0:
             return 0
         flow_rate_calculator = FlowRateCalculator(new_network)
-        flow_rate = flow_rate_calculator.calculate_total_flow_rate(WATER)
+        flow_rate = flow_rate_calculator.calculate_total_flow_rate(WATER, update_hydraulic_conductance)
         return flow_rate / self.singlephase_flow_rate[WATER]
 
     def get_absolute_permeability(self):
@@ -608,14 +624,14 @@ class BorderElements:
 
 
 class CycleSimulation:
-    def __init__(self, network, phase):
+    def __init__(self, network, phase, calculate_full_conductance=False):
         self.network = network
         self.phase = phase
 
         self.pores_dict = self.network.get_pore_list()
         self.throats_dict = self.network.get_throat_list()
 
-        self.krel_calculator = KrelCalculator(self.network)
+        self.krel_calculator = KrelCalculator(self.network, calculate_full_conductance)
 
         self.border_elements = BorderElements()
         self.border_elements.set_pores_ids(nb.typed.List(self.network.get_inlets_ids()))

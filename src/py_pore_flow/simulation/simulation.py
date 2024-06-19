@@ -238,9 +238,10 @@ def calculate_element_imbibition_values(element, max_pc):
 
 
 class StepSimulation:
-    def __init__(self, pn, parameters_dict=DEFAULT_PARAMETERS, generate_cas=True):
+    def __init__(self, pn, parameters_dict=DEFAULT_PARAMETERS, generate_cas=True, calculate_full_conductance=False):
         self.simulation = None
         self.max_pc = None
+        self.calculate_full_conductance = calculate_full_conductance
 
         self.parameter_manager = ParameterManager(parameters_dict)
 
@@ -259,12 +260,12 @@ class StepSimulation:
         if cycle == "drainage":
             self.parameter_manager.update_initial_cas(self.network)
             calculate_drainage_values(self.network, self.max_pc)
-            self.simulation = DrainageSimulation(self.network)
+            self.simulation = DrainageSimulation(self.network, self.calculate_full_conductance)
             self.max_pc = 0
         else:
             self.parameter_manager.update_equilibrium_cas(self.network)
             calculate_imbibition_values(self.network, self.max_pc)
-            self.simulation = ImbibitionSimulation(self.network, self.max_pc)
+            self.simulation = ImbibitionSimulation(self.network, self.max_pc, self.calculate_full_conductance)
 
     def update(self, pc):
         self.max_pc = max(self.max_pc, pc)

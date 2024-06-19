@@ -315,6 +315,9 @@ def calculate_multiphase_network_oil_conductance(
 def calculate_multiphase_oil_conductance(
     L, A, G, shape, So, b, bo, beta, theta_h, theta_a, corner_oil_layer, n_corners, has_oil_in_center
 ):
+    if np.any(So == 0):
+        return 0
+
     i = 0  # Pore 1
     j = 2  # Throat connecting pore 0 and 1
     k = 1  # Pore 2
@@ -345,6 +348,9 @@ def calculate_multiphase_network_water_conductance(
 
 @njit
 def calculate_multiphase_water_conductance(L, A, G, shape, Sw, theta_h, b, beta, n_corners, has_water_in_center):
+    if np.any(Sw == 0):
+        return 0
+
     i = 0  # Pore 1
     j = 2  # Throat connecting pore 0 and 1
     k = 1  # Pore 2

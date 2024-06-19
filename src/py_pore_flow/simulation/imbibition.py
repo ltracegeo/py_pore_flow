@@ -20,8 +20,8 @@ from py_pore_flow.simulation.cycle_simulation import CycleSimulation
 
 
 class ImbibitionSimulation(CycleSimulation):
-    def __init__(self, network, pc_max):
-        super().__init__(network, WATER)
+    def __init__(self, network, pc_max, calculate_full_conductance=False):
+        super().__init__(network, WATER, calculate_full_conductance)
         self.Rmin = calculate_r(pc_max, 100000)
 
     def get_pores_left(self):
