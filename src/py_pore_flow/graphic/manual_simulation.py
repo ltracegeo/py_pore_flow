@@ -48,6 +48,7 @@ class ManualSimulationPlot:
         self.pc_input = QtWidgets.QLineEdit()
         self.pc_input.setValidator(QtGui.QDoubleValidator())
         self.pc_input.editingFinished.connect(self.__on_pc_changed)
+        self.status_label = QtWidgets.QLabel()
 
         element_selection_layout = QtWidgets.QHBoxLayout()
         element_selection_layout.addWidget(self.element_type_combobox)
@@ -64,6 +65,7 @@ class ManualSimulationPlot:
         layout.addRow(self.element_widget)
         layout.addRow("Cycle:", self.cycle_combobox)
         layout.addRow("Pc:", self.pc_input)
+        layout.addRow("", self.status_label)
 
         self.win = QtWidgets.QMainWindow()
         self.win.setCentralWidget(central_widget)
@@ -112,7 +114,10 @@ class ManualSimulationPlot:
             pc = float(self.pc_input.text())
         except ValueError:
             return
-        self.manual_simulation.update(pc)
+        Pc, Sw, Krw, Kro, pores_filled, total_pores, percentage = self.manual_simulation.update(pc)
+        self.status_label.setText(
+            f"Pc: {Pc:8.2f}, Sw: {Sw:.6f}, Krw: {Krw:.6f}, Kro: {Kro:.6f}, Filled: {pores_filled:4}/{total_pores} ({percentage:2}%)."
+        )
         self.element_widget.update()
 
 
