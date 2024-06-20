@@ -49,8 +49,9 @@ DEFAULT_PARAMETERS = {
 
 
 class ParameterManager:
-    def __init__(self, parameters_dict=DEFAULT_PARAMETERS):
-        self.parameters_dict = parameters_dict
+    def __init__(self, parameters_dict={}):
+        self.parameters_dict = DEFAULT_PARAMETERS
+        self.parameters_dict.update(parameters_dict)
 
         if self.parameters_dict["seed"] is None:
             seed = np.random.randint(0, 999999999)

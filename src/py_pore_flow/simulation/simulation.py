@@ -19,22 +19,17 @@ from py_pore_flow.equations import (
 )
 from py_pore_flow.network import initialize_pn, Network
 from py_pore_flow.output import pn_to_vtu
-from py_pore_flow.parameters.parameter_manager import DEFAULT_PARAMETERS, ParameterManager
+from py_pore_flow.parameters.parameter_manager import ParameterManager
 from py_pore_flow.simulation.drainage import DrainageSimulation
 from py_pore_flow.simulation.imbibition import ImbibitionSimulation
 from py_pore_flow.simulation.cycle_simulation import ConductanceCalculator, PcIncrementer
 
 
-def run_two_phase_simulation(
-    pn, parameters_dict=DEFAULT_PARAMETERS, generate_vtu=False, plot_elements=False, debug=False
-):
+def run_two_phase_simulation(pn, parameters_dict={}, generate_vtu=False, plot_elements=False, debug=False):
     previous_limit = sys.getrecursionlimit()
 
     number_of_elements = len(pn["pore.all"]) + len(pn["throat.all"])
     sys.setrecursionlimit(previous_limit + number_of_elements)
-
-    parameters = DEFAULT_PARAMETERS
-    parameters.update(parameters_dict)
 
     cycle = [None] * 2
     Pc = [None] * 2
@@ -42,7 +37,7 @@ def run_two_phase_simulation(
     Krw = [None] * 2
     Kro = [None] * 2
 
-    simulation = Simulation(pn, parameters, generate_vtu, plot_elements, debug)
+    simulation = Simulation(pn, parameters_dict, generate_vtu, plot_elements, debug)
     Pc[0], Sw[0], Krw[0], Kro[0] = simulation.run_drainage()
     Pc[1], Sw[1], Krw[1], Kro[1] = simulation.run_imbibition()
 
@@ -61,7 +56,7 @@ def run_two_phase_simulation(
 
 
 class Simulation:
-    def __init__(self, pn, parameters_dict=DEFAULT_PARAMETERS, generate_vtu=False, plot_elements=False, debug=False):
+    def __init__(self, pn, parameters_dict={}, generate_vtu=False, plot_elements=False, debug=False):
         self.step_simulation = StepSimulation(pn, parameters_dict, generate_cas=True)
         self.parameter_manager = self.step_simulation.get_parameter_manager()
 
@@ -238,7 +233,7 @@ def calculate_element_imbibition_values(element, max_pc):
 
 
 class StepSimulation:
-    def __init__(self, pn, parameters_dict=DEFAULT_PARAMETERS, generate_cas=True, calculate_full_conductance=False):
+    def __init__(self, pn, parameters_dict={}, generate_cas=True, calculate_full_conductance=False):
         self.simulation = None
         self.max_pc = None
         self.calculate_full_conductance = calculate_full_conductance

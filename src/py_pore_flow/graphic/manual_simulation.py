@@ -8,12 +8,11 @@ import pyqtgraph as pg
 
 from py_pore_flow.graphic.element_graphic import ElementPlotter
 from py_pore_flow.graphic.network_plot import PorePlot, ThroatPlot
-from py_pore_flow.parameters.parameter_manager import DEFAULT_PARAMETERS
 from py_pore_flow.simulation.simulation import StepSimulation
 
 
 class ManualSimulationPlot:
-    def __init__(self, pn, parameters_dict=DEFAULT_PARAMETERS, generate_cas=True):
+    def __init__(self, pn, parameters_dict={}, generate_cas=True):
         self.pn = pn
         self.manual_simulation = StepSimulation(
             pn, parameters_dict, generate_cas=generate_cas, calculate_full_conductance=True

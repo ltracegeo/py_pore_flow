@@ -4,7 +4,6 @@ from PyQt6 import QtCore, QtGui, QtTest, QtWidgets
 import pyqtgraph as pg
 
 from py_pore_flow.graphic.manual_simulation import ElementWidget
-from py_pore_flow.parameters.parameter_manager import DEFAULT_PARAMETERS
 from py_pore_flow.simulation.simulation import StepSimulation
 
 
@@ -14,7 +13,7 @@ class TestDisplay:
         self.manual_simulation = None
         self.win = None
 
-    def set_pn(self, pn, parameters_dict=DEFAULT_PARAMETERS):
+    def set_pn(self, pn, parameters_dict={}):
         self.pn = pn
         self.manual_simulation = StepSimulation(pn, parameters_dict, generate_cas=False)
         self.manual_simulation.set_max_pc(40000)
