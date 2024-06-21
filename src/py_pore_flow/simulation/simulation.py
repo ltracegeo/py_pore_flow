@@ -57,6 +57,7 @@ def run_two_phase_simulation(pn, parameters_dict={}, generate_vtu=False, plot_el
 
 class Simulation:
     def __init__(self, pn, parameters_dict={}, generate_vtu=False, plot_elements=False, debug=False):
+        self.pn = pn
         self.step_simulation = StepSimulation(pn, parameters_dict, generate_cas=True)
         self.parameter_manager = self.step_simulation.get_parameter_manager()
 
@@ -74,7 +75,7 @@ class Simulation:
         )
 
         if generate_vtu:
-            pn_to_vtu(pn, self.pc_incrementer.get_pc(), 1, 0)
+            pn_to_vtu(self.pn, self.pc_incrementer.get_pc(), 1, 0)
 
     def run_drainage(self):
         self.step_simulation.set_max_pc(self.parameter_manager.pc_maximum)
@@ -110,7 +111,7 @@ class Simulation:
                 )
 
             if self.generate_vtu:
-                pn_to_vtu(self.network.pn, Pc, Sw, 1 if cycle_name == "drainage" else 2)
+                pn_to_vtu(self.pn, Pc, Sw, 1 if cycle_name == "drainage" else 2)
 
             if self.step_simulation.get_pores_left() == 0:
                 break
