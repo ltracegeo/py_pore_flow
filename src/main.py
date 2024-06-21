@@ -1,4 +1,7 @@
 import datetime
+import json
+from pathlib import Path
+import re
 import time
 
 import openpnm
@@ -98,6 +101,27 @@ def draw():
 def manual_sim():
     pn = openpnm.io.network_from_statoil("tests/resources/statoil", "Image")
     simulation = ManualSimulationPlot(pn)
+
+    app = QtWidgets.QApplication([])
+    simulation.show()
+    app.exec()
+
+
+def sim_from_dir(directory_path):
+    network_name = ""
+    my_path = Path(directory_path)
+    pattern = re.compile("(\S+)_node1.dat")
+    for filepath in my_path.iterdir():
+        re_match = pattern.match(filepath.name)
+        if re_match:
+            network_name = re_match[1]
+
+    pn = openpnm.io.network_from_statoil(directory_path, network_name)
+
+    with open(my_path / "input.txt", "r") as f:
+        parameters = json.loads(f.read())
+
+    simulation = ManualSimulationPlot(pn, parameters)
 
     app = QtWidgets.QApplication([])
     simulation.show()
