@@ -6,19 +6,21 @@ import numpy as np
 import openpnm
 
 from py_pore_flow import log
-from py_pore_flow.equations import (
-    calculate_absolute_permeability,
+from py_pore_flow.equations.geometry import (
+    WATER,
+    OIL,
+    MAX_NUMBER_OF_CORNERS,
     calculate_C,
     calculate_drainage_network_saturation,
     calculate_hinging_contact_angle,
     calculate_imbibition_network_saturation,
+    calculate_sw_total,
+)
+from py_pore_flow.equations.conductance import (
+    calculate_absolute_permeability,
     calculate_multiphase_network_oil_conductance,
     calculate_multiphase_network_water_conductance,
     calculate_singlephase_conductance,
-    calculate_sw_total,
-    WATER,
-    OIL,
-    MAX_NUMBER_OF_CORNERS,
 )
 from py_pore_flow.network import Network
 

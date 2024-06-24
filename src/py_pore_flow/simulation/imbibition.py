@@ -1,21 +1,21 @@
 import numba as nb
 import numpy as np
 
-from py_pore_flow import log
-from py_pore_flow.equations import (
+from py_pore_flow.equations.geometry import (
     CIRCLE,
     WATER,
     calculate_imbibition_network_b,
     calculate_imbibition_network_bo,
-    calculate_imbibition_pc,
-    calculate_imbibition_piston_like_displacement_pc,
     calculate_oil_layer,
     calculate_oil_layer_network,
     calculate_r,
-    calculate_snap_off_pc,
     check_water_layer_network,
 )
-from py_pore_flow.output import pn_to_vtu
+from py_pore_flow.equations.entry_pressure import (
+    calculate_imbibition_pc,
+    calculate_imbibition_piston_like_displacement_pc,
+    calculate_snap_off_pc,
+)
 from py_pore_flow.simulation.cycle_simulation import CycleSimulation
 
 

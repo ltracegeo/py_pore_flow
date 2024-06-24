@@ -1,7 +1,7 @@
 import numpy as np
 
 from py_pore_flow import log
-from py_pore_flow.equations import OIL, check_water_layer
+from py_pore_flow.equations.geometry import OIL, check_water_layer
 from py_pore_flow.output import pn_to_vtu
 from py_pore_flow.simulation.cycle_simulation import CycleSimulation
 

@@ -6,7 +6,7 @@ from numba.experimental import jitclass
 import numpy as np
 import openpnm
 
-from py_pore_flow.equations import (
+from py_pore_flow.equations.geometry import (
     MAX_NUMBER_OF_CORNERS,
     SQUARE,
     TRIANGLE,

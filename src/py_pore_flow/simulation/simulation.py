@@ -3,19 +3,21 @@ import sys
 import numpy as np
 
 from py_pore_flow import log
-from py_pore_flow.equations import (
+from py_pore_flow.equations.geometry import (
+    WATER,
+    OIL,
     calculate_beta,
     calculate_C,
     calculate_drainage_b,
-    calculate_drainage_pc,
     calculate_max_b,
     calculate_r,
     calculate_shape,
     calculate_sides,
+)
+from py_pore_flow.equations.entry_pressure import (
+    calculate_drainage_pc,
     calculate_snap_off_viability,
     calculate_spontaneous_imbibition_viability,
-    WATER,
-    OIL,
 )
 from py_pore_flow.network import initialize_pn, Network
 from py_pore_flow.output import pn_to_vtu
