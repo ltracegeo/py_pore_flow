@@ -692,6 +692,9 @@ class CycleSimulation:
             element = self._get_element_to_fill(pc, self.border_elements)
             if element is None:
                 break
+
+            log.debug(f"Invasion {element.type_name:6} ID: {element.id:6} Pc: {element.pc} Raio: {element.r}")
+
             self._fill_element(element, pc)
             self._on_element_invaded(pc, element)
             self.trap_checker.update_trapped_pores()
