@@ -1,3 +1,6 @@
-openpnm
-pypardiso
-vtk
+numpy==1.23.0
+openpnm==3.4.1
+pypardiso==0.4.3
+vtk==9.3.0
+PyQt6==6.7.0
+pyqtgraph==0.13.7
