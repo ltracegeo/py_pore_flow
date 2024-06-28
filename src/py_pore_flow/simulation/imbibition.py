@@ -17,6 +17,7 @@ from py_pore_flow.equations.entry_pressure import (
     calculate_snap_off_pc,
 )
 from py_pore_flow.simulation.cycle_simulation import CycleSimulation
+from py_pore_flow import log
 
 
 class ImbibitionSimulation(CycleSimulation):
@@ -55,6 +56,7 @@ class ImbibitionSimulation(CycleSimulation):
         border_elements,
         is_throats=True,
     ):
+        invaded_elements = []
         for element_id in element_id_list:
             if (
                 element_snap_off_viability[element_id]
@@ -83,6 +85,9 @@ class ImbibitionSimulation(CycleSimulation):
                         border_elements.remove_throat(element_id)
                     else:
                         border_elements.remove_pore(element_id)
+
+                    invaded_elements.append([element_id, snap_off_pc])
+
                     for i in range(element_n_conns[element_id]):
                         neighbor_id = element_conns[element_id][i]
                         if not neighbor_water_filled[neighbor_id]:
@@ -91,8 +96,10 @@ class ImbibitionSimulation(CycleSimulation):
                             else:
                                 border_elements.add_throat(neighbor_id)
 
+        return invaded_elements
+
     def __update_snap_offs(self, pc):
-        self.snap_off(
+        invaded_throats = self.snap_off(
             self.network.pn.throats(),
             self.network.pn["throat.n_corners"],
             self.network.pn["throat.conns"],
@@ -113,7 +120,7 @@ class ImbibitionSimulation(CycleSimulation):
             is_throats=True,
         )
 
-        self.snap_off(
+        invaded_pores = self.snap_off(
             self.network.pn.pores(),
             self.network.pn["pore.n_corners"],
             self.network.pn["pore.conns"],
@@ -133,6 +140,16 @@ class ImbibitionSimulation(CycleSimulation):
             self.border_elements,
             is_throats=False,
         )
+
+        throat_r = self.network.pn["throat.radius"]
+        for throat in invaded_throats:
+            log.debug(
+                f"Invasion {'throat':6} ID: {int(throat[0]):6} Pc: {throat[1]} Radius: {throat_r[int(throat[0])]}"
+            )
+
+        pore_r = self.network.pn["pore.radius"]
+        for pore in invaded_pores:
+            log.debug(f"Invasion {'pore':6} ID: {int(pore[0]):6} Pc: {pore[1]} Radius: {pore_r[int(pore[0])]}")
 
     def __update_oil_layers(self, pc):
         self.network.pn[f"pore.corner_oil_layer"] = calculate_oil_layer_network(
