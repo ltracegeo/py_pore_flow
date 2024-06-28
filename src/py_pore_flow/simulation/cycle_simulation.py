@@ -693,7 +693,9 @@ class CycleSimulation:
             if element is None:
                 break
 
-            log.debug(f"Invasion {element.type_name:6} ID: {element.id:6} Pc: {element.pc} Radius: {element.r}")
+            log.debug(
+                f"Invasion {element.type_name:6} ID: {element.id:6} Pc: {element.pc:.5f} Radius: {element.r:.2e} G: {element.G:.4f} n_corners: {element.n_corners} area: {element.A}"
+            )
 
             self._fill_element(element, pc)
             self._on_element_invaded(pc, element)
