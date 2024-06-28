@@ -6,6 +6,7 @@ from py_pore_flow import log
 from py_pore_flow.equations.geometry import (
     WATER,
     OIL,
+    calculate_area,
     calculate_beta,
     calculate_C,
     calculate_drainage_b,
@@ -176,7 +177,8 @@ def calculate_imbibition_values(network, max_pc):
 def calculate_element_initial_values(
     element,
 ):
-    element.shape = calculate_shape(element.G)
+    element.shape, element.G = calculate_shape(element.G)
+    element.A = calculate_area(element.r, element.G)
     element.beta = calculate_beta(element.G, element.shape)
     element.sides = calculate_sides(element.beta, element.r, element.n_corners)
     element.max_b = calculate_max_b(element.sides, element.n_corners)

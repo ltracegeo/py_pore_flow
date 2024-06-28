@@ -315,6 +315,10 @@ class PnElement:
     def corner_oil_layer(self):
         return self.pn[f"{self.type_name}.corner_oil_layer"][self.id]
 
+    @G.setter
+    def G(self, value):
+        self.pn[f"{self.type_name}.shape_factor"][self.id] = value
+
     @Sw.setter
     def Sw(self, value):
         self.pn[f"{self.type_name}.water_saturation"][self.id] = value
@@ -463,9 +467,11 @@ class Pore(PnElement):
 
     @property
     def A(self):
-        if self._A is None:
-            self._A = self.pn[f"{self.type_name}.area"][self.id]
-        return self._A
+        return self.pn[f"{self.type_name}.area"][self.id]
+
+    @A.setter
+    def A(self, value):
+        self.pn[f"{self.type_name}.area"][self.id] = value
 
     def is_pore(self):
         return True
@@ -481,15 +487,15 @@ class Throat(PnElement):
 
     @property
     def A(self):
-        if self._A is None:
-            self._A = self.pn[f"{self.type_name}.cross_sectional_area"][self.id]
-        return self._A
+        return self.pn[f"{self.type_name}.cross_sectional_area"][self.id]
 
     @property
     def L(self):
-        if self._L is None:
-            self._L = self.pn[f"{self.type_name}.length"][self.id]
-        return self._L
+        return self.pn[f"{self.type_name}.length"][self.id]
+
+    @A.setter
+    def A(self, value):
+        self.pn[f"{self.type_name}.cross_sectional_area"][self.id] = value
 
     def is_pore(self):
         return False

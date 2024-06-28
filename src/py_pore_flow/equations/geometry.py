@@ -193,12 +193,18 @@ def calculate_shape(G):
         TRIANGLE, SQUARE or CIRCLE
     """
     if G > 0 and G <= sqrt(3) / 36:
-        return TRIANGLE
+        return TRIANGLE, G
     elif G <= 1 / 16:
-        return SQUARE
+        return SQUARE, 1 / 16
     # elif G == 1/(4*pi):
     else:
-        return CIRCLE
+        return CIRCLE, 1 / (4 * pi)
+
+
+@njit
+def calculate_area(r, G):
+    A = (r**2) / (4 * G)
+    return A
 
 
 @njit
