@@ -66,9 +66,9 @@ def automatic_simulation(pn, parameters={}, generate_vtu=False, debug=False):
 
 
 if __name__ == "__main__":
-    sample_directory = "tests/resources/a"
+    sample_directory = "tests/resources/eight_pores"
     manual = False
     generate_vtu = False
-    debug = False
+    debug = True
 
     run(sample_directory, {}, manual, generate_vtu, debug)
