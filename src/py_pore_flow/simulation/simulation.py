@@ -27,7 +27,7 @@ from py_pore_flow.simulation.imbibition import ImbibitionSimulation
 from py_pore_flow.simulation.cycle_simulation import ConductanceCalculator, PcIncrementer
 
 
-def run_two_phase_simulation(pn, parameters_dict={}, generate_vtu=False, plot_elements=False, debug=False):
+def run_two_phase_simulation(pn, parameters_dict={}, generate_vtu=False, debug=False):
     previous_limit = sys.getrecursionlimit()
 
     number_of_elements = len(pn["pore.all"]) + len(pn["throat.all"])
@@ -39,7 +39,7 @@ def run_two_phase_simulation(pn, parameters_dict={}, generate_vtu=False, plot_el
     Krw = [None] * 2
     Kro = [None] * 2
 
-    simulation = Simulation(pn, parameters_dict, generate_vtu, plot_elements, debug)
+    simulation = Simulation(pn, parameters_dict, generate_vtu, debug)
     Pc[0], Sw[0], Krw[0], Kro[0] = simulation.run_drainage()
     Pc[1], Sw[1], Krw[1], Kro[1] = simulation.run_imbibition()
 
@@ -58,13 +58,12 @@ def run_two_phase_simulation(pn, parameters_dict={}, generate_vtu=False, plot_el
 
 
 class Simulation:
-    def __init__(self, pn, parameters_dict={}, generate_vtu=False, plot_elements=False, debug=False):
+    def __init__(self, pn, parameters_dict={}, generate_vtu=False, debug=False):
         self.pn = pn
         self.step_simulation = StepSimulation(pn, parameters_dict, generate_cas=True)
         self.parameter_manager = self.step_simulation.get_parameter_manager()
 
         self.debug = debug
-        self.plot_elements = plot_elements
         self.generate_vtu = generate_vtu
 
         self.pc_incrementer = PcIncrementer(
