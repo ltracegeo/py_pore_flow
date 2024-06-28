@@ -36,60 +36,60 @@ class ImbibitionSimulation(CycleSimulation):
     @staticmethod
     @nb.njit
     def snap_off(
-        throat_id_list,
-        throat_n_corners,
-        throat_conns,
-        throat_n_conns,
-        throat_water_filled,
-        throat_oil_filled,
-        throat_shape,
-        throat_r,
-        throat_beta,
-        throat_theta_a,
-        throat_theta_r,
-        throat_theta_h,
-        throat_snap_off_viability,
-        pore_water_filled,
+        element_id_list,
+        element_n_corners,
+        element_conns,
+        element_n_conns,
+        element_water_filled,
+        element_oil_filled,
+        element_shape,
+        element_r,
+        element_beta,
+        element_theta_a,
+        element_theta_r,
+        element_theta_h,
+        element_snap_off_viability,
+        neighbor_water_filled,
         Rmin,
         pc,
         border_elements,
         is_throats=True,
     ):
-        for throat_id in throat_id_list:
+        for element_id in element_id_list:
             if (
-                throat_snap_off_viability[throat_id]
-                and not throat_water_filled[throat_id]
-                and throat_shape[throat_id] != CIRCLE
+                element_snap_off_viability[element_id]
+                and not element_water_filled[element_id]
+                and element_shape[element_id] != CIRCLE
             ):
-                for i in range(throat_n_conns[throat_id]):
-                    pore_id = throat_conns[throat_id][i]
-                    if pore_water_filled[pore_id]:
+                for i in range(element_n_conns[element_id]):
+                    pore_id = element_conns[element_id][i]
+                    if neighbor_water_filled[pore_id]:
                         continue
                 snap_off_pc = calculate_snap_off_pc(
-                    throat_r[throat_id],
-                    throat_beta[throat_id],
-                    throat_theta_a[throat_id],
-                    throat_theta_r[throat_id],
-                    throat_theta_h[throat_id],
-                    throat_n_corners[throat_id],
+                    element_r[element_id],
+                    element_beta[element_id],
+                    element_theta_a[element_id],
+                    element_theta_r[element_id],
+                    element_theta_h[element_id],
+                    element_n_corners[element_id],
                     Rmin,
                     pc,
                     0,
                 )
                 if snap_off_pc > pc:
-                    throat_water_filled[throat_id] = True
-                    throat_oil_filled[throat_id] = False
+                    element_water_filled[element_id] = True
+                    element_oil_filled[element_id] = False
                     if is_throats:
-                        border_elements.remove_throat(throat_id)
+                        border_elements.remove_throat(element_id)
                     else:
-                        border_elements.remove_pore(throat_id)
-                    for i in range(throat_n_conns[throat_id]):
-                        pore_id = throat_conns[throat_id][i]
-                        if not pore_water_filled[pore_id]:
+                        border_elements.remove_pore(element_id)
+                    for i in range(element_n_conns[element_id]):
+                        neighbor_id = element_conns[element_id][i]
+                        if not neighbor_water_filled[neighbor_id]:
                             if is_throats:
-                                border_elements.add_pore(pore_id)
+                                border_elements.add_pore(neighbor_id)
                             else:
-                                border_elements.add_throat(pore_id)
+                                border_elements.add_throat(neighbor_id)
 
     def __update_snap_offs(self, pc):
         self.snap_off(
