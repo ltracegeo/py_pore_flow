@@ -21,12 +21,12 @@ def calculate_drainage_network_saturation(shape, c, pc, a, oil_filled):
     sw = np.empty(number_of_elements, np.float64)
     so = np.empty(number_of_elements, np.float64)
     for i in range(number_of_elements):
-        sw[i], so[i] = calculate_drainage_displacement(shape[i], c[i], pc, a[i], oil_filled[i])
+        sw[i], so[i] = calculate_drainage_element_saturation(shape[i], c[i], pc, a[i], oil_filled[i])
     return sw, so
 
 
 @njit
-def calculate_drainage_displacement(shape, C_r, current_Pc, A, oil_filled):
+def calculate_drainage_element_saturation(shape, C_r, current_Pc, A, oil_filled):
     if not oil_filled:
         return 1.0, 0.0
 
@@ -57,7 +57,7 @@ def calculate_imbibition_network_saturation(
     sw = np.empty(number_of_elements, np.float64)
     so = np.empty(number_of_elements, np.float64)
     for i in range(number_of_elements):
-        sw[i], so[i] = calculate_imbibition_displacement(
+        sw[i], so[i] = calculate_imbibition_element_saturation(
             a[i],
             oil_filled[i],
             theta_a[i],
@@ -72,7 +72,7 @@ def calculate_imbibition_network_saturation(
 
 
 @njit
-def calculate_imbibition_displacement(A, oil_filled, theta_a, theta_h, beta, bi, bo, n_corners, has_oil_layer):
+def calculate_imbibition_element_saturation(A, oil_filled, theta_a, theta_h, beta, bi, bo, n_corners, has_oil_layer):
     if oil_filled:
         Aw = calculate_water_layer_area(bi, beta, theta_h, n_corners)
         if Aw < 0:
