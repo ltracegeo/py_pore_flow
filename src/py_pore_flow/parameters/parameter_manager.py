@@ -45,6 +45,7 @@ DEFAULT_PARAMETERS = {
     "pc_step_max": 1000,
     "sw_step": 0.01,
     "end_at_sor": True,
+    "control_by_pc": False,
 }
 
 
@@ -92,6 +93,10 @@ class ParameterManager:
     @property
     def end_at_sor(self):
         return self.parameters_dict["end_at_sor"]
+
+    @property
+    def control_by_pc(self):
+        return self.parameters_dict["control_by_pc"]
 
     def generate_contact_angles(self, network):
         self.__update_cas(network, "initial")
