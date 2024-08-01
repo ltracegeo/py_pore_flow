@@ -222,7 +222,17 @@ def calculate_C(theta, beta, n_corners):
 
 
 @njit
-def calculate_hinging_contact_angle(Pc, beta, b, n_corners):
+def calculate_network_hinging_contact_angle(Pc, beta, b, n_corners, theta_r, theta_a):
+    number_of_elements = len(beta)
+
+    theta_h = np.empty((number_of_elements, MAX_NUMBER_OF_CORNERS), np.float64)
+    for i in range(number_of_elements):
+        theta_h[i] = calculate_hinging_contact_angle(Pc, beta[i], b[i], n_corners[i], theta_r[i], theta_a[i])
+    return theta_h
+
+
+@njit
+def calculate_hinging_contact_angle(Pc, beta, b, n_corners, theta_r, theta_a):
     theta_h = np.empty(MAX_NUMBER_OF_CORNERS, dtype=np.float64)
 
     if Pc == 0:
@@ -240,7 +250,7 @@ def calculate_hinging_contact_angle(Pc, beta, b, n_corners):
                 elif x < -1:
                     x = -1
                 theta_h[i] = acos(x) - beta[i]
-    return theta_h
+    return np.clip(theta_h, theta_r, theta_a)
 
 
 @njit

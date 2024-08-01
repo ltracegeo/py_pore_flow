@@ -10,9 +10,9 @@ from py_pore_flow.equations.geometry import (
     WATER,
     OIL,
     MAX_NUMBER_OF_CORNERS,
-    calculate_C,
     calculate_drainage_network_saturation,
     calculate_hinging_contact_angle,
+    calculate_network_hinging_contact_angle,
     calculate_imbibition_network_saturation,
     calculate_sw_total,
 )
@@ -720,23 +720,22 @@ class CycleSimulation:
                 self._update_pc(neighbor, pc)
 
     def __update_hinging_contact_angles(self, pc):
-        for pore in self.network.get_pore_list():
-            hinging_contact_angle = calculate_hinging_contact_angle(pc, pore.beta, pore.b, pore.n_corners)
-            hinging_contact_angle = np.clip(
-                hinging_contact_angle, pore.receding_contact_angle, pore.advancing_contact_angle
-            )
-            pore.theta_h = hinging_contact_angle
-            if self.phase == OIL:
-                pore.C_h = calculate_C(pore.theta_h, pore.beta, pore.n_corners)
-
-        for throat in self.network.get_throat_list():
-            hinging_contact_angle = calculate_hinging_contact_angle(pc, throat.beta, throat.b, throat.n_corners)
-            hinging_contact_angle = np.clip(
-                hinging_contact_angle, throat.receding_contact_angle, throat.advancing_contact_angle
-            )
-            throat.theta_h = hinging_contact_angle
-            if self.phase == OIL:
-                throat.C_h = calculate_C(throat.theta_h, throat.beta, throat.n_corners)
+        self.network.pn["pore.hinging_contact_angle"] = calculate_network_hinging_contact_angle(
+            pc,
+            self.network.pn["pore.corner_half_angle"],
+            self.network.pn["pore.b"],
+            self.network.pn["pore.n_corners"],
+            self.network.pn["pore.receding_contact_angle"],
+            self.network.pn["pore.advancing_contact_angle"],
+        )
+        self.network.pn["throat.hinging_contact_angle"] = calculate_network_hinging_contact_angle(
+            pc,
+            self.network.pn["throat.corner_half_angle"],
+            self.network.pn["throat.b"],
+            self.network.pn["throat.n_corners"],
+            self.network.pn["throat.receding_contact_angle"],
+            self.network.pn["throat.advancing_contact_angle"],
+        )
 
 
 class TrapChecker:
