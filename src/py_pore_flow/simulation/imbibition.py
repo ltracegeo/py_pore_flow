@@ -4,6 +4,8 @@ import numpy as np
 from py_pore_flow.equations.geometry import (
     CIRCLE,
     WATER,
+    calculate_imbibition_element_b,
+    calculate_imbibition_element_bo,
     calculate_imbibition_network_b,
     calculate_imbibition_network_bo,
     calculate_oil_layer,
@@ -218,11 +220,11 @@ class ImbibitionSimulation(CycleSimulation):
 
         for element in element_list:
             if pc < 0 or element.spontaneous_imbibition:
-                if element.get_pc() > pc and not element.trapped and not element.water_filled:
+                if element.get_pc() > pc:
                     return element
         return None
 
-    def _update_b(self, pc):
+    def __update_b(self, pc):
         self.network.pn["pore.b"] = calculate_imbibition_network_b(
             self.network.pn["pore.corner_half_angle"],
             self.network.pn["pore.max_b"],
@@ -263,7 +265,35 @@ class ImbibitionSimulation(CycleSimulation):
             pc,
         )
 
-    def _on_element_invaded(self, pc, element):
+    def _update_element_filled_geometry(self, pc, element):
         element.corner_oil_layer = calculate_oil_layer(
             element.advancing_contact_angle, element.beta, element.n_corners, pc
+        )
+        self.__update_element_b(element.type_name, element.id, pc)
+
+        super()._update_element_filled_geometry(pc, element)
+
+    def _update_network_geometry(self, pc):
+        self.__update_b(pc)
+        super()._update_network_geometry(pc)
+
+    def __update_element_b(self, type_name, id, pc):
+        self.network.pn[f"{type_name}.b"][id] = calculate_imbibition_element_b(
+            self.network.pn[f"{type_name}.corner_half_angle"][id],
+            self.network.pn[f"{type_name}.max_b"][id],
+            self.network.pn[f"{type_name}.receding_contact_angle"][id],
+            self.network.pn[f"{type_name}.advancing_contact_angle"][id],
+            self.network.pn[f"{type_name}.hinging_contact_angle"][id],
+            self.network.pn[f"{type_name}.corner_water_layer"][id],
+            self.network.pn[f"{type_name}.n_corners"][id],
+            pc,
+            self.Rmin,
+        )
+        self.network.pn[f"{type_name}.bo"][id] = calculate_imbibition_element_bo(
+            self.network.pn[f"{type_name}.corner_half_angle"][id],
+            self.network.pn[f"{type_name}.max_b"][id],
+            self.network.pn[f"{type_name}.advancing_contact_angle"][id],
+            self.network.pn[f"{type_name}.corner_oil_layer"][id],
+            self.network.pn[f"{type_name}.n_corners"][id],
+            pc,
         )

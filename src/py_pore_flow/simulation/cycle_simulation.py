@@ -514,11 +514,11 @@ class SaturationCalculator:
             self.__update_drainage_element_saturations(type_name, id, pc)
         else:
             self.__update_imbibition_element_saturations(type_name, id)
-        return (
-            self.network.pn[f"{type_name}.water_saturation"][id]
-            * self.network.pn[f"{type_name}.volume"][id]
-            / self.total_volume
-        )
+        # return (
+        #     self.network.pn[f"{type_name}.water_saturation"][id]
+        #     * self.network.pn[f"{type_name}.volume"][id]
+        #     / self.total_volume
+        # )
 
     def __update_drainage_saturations(self, pc):
         (
@@ -699,10 +699,7 @@ class CycleSimulation:
 
     def update_pc(self, pc):
         self._update_invasions(pc)
-
-        self._update_b(pc)
-        self.__update_hinging_contact_angles(pc)
-        self.saturation_calculator.update_saturations(pc)
+        self._update_network_geometry(pc)
 
     def calculate_sw_total(self):
         return self.saturation_calculator.calculate_sw_total()
@@ -719,11 +716,13 @@ class CycleSimulation:
     def _check_invasion_condition(self, pc, element):
         pass
 
-    def _update_b(self, pc):
-        pass
+    def _update_element_filled_geometry(self, pc, element):
+        self.__update_element_hinging_contact_angles(element.type_name, element.id, pc)
+        self.saturation_calculator.update_element_saturations(element.type_name, element.id, pc)
 
-    def _on_element_invaded(self, pc, element):
-        pass
+    def _update_network_geometry(self, pc):
+        self.__update_hinging_contact_angles(pc)
+        self.saturation_calculator.update_saturations(pc)
 
     def _update_element_entry_pc(self, element, pc):
         pass
@@ -749,11 +748,22 @@ class CycleSimulation:
                 f"Invasion {element.type_name:6} ID: {element.id:6} Pc: {element.pc:.5f} Radius: {element.r:.2e} G: {element.G:.4f} n_corners: {element.n_corners} area: {element.A}"
             )
 
-            self._fill_element(element, pc)
-            self._on_element_invaded(pc, element)
+            self.__fill_element(element, pc)
+            self._update_element_filled_geometry(pc, element)
             self.trap_checker.update_trapped_pores()
+            self.__remove_trapped_from_border()
 
-    def _fill_element(self, element, pc):
+    def __remove_trapped_from_border(self):
+        for throat_id in self.border_elements.get_throats_ids():
+            element = self.network.get_throat(throat_id)
+            if element.trapped:
+                self.border_elements.remove_throat(element.get_id())
+        for pore_id in self.border_elements.get_pores_ids():
+            element = self.network.get_pore(pore_id)
+            if element.trapped:
+                self.border_elements.remove_pore(element.get_id())
+
+    def __fill_element(self, element, pc):
         element.set_filled(self.phase, True)
         if element.is_pore():
             self.border_elements.remove_pore(element.get_id())
