@@ -806,6 +806,16 @@ class CycleSimulation:
             self.network.pn["throat.advancing_contact_angle"],
         )
 
+    def __update_element_hinging_contact_angles(self, type_name, id, pc):
+        self.network.pn[f"{type_name}.hinging_contact_angle"][id] = calculate_hinging_contact_angle(
+            pc,
+            self.network.pn[f"{type_name}.corner_half_angle"][id],
+            self.network.pn[f"{type_name}.b"][id],
+            self.network.pn[f"{type_name}.n_corners"][id],
+            self.network.pn[f"{type_name}.receding_contact_angle"][id],
+            self.network.pn[f"{type_name}.advancing_contact_angle"][id],
+        )
+
     def __find_initial_border_elements(self, border_elements, phase):
         def update_element_in_border(element):
             if element.is_filled(self.phase):
