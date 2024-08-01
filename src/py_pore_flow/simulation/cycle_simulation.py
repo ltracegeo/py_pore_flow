@@ -499,6 +499,7 @@ class SaturationCalculator:
     def __init__(self, network, phase):
         self.network = network
         self.phase = phase
+        self.total_volume = self.network.pn["pore.volume"].sum() + self.network.pn["throat.volume"].sum()
 
     def update_saturations(self, pc):
         if self.phase == OIL:
@@ -580,6 +581,7 @@ class SaturationCalculator:
                     self.network.pn["pore.clay_volume"],
                 )
             ),
+            self.total_volume,
         )
 
 
