@@ -51,9 +51,9 @@ def calculate_drainage_element_saturation(shape, C_r, current_Pc, A, oil_filled)
 
 @njit
 def calculate_imbibition_network_saturation(
-    shape, a, oil_filled, theta_a, theta_h, beta, bi, bo, n_corners, has_oil_layer
+    a, oil_filled, theta_a, theta_h, beta, bi, bo, n_corners, has_oil_layer
 ):
-    number_of_elements = len(shape)
+    number_of_elements = len(a)
     sw = np.empty(number_of_elements, np.float64)
     so = np.empty(number_of_elements, np.float64)
     for i in range(number_of_elements):
