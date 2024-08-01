@@ -30,11 +30,12 @@ class ImbibitionSimulation(CycleSimulation):
     def get_pores_left(self):
         return np.logical_not(self.network.pn["pore.water_filled"] | self.network.pn["pore.trapped"]).sum()
 
-    def _update_invasions(self, pc):
-        super()._update_invasions(pc)
+    def _update_invasions(self, pc, target_sw=None):
+        invaded_pc = super()._update_invasions(pc, target_sw)
         self.__update_snap_offs(pc)
         self.__update_oil_layers(pc)
         self.__update_water_layers()
+        return invaded_pc
 
     @staticmethod
     @nb.njit
@@ -221,8 +222,12 @@ class ImbibitionSimulation(CycleSimulation):
         for element in element_list:
             if pc < 0 or element.spontaneous_imbibition:
                 if element.get_pc() > pc:
-                    return element
-        return None
+                    if self.current_pc is None:
+                        self.current_pc = element.get_pc()
+                    else:
+                        self.current_pc = min(self.current_pc, element.get_pc())
+                    return element, self.current_pc
+        return None, pc
 
     def __update_b(self, pc):
         self.network.pn["pore.b"] = calculate_imbibition_network_b(
@@ -271,7 +276,7 @@ class ImbibitionSimulation(CycleSimulation):
         )
         self.__update_element_b(element.type_name, element.id, pc)
 
-        super()._update_element_filled_geometry(pc, element)
+        return super()._update_element_filled_geometry(pc, element)
 
     def _update_network_geometry(self, pc):
         self.__update_b(pc)

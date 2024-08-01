@@ -533,11 +533,11 @@ class SaturationCalculator:
             self.__update_drainage_element_saturations(type_name, id, pc)
         else:
             self.__update_imbibition_element_saturations(type_name, id)
-        # return (
-        #     self.network.pn[f"{type_name}.water_saturation"][id]
-        #     * self.network.pn[f"{type_name}.volume"][id]
-        #     / self.total_volume
-        # )
+        return (
+            self.network.pn[f"{type_name}.water_saturation"][id]
+            * self.network.pn[f"{type_name}.volume"][id]
+            / self.total_volume
+        )
 
     def __update_drainage_saturations(self, pc):
         (
@@ -716,9 +716,12 @@ class CycleSimulation:
 
         self.saturation_calculator = SaturationCalculator(network, phase)
 
-    def update_pc(self, pc):
-        self._update_invasions(pc)
+        self.current_pc = None
+
+    def update_pc(self, pc, target_sw=None):
+        invaded_pc = self._update_invasions(pc, target_sw)
         self._update_network_geometry(pc)
+        return invaded_pc
 
     def calculate_sw_total(self):
         return self.saturation_calculator.calculate_sw_total()
@@ -737,7 +740,7 @@ class CycleSimulation:
 
     def _update_element_filled_geometry(self, pc, element):
         self.__update_element_hinging_contact_angles(element.type_name, element.id, pc)
-        self.saturation_calculator.update_element_saturations(element.type_name, element.id, pc)
+        return self.saturation_calculator.update_element_saturations(element.type_name, element.id, pc)
 
     def _update_network_geometry(self, pc):
         self.__update_hinging_contact_angles(pc)
@@ -750,7 +753,8 @@ class CycleSimulation:
     def _get_element_to_fill(self, pc, border_elements):
         pass
 
-    def _update_invasions(self, pc):
+    def _update_invasions(self, pc, target_sw=None):
+        increased_sw = 0.0
         for throat_id in self.border_elements.get_throats_ids():
             element = self.network.get_throat(throat_id)
             self._update_element_entry_pc(element, pc)
@@ -759,18 +763,24 @@ class CycleSimulation:
             self._update_element_entry_pc(element, pc)
 
         while True:
-            element = self._get_element_to_fill(pc, self.border_elements)
+            element, invaded_pc = self._get_element_to_fill(pc, self.border_elements)
             if element is None:
+                invaded_pc = pc
                 break
 
             log.debug(
                 f"Invasion {element.type_name:6} ID: {element.id:6} Pc: {element.pc:.5f} Radius: {element.r:.2e} G: {element.G:.4f} n_corners: {element.n_corners} area: {element.A}"
             )
 
-            self.__fill_element(element, pc)
-            self._update_element_filled_geometry(pc, element)
+            self.__fill_element(element, invaded_pc)
+            increased_sw += self._update_element_filled_geometry(invaded_pc, element)
             self.trap_checker.update_trapped_pores()
             self.__remove_trapped_from_border()
+
+            if target_sw is not None and increased_sw >= target_sw:
+                break
+
+        return invaded_pc
 
     def __remove_trapped_from_border(self):
         for throat_id in self.border_elements.get_throats_ids():

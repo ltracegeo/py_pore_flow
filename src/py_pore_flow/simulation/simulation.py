@@ -74,6 +74,7 @@ class Simulation:
             self.parameter_manager.sw_step,
             self.parameter_manager.pc_maximum,
             self.parameter_manager.pc_minimum,
+            enable_control=self.parameter_manager.control_by_pc,
         )
 
         if generate_vtu:
@@ -97,37 +98,41 @@ class Simulation:
         Krw_array = []
         Kro_array = []
 
+        sw_step = self.parameter_manager.sw_step if not self.parameter_manager.control_by_pc else None
+
         while True:
             Pc = self.pc_incrementer.get_pc()
 
-            _, Sw, Krw, Kro, pores_filled, total_pores, percentage = self.step_simulation.update(Pc)
+            new_pc, Sw, Krw, Kro, pores_filled, total_pores, percentage = self.step_simulation.update(Pc, sw_step)
 
-            Pc_array.append(Pc)
+            Pc_array.append(new_pc)
             Sw_array.append(Sw)
             Krw_array.append(Krw)
             Kro_array.append(Kro)
 
             if self.debug:
                 log.info(
-                    f"Pc: {Pc:8.2f}, Sw: {Sw:.6f}, Krw: {Krw:.6f}, Kro: {Kro:.6f}, Filled: {pores_filled:4}/{total_pores} ({percentage:2}%)."
+                    f"Pc: {new_pc:8.2f}/{Pc:8.2f}, Sw: {Sw:.6f}, Krw: {Krw:.6f}, Kro: {Kro:.6f}, Filled: {pores_filled:4}/{total_pores} ({percentage:2}%)."
                 )
 
             if self.generate_vtu:
-                pn_to_vtu(self.pn, Pc, Sw, 1 if cycle_name == "drainage" else 2)
+                pn_to_vtu(self.pn, new_pc, Sw, 1 if cycle_name == "drainage" else 2)
 
             if self.step_simulation.get_pores_left() == 0:
                 break
             elif self.parameter_manager.end_at_sor and cycle_name == "imbibition" and Kro <= 0:
                 break
-            elif Pc >= self.pc_incrementer.get_pc_max():
+            elif new_pc > self.pc_incrementer.get_pc_max():
                 break
-            elif Pc <= self.pc_incrementer.get_pc_min():
+            elif new_pc < self.pc_incrementer.get_pc_min():
                 break
 
             if cycle_name == "drainage":
-                self.pc_incrementer.increment(Sw)
+                if new_pc >= Pc:
+                    self.pc_incrementer.increment(Sw)
             else:
-                self.pc_incrementer.decrement(Sw)
+                if new_pc <= Pc:
+                    self.pc_incrementer.decrement(Sw)
 
         return Pc_array, Sw_array, Krw_array, Kro_array
 
@@ -265,15 +270,15 @@ class StepSimulation:
             calculate_imbibition_values(self.network, self.max_pc)
             self.simulation = ImbibitionSimulation(self.network, self.max_pc, self.calculate_full_conductance)
 
-    def update(self, pc):
+    def update(self, pc, target_sw=None):
         self.max_pc = max(self.max_pc, pc)
-        self.simulation.update_pc(pc)
+        invaded_pc = self.simulation.update_pc(pc, target_sw)
         Sw = self.simulation.calculate_sw_total()
         Krw, Kro = self.simulation.calculate_krel()
 
         pores_filled, total_pores, percentage = self.simulation.get_oil_filled_percentage()
 
-        return pc, Sw, Krw, Kro, pores_filled, total_pores, percentage
+        return invaded_pc, Sw, Krw, Kro, pores_filled, total_pores, percentage
 
     def get_pores_left(self):
         return self.simulation.get_pores_left()

@@ -23,9 +23,13 @@ class DrainageSimulation(CycleSimulation):
 
         for element in element_list:
             if pc > element.get_pc():
-                return element
-        return None
+                if self.current_pc is None:
+                    self.current_pc = element.get_pc()
+                else:
+                    self.current_pc = max(self.current_pc, element.get_pc())
+                return element, self.current_pc
+        return None, pc
 
     def _update_element_filled_geometry(self, pc, element):
         element.corner_water_layer = check_water_layer(element.corner_oil_layer, element.oil_filled)
-        super()._update_element_filled_geometry(pc, element)
+        return super()._update_element_filled_geometry(pc, element)
