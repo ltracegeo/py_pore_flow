@@ -673,7 +673,7 @@ class CycleSimulation:
     def _on_element_invaded(self, pc, element):
         pass
 
-    def _update_pc(self, element, pc):
+    def _update_element_entry_pc(self, element, pc):
         pass
 
     @abstractmethod
@@ -683,10 +683,10 @@ class CycleSimulation:
     def _update_invasions(self, pc):
         for throat_id in self.border_elements.get_throats_ids():
             element = self.network.get_throat(throat_id)
-            self._update_pc(element, pc)
+            self._update_element_entry_pc(element, pc)
         for pore_id in self.border_elements.get_pores_ids():
             element = self.network.get_pore(pore_id)
-            self._update_pc(element, pc)
+            self._update_element_entry_pc(element, pc)
 
         while True:
             element = self._get_element_to_fill(pc, self.border_elements)
@@ -715,7 +715,7 @@ class CycleSimulation:
                     self.border_elements.add_pore(neighbor.get_id())
                 else:
                     self.border_elements.add_throat(neighbor.get_id())
-                self._update_pc(neighbor, pc)
+                self._update_element_entry_pc(neighbor, pc)
 
     def __update_hinging_contact_angles(self, pc):
         self.network.pn["pore.hinging_contact_angle"] = calculate_network_hinging_contact_angle(

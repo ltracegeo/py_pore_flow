@@ -178,7 +178,7 @@ class ImbibitionSimulation(CycleSimulation):
             self.network.pn[f"pore.corner_oil_layer"], self.network.pn[f"pore.oil_filled"]
         )
 
-    def _update_pc(self, element, pc):
+    def _update_element_entry_pc(self, element, pc):
         if element.is_pore():
             K = self.krel_calculator.get_absolute_permeability()
             number_of_oil_filled_neighbors = 0
