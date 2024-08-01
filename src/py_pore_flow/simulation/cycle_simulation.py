@@ -10,9 +10,11 @@ from py_pore_flow.equations.geometry import (
     WATER,
     OIL,
     MAX_NUMBER_OF_CORNERS,
+    calculate_drainage_element_saturation,
     calculate_drainage_network_saturation,
     calculate_hinging_contact_angle,
     calculate_network_hinging_contact_angle,
+    calculate_imbibition_element_saturation,
     calculate_imbibition_network_saturation,
     calculate_sw_total,
 )
@@ -507,6 +509,17 @@ class SaturationCalculator:
         else:
             self.__update_imbibition_saturations()
 
+    def update_element_saturations(self, type_name, id, pc):
+        if self.phase == OIL:
+            self.__update_drainage_element_saturations(type_name, id, pc)
+        else:
+            self.__update_imbibition_element_saturations(type_name, id)
+        return (
+            self.network.pn[f"{type_name}.water_saturation"][id]
+            * self.network.pn[f"{type_name}.volume"][id]
+            / self.total_volume
+        )
+
     def __update_drainage_saturations(self, pc):
         (
             self.network.pn["pore.water_saturation"],
@@ -557,6 +570,44 @@ class SaturationCalculator:
             self.network.pn["throat.bo"],
             self.network.pn["throat.n_corners"],
             self.network.pn["throat.corner_oil_layer"],
+        )
+
+    def __update_drainage_element_saturations(self, type_name, id, pc):
+        if type_name == "pore":
+            area = self.network.pn["pore.area"][id]
+        else:
+            area = self.network.pn["throat.cross_sectional_area"][id]
+
+        (
+            self.network.pn[f"{type_name}.water_saturation"][id],
+            self.network.pn[f"{type_name}.oil_saturation"][id],
+        ) = calculate_drainage_element_saturation(
+            self.network.pn[f"{type_name}.shape"][id],
+            self.network.pn[f"{type_name}.C_r"][id],
+            pc,
+            area,
+            self.network.pn[f"{type_name}.oil_filled"][id],
+        )
+
+    def __update_imbibition_element_saturations(self, type_name, id):
+        if type_name == "pore":
+            area = self.network.pn["pore.area"][id]
+        else:
+            area = self.network.pn["throat.cross_sectional_area"][id]
+
+        (
+            self.network.pn[f"{type_name}.water_saturation"][id],
+            self.network.pn[f"{type_name}.oil_saturation"][id],
+        ) = calculate_imbibition_element_saturation(
+            area,
+            self.network.pn[f"{type_name}.oil_filled"][id],
+            self.network.pn[f"{type_name}.advancing_contact_angle"][id],
+            self.network.pn[f"{type_name}.hinging_contact_angle"][id],
+            self.network.pn[f"{type_name}.corner_half_angle"][id],
+            self.network.pn[f"{type_name}.b"][id],
+            self.network.pn[f"{type_name}.bo"][id],
+            self.network.pn[f"{type_name}.n_corners"][id],
+            self.network.pn[f"{type_name}.corner_oil_layer"][id],
         )
 
     def calculate_sw_total(self):
