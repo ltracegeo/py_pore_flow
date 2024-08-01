@@ -98,9 +98,9 @@ class Simulation:
         Kro_array = []
 
         while True:
-            Pc = self.pc_incrementer.get_pc()
+            # Pc = self.pc_incrementer.get_pc()
 
-            _, Sw, Krw, Kro, pores_filled, total_pores, percentage = self.step_simulation.update(Pc)
+            Pc, Sw, Krw, Kro, pores_filled, total_pores, percentage = self.step_simulation.update()
 
             Pc_array.append(Pc)
             Sw_array.append(Sw)
@@ -124,10 +124,10 @@ class Simulation:
             elif Pc <= self.pc_incrementer.get_pc_min():
                 break
 
-            if cycle_name == "drainage":
-                self.pc_incrementer.increment(Sw)
-            else:
-                self.pc_incrementer.decrement(Sw)
+            # if cycle_name == "drainage":
+            #     self.pc_incrementer.increment(Sw)
+            # else:
+            #     self.pc_incrementer.decrement(Sw)
 
         return Pc_array, Sw_array, Krw_array, Kro_array
 
@@ -256,6 +256,7 @@ class StepSimulation:
 
     def set_cycle(self, cycle="imbibition"):
         if cycle == "drainage":
+            self.pc = 0
             self.parameter_manager.update_initial_cas(self.network)
             calculate_drainage_values(self.network, self.max_pc)
             self.simulation = DrainageSimulation(self.network, self.calculate_full_conductance)
@@ -265,15 +266,15 @@ class StepSimulation:
             calculate_imbibition_values(self.network, self.max_pc)
             self.simulation = ImbibitionSimulation(self.network, self.max_pc, self.calculate_full_conductance)
 
-    def update(self, pc):
-        self.max_pc = max(self.max_pc, pc)
-        self.simulation.update_pc(pc)
+    def update(self):
+        self.pc = self.simulation.update_pc(self.pc)
+        self.max_pc = max(self.max_pc, self.pc)
         Sw = self.simulation.calculate_sw_total()
         Krw, Kro = self.simulation.calculate_krel()
 
         pores_filled, total_pores, percentage = self.simulation.get_oil_filled_percentage()
 
-        return pc, Sw, Krw, Kro, pores_filled, total_pores, percentage
+        return self.pc, Sw, Krw, Kro, pores_filled, total_pores, percentage
 
     def get_pores_left(self):
         return self.simulation.get_pores_left()

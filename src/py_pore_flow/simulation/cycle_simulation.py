@@ -10,9 +10,11 @@ from py_pore_flow.equations.geometry import (
     WATER,
     OIL,
     MAX_NUMBER_OF_CORNERS,
+    calculate_drainage_element_saturation,
     calculate_drainage_network_saturation,
     calculate_hinging_contact_angle,
     calculate_network_hinging_contact_angle,
+    calculate_imbibition_element_saturation,
     calculate_imbibition_network_saturation,
     calculate_sw_total,
 )
@@ -507,6 +509,17 @@ class SaturationCalculator:
         else:
             self.__update_imbibition_saturations()
 
+    def update_element_saturations(self, type_name, id, pc):
+        if self.phase == OIL:
+            self.__update_drainage_element_saturations(type_name, id, pc)
+        else:
+            self.__update_imbibition_element_saturations(type_name, id)
+        return (
+            self.network.pn[f"{type_name}.water_saturation"][id]
+            * self.network.pn[f"{type_name}.volume"][id]
+            / self.total_volume
+        )
+
     def __update_drainage_saturations(self, pc):
         (
             self.network.pn["pore.water_saturation"],
@@ -557,6 +570,44 @@ class SaturationCalculator:
             self.network.pn["throat.bo"],
             self.network.pn["throat.n_corners"],
             self.network.pn["throat.corner_oil_layer"],
+        )
+
+    def __update_drainage_element_saturations(self, type_name, id, pc):
+        if type_name == "pore":
+            area = self.network.pn["pore.area"][id]
+        else:
+            area = self.network.pn["throat.cross_sectional_area"][id]
+
+        (
+            self.network.pn[f"{type_name}.water_saturation"][id],
+            self.network.pn[f"{type_name}.oil_saturation"][id],
+        ) = calculate_drainage_element_saturation(
+            self.network.pn[f"{type_name}.shape"][id],
+            self.network.pn[f"{type_name}.C_r"][id],
+            pc,
+            area,
+            self.network.pn[f"{type_name}.oil_filled"][id],
+        )
+
+    def __update_imbibition_element_saturations(self, type_name, id):
+        if type_name == "pore":
+            area = self.network.pn["pore.area"][id]
+        else:
+            area = self.network.pn["throat.cross_sectional_area"][id]
+
+        (
+            self.network.pn[f"{type_name}.water_saturation"][id],
+            self.network.pn[f"{type_name}.oil_saturation"][id],
+        ) = calculate_imbibition_element_saturation(
+            area,
+            self.network.pn[f"{type_name}.oil_filled"][id],
+            self.network.pn[f"{type_name}.advancing_contact_angle"][id],
+            self.network.pn[f"{type_name}.hinging_contact_angle"][id],
+            self.network.pn[f"{type_name}.corner_half_angle"][id],
+            self.network.pn[f"{type_name}.b"][id],
+            self.network.pn[f"{type_name}.bo"][id],
+            self.network.pn[f"{type_name}.n_corners"][id],
+            self.network.pn[f"{type_name}.corner_oil_layer"][id],
         )
 
     def calculate_sw_total(self):
@@ -647,11 +698,13 @@ class CycleSimulation:
         self.saturation_calculator = SaturationCalculator(network, phase)
 
     def update_pc(self, pc):
-        self._update_invasions(pc)
+        increased_sw, pc = self._update_invasions(0.01, pc)
 
         self._update_b(pc)
         self.__update_hinging_contact_angles(pc)
         self.saturation_calculator.update_saturations(pc)
+
+        return pc
 
     def calculate_sw_total(self):
         return self.saturation_calculator.calculate_sw_total()
@@ -681,7 +734,7 @@ class CycleSimulation:
     def _get_element_to_fill(self, pc, border_elements):
         pass
 
-    def _update_invasions(self, pc):
+    def __update_border_elements_entry_pc(self, pc):
         for throat_id in self.border_elements.get_throats_ids():
             element = self.network.get_throat(throat_id)
             self._update_element_entry_pc(element, pc)
@@ -689,10 +742,16 @@ class CycleSimulation:
             element = self.network.get_pore(pore_id)
             self._update_element_entry_pc(element, pc)
 
+    def _update_invasions(self, target_sw, pc):
+        increased_sw = 0.0
+
         while True:
-            element = self._get_element_to_fill(pc, self.border_elements)
+            element, pc = self._get_element_to_fill(pc, self.border_elements)
+
             if element is None:
                 break
+
+            self.__update_border_elements_entry_pc(pc)
 
             log.debug(
                 f"Invasion {element.type_name:6} ID: {element.id:6} Pc: {element.pc:.5f} Radius: {element.r:.2e} G: {element.G:.4f} n_corners: {element.n_corners} area: {element.A}"
@@ -700,7 +759,15 @@ class CycleSimulation:
 
             self._fill_element(element, pc)
             self._on_element_invaded(pc, element)
+            self._update_element_b(element.type_name, element.id, pc)
+            self.__update_element_hinging_contact_angles(element.type_name, element.id, pc)
+            increased_sw += self.saturation_calculator.update_element_saturations(element.type_name, element.id, pc)
             self.trap_checker.update_trapped_pores()
+
+            if increased_sw >= target_sw:
+                break
+
+        return increased_sw, pc
 
     def _fill_element(self, element, pc):
         element.set_filled(self.phase, True)
@@ -734,6 +801,19 @@ class CycleSimulation:
             self.network.pn["throat.n_corners"],
             self.network.pn["throat.receding_contact_angle"],
             self.network.pn["throat.advancing_contact_angle"],
+        )
+
+    def _update_element_b(self, type_name, id, pc):
+        pass
+
+    def __update_element_hinging_contact_angles(self, type_name, id, pc):
+        self.network.pn[f"{type_name}.hinging_contact_angle"][id] = calculate_hinging_contact_angle(
+            pc,
+            self.network.pn[f"{type_name}.corner_half_angle"][id],
+            self.network.pn[f"{type_name}.b"][id],
+            self.network.pn[f"{type_name}.n_corners"][id],
+            self.network.pn[f"{type_name}.receding_contact_angle"][id],
+            self.network.pn[f"{type_name}.advancing_contact_angle"][id],
         )
 
     def __find_initial_border_elements(self, border_elements, phase):

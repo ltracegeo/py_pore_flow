@@ -4,6 +4,8 @@ import numpy as np
 from py_pore_flow.equations.geometry import (
     CIRCLE,
     WATER,
+    calculate_imbibition_element_b,
+    calculate_imbibition_element_bo,
     calculate_imbibition_network_b,
     calculate_imbibition_network_bo,
     calculate_oil_layer,
@@ -28,11 +30,12 @@ class ImbibitionSimulation(CycleSimulation):
     def get_pores_left(self):
         return np.logical_not(self.network.pn["pore.water_filled"] | self.network.pn["pore.trapped"]).sum()
 
-    def _update_invasions(self, pc):
-        super()._update_invasions(pc)
+    def _update_invasions(self, target_sw, pc):
+        increased_sw, pc = super()._update_invasions(target_sw, pc)
         self.__update_snap_offs(pc)
         self.__update_oil_layers(pc)
         self.__update_water_layers()
+        return increased_sw, pc
 
     @staticmethod
     @nb.njit
@@ -209,18 +212,40 @@ class ImbibitionSimulation(CycleSimulation):
         element.set_pc(element_pc)
 
     def _get_element_to_fill(self, pc, border_elements):
-        element_list = []
-        for pore_id in border_elements.get_pores_ids():
-            element_list.append(self.network.get_pore(pore_id))
-        for throat_id in border_elements.get_throats_ids():
-            element_list.append(self.network.get_throat(throat_id))
-        element_list.sort(key=lambda x: x.get_pc(), reverse=True)
+        pore_pressure_array = self.network.pn["pore.entry_pressure"]
+        pore_id_array = border_elements.get_pores_ids()
+        if len(pore_id_array) > 0:
+            greater_id_index = np.argmax(pore_pressure_array[pore_id_array])
+            pore_id = pore_id_array[greater_id_index]
+        else:
+            pore_id = None
 
-        for element in element_list:
-            if pc < 0 or element.spontaneous_imbibition:
-                if element.get_pc() > pc and not element.trapped and not element.water_filled:
-                    return element
-        return None
+        throat_pressure_array = self.network.pn["throat.entry_pressure"]
+        throat_id_array = border_elements.get_throats_ids()
+        if len(throat_id_array) > 0:
+            greater_id_index = np.argmax(self.network.pn["throat.entry_pressure"][throat_id_array])
+            throat_id = throat_id_array[greater_id_index]
+        else:
+            throat_id = None
+
+        if pore_id is not None and throat_id is not None:
+            if throat_pressure_array[throat_id] > pore_pressure_array[pore_id]:
+                element_to_fill = self.network.get_throat(throat_id)
+                filling_pc = throat_pressure_array[throat_id]
+            else:
+                element_to_fill = self.network.get_pore(pore_id)
+                filling_pc = pore_pressure_array[pore_id]
+        elif pore_id is not None:
+            element_to_fill = self.network.get_pore(pore_id)
+            filling_pc = pore_pressure_array[pore_id]
+        elif throat_id is not None:
+            element_to_fill = self.network.get_throat(throat_id)
+            filling_pc = throat_pressure_array[throat_id]
+        else:
+            element_to_fill = None
+            filling_pc = pc
+
+        return element_to_fill, filling_pc if filling_pc < pc else pc
 
     def _update_b(self, pc):
         self.network.pn["pore.b"] = calculate_imbibition_network_b(
@@ -260,6 +285,27 @@ class ImbibitionSimulation(CycleSimulation):
             self.network.pn["throat.advancing_contact_angle"],
             self.network.pn["throat.corner_oil_layer"],
             self.network.pn["throat.n_corners"],
+            pc,
+        )
+
+    def _update_element_b(self, type_name, id, pc):
+        self.network.pn[f"{type_name}.b"][id] = calculate_imbibition_element_b(
+            self.network.pn[f"{type_name}.corner_half_angle"][id],
+            self.network.pn[f"{type_name}.max_b"][id],
+            self.network.pn[f"{type_name}.receding_contact_angle"][id],
+            self.network.pn[f"{type_name}.advancing_contact_angle"][id],
+            self.network.pn[f"{type_name}.hinging_contact_angle"][id],
+            self.network.pn[f"{type_name}.corner_water_layer"][id],
+            self.network.pn[f"{type_name}.n_corners"][id],
+            pc,
+            self.Rmin,
+        )
+        self.network.pn[f"{type_name}.bo"][id] = calculate_imbibition_element_bo(
+            self.network.pn[f"{type_name}.corner_half_angle"][id],
+            self.network.pn[f"{type_name}.max_b"][id],
+            self.network.pn[f"{type_name}.advancing_contact_angle"][id],
+            self.network.pn[f"{type_name}.corner_oil_layer"][id],
+            self.network.pn[f"{type_name}.n_corners"][id],
             pc,
         )
 
