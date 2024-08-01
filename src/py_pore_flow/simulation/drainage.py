@@ -22,9 +22,10 @@ class DrainageSimulation(CycleSimulation):
         element_list.sort(key=lambda x: x.get_pc(), reverse=False)
 
         for element in element_list:
-            if pc > element.get_pc() and not element.trapped and not element.oil_filled:
+            if pc > element.get_pc():
                 return element
         return None
 
-    def _on_element_invaded(self, pc, element):
+    def _update_element_filled_geometry(self, pc, element):
         element.corner_water_layer = check_water_layer(element.corner_oil_layer, element.oil_filled)
+        super()._update_element_filled_geometry(pc, element)
