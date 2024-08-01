@@ -503,11 +503,11 @@ class SaturationCalculator:
 
     def update_saturations(self, pc):
         if self.phase == OIL:
-            self.update_drainage_saturations(pc)
+            self.__update_drainage_saturations(pc)
         else:
-            self.update_imbibition_saturations(pc)
+            self.__update_imbibition_saturations()
 
-    def update_drainage_saturations(self, pc):
+    def __update_drainage_saturations(self, pc):
         (
             self.network.pn["pore.water_saturation"],
             self.network.pn["pore.oil_saturation"],
@@ -529,7 +529,7 @@ class SaturationCalculator:
             self.network.pn["throat.oil_filled"],
         )
 
-    def update_imbibition_saturations(self, pc):
+    def __update_imbibition_saturations(self):
         (
             self.network.pn["pore.water_saturation"],
             self.network.pn["pore.oil_saturation"],
