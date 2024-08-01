@@ -659,6 +659,7 @@ class CycleSimulation:
 
         self.border_elements = BorderElements()
         self.border_elements.set_pores_ids(nb.typed.List(self.network.get_inlets_ids()))
+        self.__find_initial_border_elements(self.border_elements, phase)
 
         self.trap_checker = TrapChecker(network, self.phase)
 
@@ -753,6 +754,34 @@ class CycleSimulation:
             self.network.pn["throat.receding_contact_angle"],
             self.network.pn["throat.advancing_contact_angle"],
         )
+
+    def __find_initial_border_elements(self, border_elements, phase):
+        def update_element_in_border(element):
+            if element.is_filled(self.phase):
+                if element.is_pore():
+                    self.border_elements.remove_pore(element.get_id())
+                else:
+                    self.border_elements.remove_throat(element.get_id())
+                neighbor_list = self.network.get_neighbors(element)
+                for neighbor in neighbor_list:
+                    if not neighbor.is_filled(self.phase):
+                        if neighbor.is_pore():
+                            self.border_elements.add_pore(neighbor.get_id())
+                        else:
+                            self.border_elements.add_throat(neighbor.get_id())
+                return True
+            return False
+
+        border_changed = True
+        while border_changed:
+            border_changed = False
+            for pore_id in border_elements.get_pores_ids():
+                element = self.network.get_pore(pore_id)
+                border_changed |= update_element_in_border(element)
+
+            for throat_id in border_elements.get_throats_ids():
+                element = self.network.get_throat(throat_id)
+                border_changed |= update_element_in_border(element)
 
 
 class TrapChecker:
