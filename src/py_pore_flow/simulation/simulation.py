@@ -200,7 +200,6 @@ def calculate_element_drainage_values(element, max_pc):
             element.r,
             element.receding_contact_angle,
             element.shape,
-            element.C_r,
             element.beta,
             element.n_corners,
         )

@@ -10,9 +10,9 @@ from py_pore_flow.equations.geometry import (
     WATER,
     OIL,
     MAX_NUMBER_OF_CORNERS,
-    calculate_C,
     calculate_drainage_network_saturation,
     calculate_hinging_contact_angle,
+    calculate_network_hinging_contact_angle,
     calculate_imbibition_network_saturation,
     calculate_sw_total,
 )
@@ -499,14 +499,15 @@ class SaturationCalculator:
     def __init__(self, network, phase):
         self.network = network
         self.phase = phase
+        self.total_volume = self.network.pn["pore.volume"].sum() + self.network.pn["throat.volume"].sum()
 
     def update_saturations(self, pc):
         if self.phase == OIL:
-            self.update_drainage_saturations(pc)
+            self.__update_drainage_saturations(pc)
         else:
-            self.update_imbibition_saturations(pc)
+            self.__update_imbibition_saturations()
 
-    def update_drainage_saturations(self, pc):
+    def __update_drainage_saturations(self, pc):
         (
             self.network.pn["pore.water_saturation"],
             self.network.pn["pore.oil_saturation"],
@@ -528,12 +529,11 @@ class SaturationCalculator:
             self.network.pn["throat.oil_filled"],
         )
 
-    def update_imbibition_saturations(self, pc):
+    def __update_imbibition_saturations(self):
         (
             self.network.pn["pore.water_saturation"],
             self.network.pn["pore.oil_saturation"],
         ) = calculate_imbibition_network_saturation(
-            self.network.pn["pore.shape"],
             self.network.pn["pore.area"],
             self.network.pn["pore.oil_filled"],
             self.network.pn["pore.advancing_contact_angle"],
@@ -548,7 +548,6 @@ class SaturationCalculator:
             self.network.pn["throat.water_saturation"],
             self.network.pn["throat.oil_saturation"],
         ) = calculate_imbibition_network_saturation(
-            self.network.pn["throat.shape"],
             self.network.pn["throat.cross_sectional_area"],
             self.network.pn["throat.oil_filled"],
             self.network.pn["throat.advancing_contact_angle"],
@@ -580,6 +579,7 @@ class SaturationCalculator:
                     self.network.pn["pore.clay_volume"],
                 )
             ),
+            self.total_volume,
         )
 
 
@@ -673,7 +673,7 @@ class CycleSimulation:
     def _on_element_invaded(self, pc, element):
         pass
 
-    def _update_pc(self, element, pc):
+    def _update_element_entry_pc(self, element, pc):
         pass
 
     @abstractmethod
@@ -683,10 +683,10 @@ class CycleSimulation:
     def _update_invasions(self, pc):
         for throat_id in self.border_elements.get_throats_ids():
             element = self.network.get_throat(throat_id)
-            self._update_pc(element, pc)
+            self._update_element_entry_pc(element, pc)
         for pore_id in self.border_elements.get_pores_ids():
             element = self.network.get_pore(pore_id)
-            self._update_pc(element, pc)
+            self._update_element_entry_pc(element, pc)
 
         while True:
             element = self._get_element_to_fill(pc, self.border_elements)
@@ -715,26 +715,25 @@ class CycleSimulation:
                     self.border_elements.add_pore(neighbor.get_id())
                 else:
                     self.border_elements.add_throat(neighbor.get_id())
-                self._update_pc(neighbor, pc)
+                self._update_element_entry_pc(neighbor, pc)
 
     def __update_hinging_contact_angles(self, pc):
-        for pore in self.network.get_pore_list():
-            hinging_contact_angle = calculate_hinging_contact_angle(pc, pore.beta, pore.b, pore.n_corners)
-            hinging_contact_angle = np.clip(
-                hinging_contact_angle, pore.receding_contact_angle, pore.advancing_contact_angle
-            )
-            pore.theta_h = hinging_contact_angle
-            if self.phase == OIL:
-                pore.C_h = calculate_C(pore.theta_h, pore.beta, pore.n_corners)
-
-        for throat in self.network.get_throat_list():
-            hinging_contact_angle = calculate_hinging_contact_angle(pc, throat.beta, throat.b, throat.n_corners)
-            hinging_contact_angle = np.clip(
-                hinging_contact_angle, throat.receding_contact_angle, throat.advancing_contact_angle
-            )
-            throat.theta_h = hinging_contact_angle
-            if self.phase == OIL:
-                throat.C_h = calculate_C(throat.theta_h, throat.beta, throat.n_corners)
+        self.network.pn["pore.hinging_contact_angle"] = calculate_network_hinging_contact_angle(
+            pc,
+            self.network.pn["pore.corner_half_angle"],
+            self.network.pn["pore.b"],
+            self.network.pn["pore.n_corners"],
+            self.network.pn["pore.receding_contact_angle"],
+            self.network.pn["pore.advancing_contact_angle"],
+        )
+        self.network.pn["throat.hinging_contact_angle"] = calculate_network_hinging_contact_angle(
+            pc,
+            self.network.pn["throat.corner_half_angle"],
+            self.network.pn["throat.b"],
+            self.network.pn["throat.n_corners"],
+            self.network.pn["throat.receding_contact_angle"],
+            self.network.pn["throat.advancing_contact_angle"],
+        )
 
 
 class TrapChecker:

@@ -21,12 +21,12 @@ def calculate_drainage_network_saturation(shape, c, pc, a, oil_filled):
     sw = np.empty(number_of_elements, np.float64)
     so = np.empty(number_of_elements, np.float64)
     for i in range(number_of_elements):
-        sw[i], so[i] = calculate_drainage_displacement(shape[i], c[i], pc, a[i], oil_filled[i])
+        sw[i], so[i] = calculate_drainage_element_saturation(shape[i], c[i], pc, a[i], oil_filled[i])
     return sw, so
 
 
 @njit
-def calculate_drainage_displacement(shape, C_r, current_Pc, A, oil_filled):
+def calculate_drainage_element_saturation(shape, C_r, current_Pc, A, oil_filled):
     if not oil_filled:
         return 1.0, 0.0
 
@@ -51,13 +51,13 @@ def calculate_drainage_displacement(shape, C_r, current_Pc, A, oil_filled):
 
 @njit
 def calculate_imbibition_network_saturation(
-    shape, a, oil_filled, theta_a, theta_h, beta, bi, bo, n_corners, has_oil_layer
+    a, oil_filled, theta_a, theta_h, beta, bi, bo, n_corners, has_oil_layer
 ):
-    number_of_elements = len(shape)
+    number_of_elements = len(a)
     sw = np.empty(number_of_elements, np.float64)
     so = np.empty(number_of_elements, np.float64)
     for i in range(number_of_elements):
-        sw[i], so[i] = calculate_imbibition_displacement(
+        sw[i], so[i] = calculate_imbibition_element_saturation(
             a[i],
             oil_filled[i],
             theta_a[i],
@@ -72,7 +72,7 @@ def calculate_imbibition_network_saturation(
 
 
 @njit
-def calculate_imbibition_displacement(A, oil_filled, theta_a, theta_h, beta, bi, bo, n_corners, has_oil_layer):
+def calculate_imbibition_element_saturation(A, oil_filled, theta_a, theta_h, beta, bi, bo, n_corners, has_oil_layer):
     if oil_filled:
         Aw = calculate_water_layer_area(bi, beta, theta_h, n_corners)
         if Aw < 0:
@@ -130,14 +130,11 @@ def calculate_water_layer_area(b, beta, theta, n_corners):
 
 
 @njit
-def calculate_sw_total(Sw, V, Vclay):
-    sum_a = 0
-    sum_b = 0
-
+def calculate_sw_total(Sw, V, Vclay, total_volume):
+    sum = 0
     for i in range(len(Sw)):
-        sum_a += Sw[i] * V[i] + Vclay[i]
-        sum_b += V[i]
-    Sw_total = sum_a / sum_b
+        sum += Sw[i] * V[i] + Vclay[i]
+    Sw_total = sum / total_volume
     return Sw_total
 
 
@@ -225,7 +222,17 @@ def calculate_C(theta, beta, n_corners):
 
 
 @njit
-def calculate_hinging_contact_angle(Pc, beta, b, n_corners):
+def calculate_network_hinging_contact_angle(Pc, beta, b, n_corners, theta_r, theta_a):
+    number_of_elements = len(beta)
+
+    theta_h = np.empty((number_of_elements, MAX_NUMBER_OF_CORNERS), np.float64)
+    for i in range(number_of_elements):
+        theta_h[i] = calculate_hinging_contact_angle(Pc, beta[i], b[i], n_corners[i], theta_r[i], theta_a[i])
+    return theta_h
+
+
+@njit
+def calculate_hinging_contact_angle(Pc, beta, b, n_corners, theta_r, theta_a):
     theta_h = np.empty(MAX_NUMBER_OF_CORNERS, dtype=np.float64)
 
     if Pc == 0:
@@ -243,7 +250,7 @@ def calculate_hinging_contact_angle(Pc, beta, b, n_corners):
                 elif x < -1:
                     x = -1
                 theta_h[i] = acos(x) - beta[i]
-    return theta_h
+    return np.clip(theta_h, theta_r, theta_a)
 
 
 @njit
