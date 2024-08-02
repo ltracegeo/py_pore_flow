@@ -11,7 +11,7 @@ class DrainageSimulation(CycleSimulation):
         super().__init__(network, OIL, calculate_full_conductance)
 
     def get_pores_left(self):
-        return np.logical_not(self.network.pn["pore.oil_filled"] | self.network.pn["pore.trapped"]).sum()
+        return np.logical_not(self.network.pn_core.pore.oil_filled | self.network.pn_core.pore.trapped).sum()
 
     def _get_element_to_fill(self, pc, border_elements):
         element_list = []
@@ -19,10 +19,10 @@ class DrainageSimulation(CycleSimulation):
             element_list.append(self.network.get_pore(pore_id))
         for throat_id in border_elements.get_throats_ids():
             element_list.append(self.network.get_throat(throat_id))
-        element_list.sort(key=lambda x: x.get_pc(), reverse=False)
+        element_list.sort(key=lambda x: x.pc, reverse=False)
 
         for element in element_list:
-            if pc > element.get_pc():
+            if pc > element.pc:
                 return element
         return None
 

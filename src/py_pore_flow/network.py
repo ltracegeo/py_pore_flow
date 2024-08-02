@@ -46,6 +46,8 @@ def initialize_pn(pn):
         pn[f"{element_type}.snap_off_viability"] = True
         pn[f"{element_type}.entry_pressure"] = 0.0
 
+    pn["throat.hydraulic_conductance"] = 0.0
+
     # Initialize connection properties
     pn["throat.n_conns"] = int(2)
     pn["pore.n_conns"] = int(0)
@@ -70,6 +72,78 @@ class Network:
     def __init__(self, network):
         self.pn = network
 
+        self.pn_core = NetworkCore()
+        self.pn_core.pore.shape_factor = network["pore.shape_factor"]
+        self.pn_core.pore.radius = network["pore.radius"]
+        self.pn_core.pore.volume = network["pore.volume"]
+        self.pn_core.pore.clay_volume = network["pore.clay_volume"]
+        self.pn_core.pore.oil_filled = network["pore.oil_filled"]
+        self.pn_core.pore.water_filled = network["pore.water_filled"]
+        self.pn_core.pore.oil_saturation = network["pore.oil_saturation"]
+        self.pn_core.pore.water_saturation = network["pore.water_saturation"]
+        self.pn_core.pore.corner_half_angle = network["pore.corner_half_angle"]
+        self.pn_core.pore.sides = network["pore.sides"]
+        self.pn_core.pore.hinging_contact_angle = network["pore.hinging_contact_angle"]
+        self.pn_core.pore.b = network["pore.b"]
+        self.pn_core.pore.bo = network["pore.bo"]
+        self.pn_core.pore.max_b = network["pore.max_b"]
+        self.pn_core.pore.corner_water_layer = network["pore.corner_water_layer"]
+        self.pn_core.pore.corner_oil_layer = network["pore.corner_oil_layer"]
+        self.pn_core.pore.C_r = network["pore.C_r"]
+        self.pn_core.pore.C_a = network["pore.C_a"]
+        self.pn_core.pore.C_h = network["pore.C_h"]
+        self.pn_core.pore.advancing_contact_angle = network["pore.advancing_contact_angle"]
+        self.pn_core.pore.receding_contact_angle = network["pore.receding_contact_angle"]
+        self.pn_core.pore.oil_singlephase_conductance = network["pore.oil_singlephase_conductance"]
+        self.pn_core.pore.water_singlephase_conductance = network["pore.water_singlephase_conductance"]
+        self.pn_core.pore.oil_multiphase_conductance = network["pore.oil_multiphase_conductance"]
+        self.pn_core.pore.water_multiphase_conductance = network["pore.water_multiphase_conductance"]
+        self.pn_core.pore.shape = network["pore.shape"]
+        self.pn_core.pore.trapped = network["pore.trapped"]
+        self.pn_core.pore.n_corners = network["pore.n_corners"]
+        self.pn_core.pore.spontaneous_imbibition = network["pore.spontaneous_imbibition"]
+        self.pn_core.pore.snap_off_viability = network["pore.snap_off_viability"]
+        self.pn_core.pore.entry_pressure = network["pore.entry_pressure"]
+        self.pn_core.pore.conns = network["pore.conns"]
+        self.pn_core.pore.n_conns = network["pore.n_conns"]
+        self.pn_core.pore.area = network["pore.area"]
+        self.pn_core.throat.shape_factor = network["throat.shape_factor"]
+        self.pn_core.throat.radius = network["throat.radius"]
+        self.pn_core.throat.volume = network["throat.volume"]
+        self.pn_core.throat.clay_volume = network["throat.clay_volume"]
+        self.pn_core.throat.oil_filled = network["throat.oil_filled"]
+        self.pn_core.throat.water_filled = network["throat.water_filled"]
+        self.pn_core.throat.oil_saturation = network["throat.oil_saturation"]
+        self.pn_core.throat.water_saturation = network["throat.water_saturation"]
+        self.pn_core.throat.corner_half_angle = network["throat.corner_half_angle"]
+        self.pn_core.throat.sides = network["throat.sides"]
+        self.pn_core.throat.hinging_contact_angle = network["throat.hinging_contact_angle"]
+        self.pn_core.throat.b = network["throat.b"]
+        self.pn_core.throat.bo = network["throat.bo"]
+        self.pn_core.throat.max_b = network["throat.max_b"]
+        self.pn_core.throat.corner_water_layer = network["throat.corner_water_layer"]
+        self.pn_core.throat.corner_oil_layer = network["throat.corner_oil_layer"]
+        self.pn_core.throat.C_r = network["throat.C_r"]
+        self.pn_core.throat.C_a = network["throat.C_a"]
+        self.pn_core.throat.C_h = network["throat.C_h"]
+        self.pn_core.throat.advancing_contact_angle = network["throat.advancing_contact_angle"]
+        self.pn_core.throat.receding_contact_angle = network["throat.receding_contact_angle"]
+        self.pn_core.throat.oil_singlephase_conductance = network["throat.oil_singlephase_conductance"]
+        self.pn_core.throat.water_singlephase_conductance = network["throat.water_singlephase_conductance"]
+        self.pn_core.throat.oil_multiphase_conductance = network["throat.oil_multiphase_conductance"]
+        self.pn_core.throat.water_multiphase_conductance = network["throat.water_multiphase_conductance"]
+        self.pn_core.throat.shape = network["throat.shape"]
+        self.pn_core.throat.trapped = network["throat.trapped"]
+        self.pn_core.throat.n_corners = network["throat.n_corners"]
+        self.pn_core.throat.spontaneous_imbibition = network["throat.spontaneous_imbibition"]
+        self.pn_core.throat.snap_off_viability = network["throat.snap_off_viability"]
+        self.pn_core.throat.entry_pressure = network["throat.entry_pressure"]
+        self.pn_core.throat.conns = network["throat.conns"]
+        self.pn_core.throat.n_conns = network["throat.n_conns"]
+        self.pn_core.throat.cross_sectional_area = network["throat.cross_sectional_area"]
+        self.pn_core.throat.length = network["throat.length"]
+        self.pn_core.throat.hydraulic_conductance = network["throat.hydraulic_conductance"]
+
         number_of_pores = len(self.pn[f"pore.all"])
         number_of_throats = len(self.pn[f"throat.all"])
 
@@ -79,12 +153,12 @@ class Network:
         throat_core_list = [None] * number_of_throats
 
         for pore_id in self.pn.pores():
-            self.pore_list[pore_id] = Pore(self.pn, pore_id)
+            self.pore_list[pore_id] = Pore(self.pn_core, pore_id)
             pore_core_list[pore_id] = ElementCore(pore_id)
         self.pore_core_list = nb.typed.List(pore_core_list)
 
         for throat_id in self.pn.throats():
-            self.throat_list[throat_id] = Throat(self.pn, throat_id)
+            self.throat_list[throat_id] = Throat(self.pn_core, throat_id)
             throat_core_list[throat_id] = ElementCore(throat_id)
         self.throat_core_list = nb.typed.List(throat_core_list)
 
@@ -191,242 +265,203 @@ class PnElement:
         self.type_name = type_name
         self.id = id
 
-        self._G = None
-        self._r = None
-        self._A = None
-        self._V = None
-        self._Vclay = None
-        self._advancing_contact_angle = None
-        self._receding_contact_angle = None
-        self._C_r = None
-        self._C_a = None
-        self._C_h = None
-        self._shape = None
-        self._trapped = None
-        self._water_filled = None
-        self._oil_filled = None
-        self._n_corners = None
-        self._spontaneous_imbibition = None
-        self._beta = None
-        self._theta_h = None
-        self._b = None
-        self._bo = None
-        self._corner_oil_layer = None
-
-        self.pc = None
-
     @property
     def G(self):
-        return self.pn[f"{self.type_name}.shape_factor"][self.id]
+        return self.pn.shape_factor[self.id]
 
     @property
     def r(self):
-        return self.pn[f"{self.type_name}.radius"][self.id]
+        return self.pn.radius[self.id]
 
     @property
     def V(self):
-        return self.pn[f"{self.type_name}.volume"][self.id]
+        return self.pn.volume[self.id]
 
     @property
     def Vclay(self):
-        return self.pn[f"{self.type_name}.clay_volume"][self.id]
+        return self.pn.clay_volume[self.id]
 
     @property
     def Sw(self):
-        return self.pn[f"{self.type_name}.water_saturation"][self.id]
+        return self.pn.water_saturation[self.id]
 
     @property
     def So(self):
-        return self.pn[f"{self.type_name}.oil_saturation"][self.id]
+        return self.pn.oil_saturation[self.id]
 
     @property
     def advancing_contact_angle(self):
-        return self.pn[f"{self.type_name}.advancing_contact_angle"][self.id]
+        return self.pn.advancing_contact_angle[self.id]
 
     @property
     def receding_contact_angle(self):
-        return self.pn[f"{self.type_name}.receding_contact_angle"][self.id]
+        return self.pn.receding_contact_angle[self.id]
 
     @property
     def C_r(self):
-        return self.pn[f"{self.type_name}.C_r"][self.id]
+        return self.pn.C_r[self.id]
 
     @property
     def C_a(self):
-        return self.pn[f"{self.type_name}.C_a"][self.id]
+        return self.pn.C_a[self.id]
 
     @property
     def C_h(self):
-        return self.pn[f"{self.type_name}.C_h"][self.id]
+        return self.pn.C_h[self.id]
 
     @property
     def shape(self):
-        return self.pn[f"{self.type_name}.shape"][self.id]
+        return self.pn.shape[self.id]
 
     @property
     def trapped(self):
-        return self.pn[f"{self.type_name}.trapped"][self.id]
+        return self.pn.trapped[self.id]
 
     @property
     def oil_filled(self):
-        return self.pn[f"{self.type_name}.oil_filled"][self.id]
+        return self.pn.oil_filled[self.id]
 
     @property
     def water_filled(self):
-        return self.pn[f"{self.type_name}.water_filled"][self.id]
+        return self.pn.water_filled[self.id]
 
     @property
     def n_corners(self):
-        return self.pn[f"{self.type_name}.n_corners"][self.id]
+        return self.pn.n_corners[self.id]
 
     @property
     def spontaneous_imbibition(self):
-        return self.pn[f"{self.type_name}.spontaneous_imbibition"][self.id]
+        return self.pn.spontaneous_imbibition[self.id]
 
     @property
     def snap_off_viability(self):
-        return self.pn[f"{self.type_name}.snap_off_viability"][self.id]
+        return self.pn.snap_off_viability[self.id]
 
     @property
     def beta(self):
-        return self.pn[f"{self.type_name}.corner_half_angle"][self.id]
+        return self.pn.corner_half_angle[self.id]
 
     @property
     def theta_h(self):
-        return self.pn[f"{self.type_name}.hinging_contact_angle"][self.id]
+        return self.pn.hinging_contact_angle[self.id]
 
     @property
     def b(self):
-        return self.pn[f"{self.type_name}.b"][self.id]
+        return self.pn.b[self.id]
 
     @property
     def bo(self):
-        return self.pn[f"{self.type_name}.bo"][self.id]
+        return self.pn.bo[self.id]
 
     @property
     def max_b(self):
-        return self.pn[f"{self.type_name}.max_b"][self.id]
+        return self.pn.max_b[self.id]
 
     @property
     def corner_water_layer(self):
-        return self.pn[f"{self.type_name}.corner_water_layer"][self.id]
+        return self.pn.corner_water_layer[self.id]
 
     @property
     def corner_oil_layer(self):
-        return self.pn[f"{self.type_name}.corner_oil_layer"][self.id]
+        return self.pn.corner_oil_layer[self.id]
+
+    @property
+    def pc(self):
+        return self.pn.entry_pressure[self.id]
 
     @G.setter
     def G(self, value):
-        self.pn[f"{self.type_name}.shape_factor"][self.id] = value
+        self.pn.shape_factor[self.id] = value
 
     @Sw.setter
     def Sw(self, value):
-        self.pn[f"{self.type_name}.water_saturation"][self.id] = value
+        self.pn.water_saturation[self.id] = value
 
     @So.setter
     def So(self, value):
-        self.pn[f"{self.type_name}.oil_saturation"][self.id] = value
+        self.pn.oil_saturation[self.id] = value
 
     @advancing_contact_angle.setter
     def advancing_contact_angle(self, value):
-        self._advancing_contact_angle = value
-        self.pn[f"{self.type_name}.advancing_contact_angle"][self.id] = value
+        self.pn.advancing_contact_angle[self.id] = value
 
     @receding_contact_angle.setter
     def receding_contact_angle(self, value):
-        self._receding_contact_angle = value
-        self.pn[f"{self.type_name}.receding_contact_angle"][self.id] = value
+        self.pn.receding_contact_angle[self.id] = value
 
     @C_r.setter
     def C_r(self, C_r):
-        self._C_r = C_r
-        self.pn[f"{self.type_name}.C_r"][self.id] = C_r
+        self.pn.C_r[self.id] = C_r
 
     @C_a.setter
     def C_a(self, C_a):
-        self._C_a = C_a
-        self.pn[f"{self.type_name}.C_a"][self.id] = C_a
+        self.pn.C_a[self.id] = C_a
 
     @C_h.setter
     def C_h(self, C_h):
-        self._C_h = C_h
-        self.pn[f"{self.type_name}.C_h"][self.id] = C_h
+        self.pn.C_h[self.id] = C_h
 
     @shape.setter
     def shape(self, shape):
-        self._shape = shape
-        self.pn[f"{self.type_name}.shape"][self.id] = shape
+        self.pn.shape[self.id] = shape
 
         if shape == TRIANGLE:
-            self._n_corners = int(3)
+            self.pn.n_corners[self.id] = int(3)
         elif shape == SQUARE:
-            self._n_corners = int(4)
+            self.pn.n_corners[self.id] = int(4)
         else:
-            self._n_corners = int(0)
-        self.pn[f"{self.type_name}.n_corners"][self.id] = self._n_corners
+            self.pn.n_corners[self.id] = int(0)
 
     @trapped.setter
     def trapped(self, trapped):
-        self._trapped = trapped
-        self.pn[f"{self.type_name}.trapped"][self.id] = trapped
+        self.pn.trapped[self.id] = trapped
 
     @oil_filled.setter
     def oil_filled(self, oil_filled):
-        self._oil_filled = oil_filled
-        self.pn[f"{self.type_name}.oil_filled"][self.id] = oil_filled
+        self.pn.oil_filled[self.id] = oil_filled
 
     @water_filled.setter
     def water_filled(self, water_filled):
-        self._water_filled = water_filled
-        self.pn[f"{self.type_name}.water_filled"][self.id] = water_filled
+        self.pn.water_filled[self.id] = water_filled
 
     @spontaneous_imbibition.setter
     def spontaneous_imbibition(self, spontaneous_imbibition):
-        self._spontaneous_imbibition = spontaneous_imbibition
-        self.pn[f"{self.type_name}.spontaneous_imbibition"][self.id] = spontaneous_imbibition
+        self.pn.spontaneous_imbibition[self.id] = spontaneous_imbibition
 
     @snap_off_viability.setter
     def snap_off_viability(self, snap_off_viability):
-        self.pn[f"{self.type_name}.snap_off_viability"][self.id] = snap_off_viability
+        self.pn.snap_off_viability[self.id] = snap_off_viability
 
     @beta.setter
     def beta(self, beta):
-        self._beta = beta
-        self.pn[f"{self.type_name}.corner_half_angle"][self.id] = beta
+        self.pn.corner_half_angle[self.id] = beta
 
     @theta_h.setter
     def theta_h(self, theta_h):
-        self._theta_h = theta_h
-        self.pn[f"{self.type_name}.hinging_contact_angle"][self.id] = theta_h
+        self.pn.hinging_contact_angle[self.id] = theta_h
 
     @b.setter
     def b(self, b):
-        self._b = b
-        self.pn[f"{self.type_name}.b"][self.id] = b
+        self.pn.b[self.id] = b
 
     @bo.setter
     def bo(self, bo):
-        self._bo = bo
-        self.pn[f"{self.type_name}.bo"][self.id] = bo
+        self.pn.bo[self.id] = bo
 
     @max_b.setter
     def max_b(self, max_b):
-        self.pn[f"{self.type_name}.max_b"][self.id] = max_b
+        self.pn.max_b[self.id] = max_b
 
     @corner_oil_layer.setter
     def corner_oil_layer(self, corner_oil_layer):
-        self._corner_oil_layer = corner_oil_layer
-        self.pn[f"{self.type_name}.corner_oil_layer"][self.id] = corner_oil_layer
+        self.pn.corner_oil_layer[self.id] = corner_oil_layer
 
     @corner_water_layer.setter
     def corner_water_layer(self, corner_water_layer):
-        self.pn[f"{self.type_name}.corner_water_layer"][self.id] = corner_water_layer
+        self.pn.corner_water_layer[self.id] = corner_water_layer
 
     def get_id(self):
         return self.id
-
-    def get_pc(self):
-        return self.pc
 
     def set_oil_filled(self, filled: bool):
         self.oil_filled = filled
@@ -449,8 +484,7 @@ class PnElement:
             return self.oil_filled
 
     def set_pc(self, pc):
-        self.pc = pc
-        self.pn[f"{self.type_name}.entry_pressure"][self.id] = pc
+        self.pn.entry_pressure[self.id] = pc
 
     @abstractmethod
     def is_pore(self):
@@ -463,15 +497,15 @@ class PnElement:
 
 class Pore(PnElement):
     def __init__(self, network, id):
-        super().__init__(network, "pore", id)
+        super().__init__(network.pore, "pore", id)
 
     @property
     def A(self):
-        return self.pn[f"{self.type_name}.area"][self.id]
+        return self.pn.area[self.id]
 
     @A.setter
     def A(self, value):
-        self.pn[f"{self.type_name}.area"][self.id] = value
+        self.pn.area[self.id] = value
 
     def is_pore(self):
         return True
@@ -482,20 +516,20 @@ class Pore(PnElement):
 
 class Throat(PnElement):
     def __init__(self, network, id):
-        super().__init__(network, "throat", id)
+        super().__init__(network.throat, "throat", id)
         self._L = None
 
     @property
     def A(self):
-        return self.pn[f"{self.type_name}.cross_sectional_area"][self.id]
+        return self.pn.cross_sectional_area[self.id]
 
     @property
     def L(self):
-        return self.pn[f"{self.type_name}.length"][self.id]
+        return self.pn.length[self.id]
 
     @A.setter
     def A(self, value):
-        self.pn[f"{self.type_name}.cross_sectional_area"][self.id] = value
+        self.pn.cross_sectional_area[self.id] = value
 
     def is_pore(self):
         return False
@@ -557,3 +591,194 @@ class ElementCore:
         self.oil_filled = True
         self.n_corners = 0
         self.spontaneous_imbibition = True
+
+NUMBA_ENABLED = False
+if NUMBA_ENABLED:
+    spec = [
+        # Default
+        ("shape_factor", nb.types.float64[:]),
+        ("radius", nb.types.float64[:]),
+        ("volume", nb.types.float64[:]),
+        ("clay_volume", nb.types.int64[:]),
+        # Custom
+        ("oil_filled", nb.types.boolean[:]),
+        ("water_filled", nb.types.boolean[:]),
+        ("oil_saturation", nb.types.float64[:]),
+        ("water_saturation", nb.types.float64[:]),
+        ("corner_half_angle", nb.types.float64[:, :]),
+        ("sides", nb.types.float64[:, :]),
+        ("hinging_contact_angle", nb.types.float64[:, :]),
+        ("b", nb.types.float64[:, :]),
+        ("bo", nb.types.float64[:, :]),
+        ("max_b", nb.types.float64[:]),
+        ("corner_water_layer", nb.types.boolean[:, :]),
+        ("corner_oil_layer", nb.types.boolean[:, :]),
+        ("C_r", nb.types.float64[:]),
+        ("C_a", nb.types.float64[:]),
+        ("C_h", nb.types.float64[:]),
+        ("advancing_contact_angle", nb.types.float64[:]),
+        ("receding_contact_angle", nb.types.float64[:]),
+        ("oil_singlephase_conductance", nb.types.float64[:]),
+        ("water_singlephase_conductance", nb.types.float64[:]),
+        ("oil_multiphase_conductance", nb.types.float64[:]),
+        ("water_multiphase_conductance", nb.types.float64[:]),
+        ("shape", nb.types.int32[:]),
+        ("trapped", nb.types.boolean[:]),
+        ("n_corners", nb.types.int32[:]),
+        ("spontaneous_imbibition", nb.types.boolean[:]),
+        ("snap_off_viability", nb.types.boolean[:]),
+        ("entry_pressure", nb.types.float64[:]),
+        ("conns", nb.types.int32[:, :]),
+        ("n_conns", nb.types.int32[:]),
+        # Pore exclusive
+        ("area", nb.types.float64[:]),
+    ]
+
+
+    @jitclass(spec)
+    class PoresNetwork:
+        def __init__(self):
+            pass
+
+
+    spec = [
+        # Default
+        ("shape_factor", nb.types.float64[:]),
+        ("radius", nb.types.float64[:]),
+        ("volume", nb.types.float64[:]),
+        ("clay_volume", nb.types.int64[:]),
+        # Custom
+        ("oil_filled", nb.types.boolean[:]),
+        ("water_filled", nb.types.boolean[:]),
+        ("oil_saturation", nb.types.float64[:]),
+        ("water_saturation", nb.types.float64[:]),
+        ("corner_half_angle", nb.types.float64[:, :]),
+        ("sides", nb.types.float64[:, :]),
+        ("hinging_contact_angle", nb.types.float64[:, :]),
+        ("b", nb.types.float64[:, :]),
+        ("bo", nb.types.float64[:, :]),
+        ("max_b", nb.types.float64[:]),
+        ("corner_water_layer", nb.types.boolean[:, :]),
+        ("corner_oil_layer", nb.types.boolean[:, :]),
+        ("C_r", nb.types.float64[:]),
+        ("C_a", nb.types.float64[:]),
+        ("C_h", nb.types.float64[:]),
+        ("advancing_contact_angle", nb.types.float64[:]),
+        ("receding_contact_angle", nb.types.float64[:]),
+        ("oil_singlephase_conductance", nb.types.float64[:]),
+        ("water_singlephase_conductance", nb.types.float64[:]),
+        ("oil_multiphase_conductance", nb.types.float64[:]),
+        ("water_multiphase_conductance", nb.types.float64[:]),
+        ("shape", nb.types.int32[:]),
+        ("trapped", nb.types.boolean[:]),
+        ("n_corners", nb.types.int32[:]),
+        ("spontaneous_imbibition", nb.types.boolean[:]),
+        ("snap_off_viability", nb.types.boolean[:]),
+        ("entry_pressure", nb.types.float64[:]),
+        ("conns", nb.types.int32[:, :]),
+        ("n_conns", nb.types.int32[:]),
+        # Throat exclusive
+        ("cross_sectional_area", nb.types.float64[:]),
+        ("length", nb.types.float64[:]),
+        ("hydraulic_conductance", nb.types.float64[:]),
+    ]
+
+
+    @jitclass(spec)
+    class ThroatsNetwork:
+        def __init__(self):
+            pass
+
+
+    spec = [
+        ("throat", ThroatsNetwork.class_type.instance_type),
+        ("pore", PoresNetwork.class_type.instance_type),
+    ]
+
+
+    @jitclass(spec)
+    class NetworkCore:
+        def __init__(self):
+            self.throat = ThroatsNetwork()
+            self.pore = PoresNetwork()
+else:
+    class PoresNetwork:
+        def __init__(self):
+            self.shape_factor = None
+            self.radius = None
+            self.volume = None
+            self.clay_volume = None
+            self.oil_filled = None
+            self.water_filled = None
+            self.oil_saturation = None
+            self.water_saturation = None
+            self.corner_half_angle = None
+            self.sides = None
+            self.hinging_contact_angle = None
+            self.b = None
+            self.bo = None
+            self.max_b = None
+            self.corner_water_layer = None
+            self.corner_oil_layer = None
+            self.C_r = None
+            self.C_a = None
+            self.C_h = None
+            self.advancing_contact_angle = None
+            self.receding_contact_angle = None
+            self.oil_singlephase_conductance = None
+            self.water_singlephase_conductance = None
+            self.oil_multiphase_conductance = None
+            self.water_multiphase_conductance = None
+            self.shape = None
+            self.trapped = None
+            self.n_corners = None
+            self.spontaneous_imbibition = None
+            self.snap_off_viability = None
+            self.entry_pressure = None
+            self.conns = None
+            self.n_conns = None
+            self.area = None
+
+    class ThroatsNetwork:
+        def __init__(self):
+            self.shape_factor = None
+            self.radius = None
+            self.volume = None
+            self.clay_volume = None
+            self.oil_filled = None
+            self.water_filled = None
+            self.oil_saturation = None
+            self.water_saturation = None
+            self.corner_half_angle = None
+            self.sides = None
+            self.hinging_contact_angle = None
+            self.b = None
+            self.bo = None
+            self.max_b = None
+            self.corner_water_layer = None
+            self.corner_oil_layer = None
+            self.C_r = None
+            self.C_a = None
+            self.C_h = None
+            self.advancing_contact_angle = None
+            self.receding_contact_angle = None
+            self.oil_singlephase_conductance = None
+            self.water_singlephase_conductance = None
+            self.oil_multiphase_conductance = None
+            self.water_multiphase_conductance = None
+            self.shape = None
+            self.trapped = None
+            self.n_corners = None
+            self.spontaneous_imbibition = None
+            self.snap_off_viability = None
+            self.entry_pressure = None
+            self.conns = None
+            self.n_conns = None
+            self.cross_sectional_area = None
+            self.length = None
+            self.hydraulic_conductance = None
+
+    class NetworkCore:
+        def __init__(self):
+            self.throat = ThroatsNetwork()
+            self.pore = PoresNetwork()

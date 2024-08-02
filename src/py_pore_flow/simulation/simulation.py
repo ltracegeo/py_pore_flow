@@ -77,7 +77,7 @@ class Simulation:
         )
 
         if generate_vtu:
-            pn_to_vtu(self.pn, self.pc_incrementer.get_pc(), 1, 0)
+            pn_to_vtu(self.pn, self.pc_incrementer.pc, 1, 0)
 
     def run_drainage(self):
         self.step_simulation.set_max_pc(self.parameter_manager.pc_maximum)
@@ -98,7 +98,7 @@ class Simulation:
         Kro_array = []
 
         while True:
-            Pc = self.pc_incrementer.get_pc()
+            Pc = self.pc_incrementer.pc
 
             _, Sw, Krw, Kro, pores_filled, total_pores, percentage = self.step_simulation.update(Pc)
 
@@ -152,8 +152,10 @@ def calculate_drainage_values(network, max_pc):
     conductance_calculator = ConductanceCalculator(network)
     oil_singlephase_conductance = conductance_calculator.calculate_singlephase_conductance(OIL)
     water_singlephase_conductance = conductance_calculator.calculate_singlephase_conductance(WATER)
-    network.pn["throat.oil_singlephase_conductance"] = oil_singlephase_conductance
-    network.pn["throat.water_singlephase_conductance"] = water_singlephase_conductance
+    network.pn_core.throat.oil_singlephase_conductance = oil_singlephase_conductance
+    network.pn_core.throat.water_singlephase_conductance = water_singlephase_conductance
+    network.pn["throat.oil_singlephase_conductance"] = network.pn_core.throat.oil_singlephase_conductance
+    network.pn["throat.water_singlephase_conductance"] = network.pn_core.throat.water_singlephase_conductance
 
     return network
 
@@ -168,8 +170,10 @@ def calculate_imbibition_values(network, max_pc):
     conductance_calculator = ConductanceCalculator(network)
     oil_singlephase_conductance = conductance_calculator.calculate_singlephase_conductance(OIL)
     water_singlephase_conductance = conductance_calculator.calculate_singlephase_conductance(WATER)
-    network.pn["throat.oil_singlephase_conductance"] = oil_singlephase_conductance
-    network.pn["throat.water_singlephase_conductance"] = water_singlephase_conductance
+    network.pn_core.throat.oil_singlephase_conductance = oil_singlephase_conductance
+    network.pn_core.throat.water_singlephase_conductance = water_singlephase_conductance
+    network.pn["throat.oil_singlephase_conductance"] = network.pn_core.throat.oil_singlephase_conductance
+    network.pn["throat.water_singlephase_conductance"] = network.pn_core.throat.water_singlephase_conductance
 
     return network
 
