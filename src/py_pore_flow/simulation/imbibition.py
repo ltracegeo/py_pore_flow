@@ -27,6 +27,9 @@ class ImbibitionSimulation(CycleSimulation):
         super().__init__(network, WATER, calculate_full_conductance)
         self.Rmin = calculate_r(pc_max, 100000)
 
+        self.snap_off_throat_list = []
+        self.snap_off_pore_list = []
+
     def get_pores_left(self):
         return np.logical_not(self.network.pn["pore.water_filled"] | self.network.pn["pore.trapped"]).sum()
 
@@ -53,24 +56,31 @@ class ImbibitionSimulation(CycleSimulation):
         element_theta_r,
         element_theta_h,
         element_snap_off_viability,
+        element_snap_off_pc,
         neighbor_water_filled,
         Rmin,
         pc,
         border_elements,
         is_throats=True,
     ):
-        invaded_elements = []
+        snap_off_elements = []
         for element_id in element_id_list:
             if (
                 element_snap_off_viability[element_id]
                 and not element_water_filled[element_id]
                 and element_shape[element_id] != CIRCLE
             ):
-                for i in range(element_n_conns[element_id]):
-                    pore_id = element_conns[element_id][i]
-                    if neighbor_water_filled[pore_id]:
+                if is_throats:
+                    if element_id in border_elements.get_throats_ids():
                         continue
-                snap_off_pc = calculate_snap_off_pc(
+                else:
+                    if element_id in border_elements.get_pores_ids():
+                        continue
+                # for i in range(element_n_conns[element_id]):
+                #     pore_id = element_conns[element_id][i]
+                #     if neighbor_water_filled[pore_id]:
+                #         continue
+                element_snap_off_pc[element_id] = calculate_snap_off_pc(
                     element_r[element_id],
                     element_beta[element_id],
                     element_theta_a[element_id],
@@ -81,28 +91,12 @@ class ImbibitionSimulation(CycleSimulation):
                     pc,
                     0,
                 )
-                if snap_off_pc > pc:
-                    element_water_filled[element_id] = True
-                    element_oil_filled[element_id] = False
-                    if is_throats:
-                        border_elements.remove_throat(element_id)
-                    else:
-                        border_elements.remove_pore(element_id)
+                snap_off_elements.append(element_id)
 
-                    invaded_elements.append([element_id, snap_off_pc])
+        return snap_off_elements
 
-                    for i in range(element_n_conns[element_id]):
-                        neighbor_id = element_conns[element_id][i]
-                        if not neighbor_water_filled[neighbor_id]:
-                            if is_throats:
-                                border_elements.add_pore(neighbor_id)
-                            else:
-                                border_elements.add_throat(neighbor_id)
-
-        return invaded_elements
-
-    def __update_snap_offs(self, pc):
-        invaded_throats = self.snap_off(
+    def _update_snap_offs_pcs(self, pc):
+        self.snap_off_throat_list = self.snap_off(
             self.network.pn.throats(),
             self.network.pn["throat.n_corners"],
             self.network.pn["throat.conns"],
@@ -116,6 +110,7 @@ class ImbibitionSimulation(CycleSimulation):
             self.network.pn["throat.receding_contact_angle"],
             self.network.pn["throat.hinging_contact_angle"],
             self.network.pn["throat.snap_off_viability"],
+            self.network.pn["throat.entry_pressure"],
             self.network.pn["pore.water_filled"],
             self.Rmin,
             pc,
@@ -123,7 +118,7 @@ class ImbibitionSimulation(CycleSimulation):
             is_throats=True,
         )
 
-        invaded_pores = self.snap_off(
+        self.snap_off_pore_list = self.snap_off(
             self.network.pn.pores(),
             self.network.pn["pore.n_corners"],
             self.network.pn["pore.conns"],
@@ -137,22 +132,13 @@ class ImbibitionSimulation(CycleSimulation):
             self.network.pn["pore.receding_contact_angle"],
             self.network.pn["pore.hinging_contact_angle"],
             self.network.pn["pore.snap_off_viability"],
+            self.network.pn["pore.entry_pressure"],
             self.network.pn["throat.water_filled"],
             self.Rmin,
             pc,
             self.border_elements,
             is_throats=False,
         )
-
-        throat_r = self.network.pn["throat.radius"]
-        for throat in invaded_throats:
-            log.debug(
-                f"Invasion {'throat':6} ID: {int(throat[0]):6} Pc: {throat[1]} Radius: {throat_r[int(throat[0])]}"
-            )
-
-        pore_r = self.network.pn["pore.radius"]
-        for pore in invaded_pores:
-            log.debug(f"Invasion {'pore':6} ID: {int(pore[0]):6} Pc: {pore[1]} Radius: {pore_r[int(pore[0])]}")
 
     def __update_oil_layers(self, pc):
         self.network.pn[f"pore.corner_oil_layer"] = calculate_oil_layer_network(
@@ -216,6 +202,10 @@ class ImbibitionSimulation(CycleSimulation):
         for pore_id in border_elements.get_pores_ids():
             element_list.append(self.network.get_pore(pore_id))
         for throat_id in border_elements.get_throats_ids():
+            element_list.append(self.network.get_throat(throat_id))
+        for pore_id in self.snap_off_pore_list:
+            element_list.append(self.network.get_pore(throat_id))
+        for throat_id in self.snap_off_throat_list:
             element_list.append(self.network.get_throat(throat_id))
         element_list.sort(key=lambda x: x.get_pc(), reverse=True)
 
