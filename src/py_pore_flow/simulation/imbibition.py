@@ -22,6 +22,9 @@ from py_pore_flow.simulation.cycle_simulation import CycleSimulation
 from py_pore_flow import log
 
 
+PORE = 0
+THROAT = 1
+
 class ImbibitionSimulation(CycleSimulation):
     def __init__(self, network, pc_max, calculate_full_conductance=False):
         super().__init__(network, WATER, calculate_full_conductance)
@@ -34,8 +37,8 @@ class ImbibitionSimulation(CycleSimulation):
         return np.logical_not(self.network.pn["pore.water_filled"] | self.network.pn["pore.trapped"]).sum()
 
     def _update_invasions(self, pc, target_sw=None):
+        self.__update_snap_offs_pcs(pc)
         invaded_pc = super()._update_invasions(pc, target_sw)
-        self.__update_snap_offs(pc)
         self.__update_oil_layers(pc)
         self.__update_water_layers()
         return invaded_pc
@@ -95,7 +98,7 @@ class ImbibitionSimulation(CycleSimulation):
 
         return snap_off_elements
 
-    def _update_snap_offs_pcs(self, pc):
+    def __update_snap_offs_pcs(self, pc):
         self.snap_off_throat_list = self.snap_off(
             self.network.pn.throats(),
             self.network.pn["throat.n_corners"],
@@ -198,26 +201,85 @@ class ImbibitionSimulation(CycleSimulation):
         element.set_pc(element_pc)
 
     def _get_element_to_fill(self, pc, border_elements):
-        element_list = []
-        for pore_id in border_elements.get_pores_ids():
-            element_list.append(self.network.get_pore(pore_id))
-        for throat_id in border_elements.get_throats_ids():
-            element_list.append(self.network.get_throat(throat_id))
-        for pore_id in self.snap_off_pore_list:
-            element_list.append(self.network.get_pore(throat_id))
-        for throat_id in self.snap_off_throat_list:
-            element_list.append(self.network.get_throat(throat_id))
-        element_list.sort(key=lambda x: x.get_pc(), reverse=True)
+        pore_id_list = np.concatenate((border_elements.get_pores_ids(), self.snap_off_pore_list))
+        throat_id_list = np.concatenate((border_elements.get_throats_ids(), self.snap_off_throat_list))
+        element_type, element_id, entry_pressure = self._jit_pore_throats_element_to_fill(
+            pc,
+            pore_id_list,
+            self.network.pn[f"pore.entry_pressure"],
+            self.network.pn[f"pore.spontaneous_imbibition"],
+            throat_id_list,
+            self.network.pn[f"throat.entry_pressure"],
+            self.network.pn[f"throat.spontaneous_imbibition"],
+        )
 
-        for element in element_list:
-            if pc < 0 or element.spontaneous_imbibition:
-                if element.get_pc() > pc:
-                    if self.current_pc is None:
-                        self.current_pc = element.get_pc()
-                    else:
-                        self.current_pc = min(self.current_pc, element.get_pc())
-                    return element, self.current_pc
-        return None, pc
+        if element_type == THROAT:
+            try:
+                self.snap_off_throat_list.remove(element_id)
+            except ValueError:
+                pass
+            element = self.network.get_throat(element_id)
+            invasion_pressure = entry_pressure
+        elif element_type == PORE:
+            try:
+                self.snap_off_pore_list.remove(element_id)
+            except ValueError:
+                pass
+            element = self.network.get_pore(element_id)
+            invasion_pressure = entry_pressure
+        else:
+            element = None
+            invasion_pressure = pc
+
+        if self.current_pc is None:
+            self.current_pc = invasion_pressure
+        else:
+            self.current_pc = min(self.current_pc, invasion_pressure)
+
+        return element, self.current_pc
+
+    @staticmethod
+    @nb.njit
+    def _jit_pore_throats_element_to_fill(
+        pc,
+        pore_id_list,
+        pore_entry_pressure,
+        pore_spontaneous_imbibition,
+        throat_id_list,
+        throat_entry_pressure,
+        throat_spontaneous_imbibition,
+    ):
+        # tuple_list = []
+        # for id in pore_id_list:
+        #     tuple_list.append((PORE, id, pore_entry_pressure[id]))
+        # for id in throat_id_list:
+        #     tuple_list.append((THROAT, id, throat_entry_pressure[id]))
+        # tuple_list.sort(key=lambda element: element[2], reverse=True)
+
+        # for type, id, pressure in tuple_list:
+        #     if pc < 0 or pore_spontaneous_imbibition[id] if type == PORE else throat_spontaneous_imbibition[id]:
+        #         if pressure >= pc:
+        #             return type, id, pressure
+        # return None, None, pc
+        max_element_tuple = (PORE, pore_id_list[0], pore_entry_pressure[pore_id_list[0]])
+        if pc < 0:
+            for id in pore_id_list:
+                if pore_entry_pressure[id] > max_element_tuple[2]:
+                    max_element_tuple = (PORE, id, pore_entry_pressure[id])
+            for id in throat_id_list:
+                if throat_entry_pressure[id] > max_element_tuple[2]:
+                    max_element_tuple = (THROAT, id, throat_entry_pressure[id])
+        else:
+            for id in pore_id_list:
+                if pore_spontaneous_imbibition[id] and pore_entry_pressure[id] > max_element_tuple[2]:
+                    max_element_tuple = (PORE, id, pore_entry_pressure[id])
+            for id in throat_id_list:
+                if throat_spontaneous_imbibition[id] and throat_entry_pressure[id] > max_element_tuple[2]:
+                    max_element_tuple = (THROAT, id, throat_entry_pressure[id])
+
+        if max_element_tuple[2] >= pc:
+            return max_element_tuple[0], max_element_tuple[1], max_element_tuple[2]
+        return None, None, pc
 
     def __update_b(self, pc):
         self.network.pn["pore.b"] = calculate_imbibition_network_b(

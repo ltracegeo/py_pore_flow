@@ -741,8 +741,6 @@ class CycleSimulation:
     def _update_invasions(self, pc, target_sw=None):
         increased_sw = 0.0
 
-        self._update_snap_offs_pcs(pc)
-
         for throat_id in self.border_elements.get_throats_ids():
             element = self.network.get_throat(throat_id)
             self._update_element_entry_pc(element, pc)
