@@ -43,7 +43,7 @@ DEFAULT_PARAMETERS = {
     "pc_step": 200,
     "pc_step_min": 1,
     "pc_step_max": 1000,
-    "sw_step": 0.01,
+    "sw_step": 0.005,
     "end_at_sor": True,
     "control_by_pc": False,
 }

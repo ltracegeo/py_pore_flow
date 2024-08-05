@@ -26,6 +26,9 @@ from py_pore_flow.equations.conductance import (
 )
 from py_pore_flow.network import Network
 
+PORE = 0
+THROAT = 1
+
 
 class ConductanceCalculator:
     def __init__(self, network):
@@ -719,9 +722,25 @@ class CycleSimulation:
         self.current_pc = None
 
     def update_pc(self, pc, target_sw=None):
-        invaded_pc = self._update_invasions(pc, target_sw)
-        self._update_network_geometry(pc)
-        return invaded_pc
+        invasion_pc = pc
+        total_increased_sw = 0.0
+        while True:
+            if target_sw is not None:
+                invasion_target_sw = target_sw - total_increased_sw
+            else:
+                invasion_target_sw = None
+            invaded_pc = invasion_pc
+            increased_sw, invasion_pc = self._update_invasions(invasion_pc, invasion_target_sw)
+            self._update_network_geometry(invaded_pc)
+            if target_sw is None:
+                break
+            elif increased_sw == 0.0:
+                break
+            else:
+                total_increased_sw += increased_sw
+                if total_increased_sw >= target_sw:
+                    break
+        return total_increased_sw, invaded_pc, invasion_pc
 
     def calculate_sw_total(self):
         return self.saturation_calculator.calculate_sw_total()
@@ -753,15 +772,7 @@ class CycleSimulation:
     def _get_element_to_fill(self, pc, border_elements):
         pass
 
-    @abstractmethod
-    def _update_snap_offs_pcs(self, pc):
-        pass
-
-    def _update_invasions(self, pc, target_sw=None):
-        increased_sw = 0.0
-
-        self._update_snap_offs_pcs(pc)
-
+    def _update_entry_pressures(self, pc):
         for throat_id in self.border_elements.get_throats_ids():
             element = self.network.get_throat(throat_id)
             self._update_element_entry_pc(element, pc)
@@ -769,25 +780,33 @@ class CycleSimulation:
             element = self.network.get_pore(pore_id)
             self._update_element_entry_pc(element, pc)
 
-        while True:
-            element, invaded_pc = self._get_element_to_fill(pc, self.border_elements)
-            if element is None:
-                invaded_pc = pc
+    def _update_invasions(self, pc, target_sw=None):
+        increased_sw = 0.0
+
+        self._update_entry_pressures(pc)
+
+        invasion_pc = pc
+        for element_to_fill in self._get_element_to_fill(pc, self.border_elements):
+            invasion_pc = element_to_fill[2]
+
+            if (target_sw is not None and increased_sw >= target_sw) or not self._can_be_filled(pc, invasion_pc):
                 break
+
+            if element_to_fill[0] == PORE:
+                element = self.network.get_pore(element_to_fill[1])
+            else:
+                element = self.network.get_throat(element_to_fill[1])
 
             log.debug(
                 f"Invasion {element.type_name:6} ID: {element.id:6} Pc: {element.pc:.5f} Radius: {element.r:.2e} G: {element.G:.4f} n_corners: {element.n_corners} area: {element.A}"
             )
 
-            self.__fill_element(element, invaded_pc)
-            increased_sw += self._update_element_filled_geometry(invaded_pc, element)
+            self.__fill_element(element, invasion_pc)
+            increased_sw += self._update_element_filled_geometry(invasion_pc, element)
             self.trap_checker.update_trapped_pores()
             self.__remove_trapped_from_border()
 
-            if target_sw is not None and increased_sw >= target_sw:
-                break
-
-        return invaded_pc
+        return increased_sw, invasion_pc
 
     def __remove_trapped_from_border(self):
         for throat_id in self.border_elements.get_throats_ids():
@@ -899,6 +918,9 @@ class TrapChecker:
 
 spec = [
     ("enable_control", nb.types.float64),
+    ("cycle", nb.types.int32),
+    ("DRAINAGE_CYCLE", nb.types.int32),
+    ("IMBIBITION_CYCLE", nb.types.int32),
     ("pc", nb.types.float64),
     ("pc_step_initial", nb.types.float64),
     ("pc_step", nb.types.float64),
@@ -915,6 +937,9 @@ spec = [
 @jitclass(spec)
 class PcIncrementer:
     def __init__(self, pc_step, pc_step_min, pc_step_max, sw_step, pc_maximum, pc_minimum, enable_control=True):
+        self.DRAINAGE_CYCLE = 0
+        self.IMBIBITION_CYCLE = 1
+
         self.enable_control = enable_control
         self.pc_step_initial = pc_step
         self.pc_step_min = pc_step_min
@@ -923,11 +948,16 @@ class PcIncrementer:
         self.pc_maximum = pc_maximum
         self.pc_minimum = pc_minimum
 
+        self.cycle = self.DRAINAGE_CYCLE
+
         self.pc = 0
         self.pc_step = self.pc_step_initial
 
         self.first_step = True
         self.sw_last = 0
+
+    def set_cycle(self, cycle):
+        self.cycle = cycle
 
     def get_pc(self):
         return self.pc
@@ -937,6 +967,9 @@ class PcIncrementer:
 
     def get_pc_min(self):
         return self.pc_minimum
+
+    def set_pc(self, new_pc):
+        self.pc = new_pc
 
     def set_pc_to_min(self):
         self.pc = self.pc_minimum
@@ -957,6 +990,18 @@ class PcIncrementer:
         self.sw_last = sw_current
         self.first_step = False
         return self.pc
+
+    def update_pc(self, sw_current=0.0):
+        if self.cycle == self.DRAINAGE_CYCLE:
+            return self.increment(sw_current)
+        else:
+            return self.decrement(sw_current)
+
+    def cycle_should_end(self):
+        if self.cycle == self.DRAINAGE_CYCLE:
+            return self.pc >= self.get_pc_max()
+        else:
+            return self.pc <= self.get_pc_min()
 
     def __adjust_pc_step(self, sw_current):
         if self.enable_control and not self.first_step:
