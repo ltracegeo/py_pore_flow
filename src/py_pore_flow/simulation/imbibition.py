@@ -25,6 +25,7 @@ from py_pore_flow import log
 PORE = 0
 THROAT = 1
 
+
 class ImbibitionSimulation(CycleSimulation):
     def __init__(self, network, pc_max, calculate_full_conductance=False):
         super().__init__(network, WATER, calculate_full_conductance)
@@ -201,8 +202,12 @@ class ImbibitionSimulation(CycleSimulation):
         element.set_pc(element_pc)
 
     def _get_element_to_fill(self, pc, border_elements):
-        pore_id_list = np.concatenate((border_elements.get_pores_ids(), self.snap_off_pore_list))
-        throat_id_list = np.concatenate((border_elements.get_throats_ids(), self.snap_off_throat_list))
+        pore_id_list = np.concatenate(
+            (border_elements.get_pores_ids(), np.array(self.snap_off_pore_list, dtype=np.int64))
+        )
+        throat_id_list = np.concatenate(
+            (border_elements.get_throats_ids(), np.array(self.snap_off_throat_list, dtype=np.int64))
+        )
         element_type, element_id, entry_pressure = self._jit_pore_throats_element_to_fill(
             pc,
             pore_id_list,
@@ -261,7 +266,10 @@ class ImbibitionSimulation(CycleSimulation):
         #         if pressure >= pc:
         #             return type, id, pressure
         # return None, None, pc
-        max_element_tuple = (PORE, pore_id_list[0], pore_entry_pressure[pore_id_list[0]])
+        if len(pore_id_list) > 0:
+            max_element_tuple = (PORE, pore_id_list[0], pore_entry_pressure[pore_id_list[0]])
+        elif len(throat_id_list) > 0:
+            max_element_tuple = (THROAT, throat_id_list[0], throat_entry_pressure[throat_id_list[0]])
         if pc < 0:
             for id in pore_id_list:
                 if pore_entry_pressure[id] > max_element_tuple[2]:
