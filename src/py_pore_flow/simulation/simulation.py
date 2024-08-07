@@ -71,7 +71,7 @@ class Simulation:
             self.parameter_manager.pc_step,
             self.parameter_manager.pc_step_min,
             self.parameter_manager.pc_step_max,
-            self.parameter_manager.sw_step,
+            self.parameter_manager.drainage_sw_step,
             self.parameter_manager.pc_maximum,
             self.parameter_manager.pc_minimum,
             enable_control=self.parameter_manager.control_by_pc,
@@ -254,7 +254,7 @@ class StepSimulation:
 
         self.parameter_manager = ParameterManager(parameters_dict)
 
-        self.sw_step = self.parameter_manager.sw_step if not self.parameter_manager.control_by_pc else None
+        self.sw_step = None
 
         initialize_pn(pn)
         self.network = Network(pn)
@@ -273,11 +273,13 @@ class StepSimulation:
     def set_cycle(self, cycle="imbibition"):
         self.cycle = cycle
         if cycle == "drainage":
+            self.sw_step = None if self.parameter_manager.control_by_pc else self.parameter_manager.drainage_sw_step
             self.parameter_manager.update_initial_cas(self.network)
             calculate_drainage_values(self.network, self.max_pc)
             self.simulation = DrainageSimulation(self.network, self.calculate_full_conductance)
             self.max_pc = 0
         else:
+            self.sw_step = None if self.parameter_manager.control_by_pc else self.parameter_manager.imbibition_sw_step
             self.parameter_manager.update_equilibrium_cas(self.network)
             calculate_imbibition_values(self.network, self.max_pc)
             self.simulation = ImbibitionSimulation(self.network, self.max_pc, self.calculate_full_conductance)

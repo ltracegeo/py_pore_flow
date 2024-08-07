@@ -43,7 +43,8 @@ DEFAULT_PARAMETERS = {
     "pc_step": 200,
     "pc_step_min": 1,
     "pc_step_max": 1000,
-    "sw_step": 0.005,
+    "drainage_sw_step": 0.005,
+    "imbibition_sw_step": 0.005,
     "end_at_sor": True,
     "control_by_pc": False,
 }
@@ -87,8 +88,12 @@ class ParameterManager:
         return self.parameters_dict["pc_step_max"]
 
     @property
-    def sw_step(self):
-        return self.parameters_dict["sw_step"]
+    def drainage_sw_step(self):
+        return self.parameters_dict["drainage_sw_step"]
+
+    @property
+    def imbibition_sw_step(self):
+        return self.parameters_dict["imbibition_sw_step"]
 
     @property
     def end_at_sor(self):
