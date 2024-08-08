@@ -28,7 +28,7 @@ from py_pore_flow.simulation.imbibition import ImbibitionSimulation
 from py_pore_flow.simulation.cycle_simulation import ConductanceCalculator, PcIncrementer
 
 
-def run_two_phase_simulation(pn, parameters_dict={}, generate_vtu=False, debug=False):
+def run_two_phase_simulation(pn, parameters_dict={}, generate_vtu=False):
     previous_limit = sys.getrecursionlimit()
 
     number_of_elements = len(pn["pore.all"]) + len(pn["throat.all"])
@@ -40,7 +40,7 @@ def run_two_phase_simulation(pn, parameters_dict={}, generate_vtu=False, debug=F
     Krw = [None] * 2
     Kro = [None] * 2
 
-    simulation = Simulation(pn, parameters_dict, generate_vtu, debug)
+    simulation = Simulation(pn, parameters_dict, generate_vtu)
     Pc[0], Sw[0], Krw[0], Kro[0] = simulation.run_drainage()
     Pc[1], Sw[1], Krw[1], Kro[1] = simulation.run_imbibition()
 
@@ -59,12 +59,11 @@ def run_two_phase_simulation(pn, parameters_dict={}, generate_vtu=False, debug=F
 
 
 class Simulation:
-    def __init__(self, pn, parameters_dict={}, generate_vtu=False, debug=False):
+    def __init__(self, pn, parameters_dict={}, generate_vtu=False):
         self.pn = pn
         self.step_simulation = MultiStepSimulation(self.pn, parameters_dict, generate_cas=True)
         self.parameter_manager = self.step_simulation.get_parameter_manager()
 
-        self.debug = debug
         self.generate_vtu = generate_vtu
 
         self.pc_incrementer = PcIncrementer(
@@ -89,8 +88,7 @@ class Simulation:
         return self.__run_cycle("imbibition")
 
     def __run_cycle(self, cycle_name):
-        if self.debug:
-            log.info(f"Start {cycle_name}")
+        log.info(f"Start {cycle_name}")
 
         if cycle_name == "drainage":
             self.pc_incrementer.set_cycle(self.pc_incrementer.DRAINAGE_CYCLE)
@@ -120,10 +118,9 @@ class Simulation:
                 Krw_array.append(Krw)
                 Kro_array.append(Kro)
 
-                if self.debug:
-                    log.info(
-                        f"Pc: {current_pc:8.2f}, Sw: {Sw:.6f}, Krw: {Krw:.6f}, Kro: {Kro:.6f}, Filled: {pores_filled:4}/{total_pores} ({percentage:2}%)."
-                    )
+                log.info(
+                    f"Pc: {current_pc:8.2f}, Sw: {Sw:.6f}, Krw: {Krw:.6f}, Kro: {Kro:.6f}, Filled: {pores_filled:4}/{total_pores} ({percentage:2}%)."
+                )
 
                 if self.generate_vtu:
                     pn_to_vtu(self.pn, current_pc, Sw, 1 if cycle_name == "drainage" else 2)

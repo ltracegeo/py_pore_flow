@@ -54,9 +54,7 @@ def automatic_simulation(pn, parameters={}, generate_vtu=False, debug=False):
 
     ppf.log.configure(output=ppf.log.STDOUT, level=ppf.log.DEBUG if debug else ppf.log.INFO)
 
-    cycle, Pc, Sw, Krw, Kro = ppf.run_two_phase_simulation(
-        pn, parameters_dict=parameters, generate_vtu=generate_vtu, debug=True
-    )
+    cycle, Pc, Sw, Krw, Kro = ppf.run_two_phase_simulation(pn, parameters_dict=parameters, generate_vtu=generate_vtu)
 
     time_elapsed = datetime.timedelta(seconds=int(time.time() - start))
 
