@@ -61,7 +61,7 @@ def run_two_phase_simulation(pn, parameters_dict={}, generate_vtu=False, debug=F
 class Simulation:
     def __init__(self, pn, parameters_dict={}, generate_vtu=False, debug=False):
         self.pn = pn
-        self.step_simulation = StepSimulation(self.pn, parameters_dict, generate_cas=True)
+        self.step_simulation = MultiStepSimulation(self.pn, parameters_dict, generate_cas=True)
         self.parameter_manager = self.step_simulation.get_parameter_manager()
 
         self.debug = debug
@@ -249,12 +249,9 @@ class StepSimulation:
         self.max_pc = None
         self.calculate_full_conductance = calculate_full_conductance
         self.is_first_step = True
-        self.pc_incrementer = None
         self.cycle = "drainage"
 
         self.parameter_manager = ParameterManager(parameters_dict)
-
-        self.sw_step = None
 
         initialize_pn(pn)
         self.network = Network(pn)
@@ -264,33 +261,23 @@ class StepSimulation:
 
         calculate_initial_values(self.network)
 
-    def set_pc_incrementer(self, pc_incrementer):
-        self.pc_incrementer = pc_incrementer
-
     def set_max_pc(self, max_pc):
         self.max_pc = max_pc
 
     def set_cycle(self, cycle="imbibition"):
         self.cycle = cycle
         if cycle == "drainage":
-            self.sw_step = None if self.parameter_manager.control_by_pc else self.parameter_manager.drainage_sw_step
             self.parameter_manager.update_initial_cas(self.network)
             calculate_drainage_values(self.network, self.max_pc)
             self.simulation = DrainageSimulation(self.network, self.calculate_full_conductance)
             self.max_pc = 0
         else:
-            self.sw_step = None if self.parameter_manager.control_by_pc else self.parameter_manager.imbibition_sw_step
             self.parameter_manager.update_equilibrium_cas(self.network)
             calculate_imbibition_values(self.network, self.max_pc)
             self.simulation = ImbibitionSimulation(self.network, self.max_pc, self.calculate_full_conductance)
-        self.is_first_step = True
 
     def update(self, pc):
-        if self.sw_step is None or self.is_first_step:
-            current_pc = self.__step_by_pc(pc)
-        else:
-            current_pc = self.__step_by_sw(pc)
-        self.is_first_step = False
+        current_pc = self._perform_step(pc)
 
         Sw = self.simulation.calculate_sw_total()
         Krw, Kro = self.simulation.calculate_krel()
@@ -305,13 +292,43 @@ class StepSimulation:
     def get_parameter_manager(self):
         return self.parameter_manager
 
-    def cycle_should_end(self):
-        return self.pc_incrementer.cycle_should_end() or self.get_pores_left() == 0
+    def _perform_step(self, pc):
+        return self.__step_by_pc(pc)
 
     def __step_by_pc(self, pc):
         self.simulation.update_pc(pc)
         self.max_pc = max(self.max_pc, pc)
         return pc
+
+
+class MultiStepSimulation(StepSimulation):
+    def __init__(self, pn, parameters_dict={}, generate_cas=True, calculate_full_conductance=False):
+        super().__init__(pn, parameters_dict, generate_cas, calculate_full_conductance)
+        self.pc_incrementer = None
+        self.sw_step = None
+
+    def set_pc_incrementer(self, pc_incrementer):
+        self.pc_incrementer = pc_incrementer
+
+    def set_cycle(self, cycle="imbibition"):
+        super().set_cycle(cycle)
+        self.cycle = cycle
+        if cycle == "drainage":
+            self.sw_step = None if self.parameter_manager.control_by_pc else self.parameter_manager.drainage_sw_step
+        else:
+            self.sw_step = None if self.parameter_manager.control_by_pc else self.parameter_manager.imbibition_sw_step
+        self.is_first_step = True
+
+    def cycle_should_end(self):
+        return self.pc_incrementer.cycle_should_end() or self.get_pores_left() == 0
+
+    def _perform_step(self, pc):
+        if self.sw_step is None or self.is_first_step:
+            current_pc = super()._perform_step(pc)
+        else:
+            current_pc = self.__step_by_sw(pc)
+        self.is_first_step = False
+        return current_pc
 
     def __step_by_sw(self, pc):
         total_increased_sw = 0.0
