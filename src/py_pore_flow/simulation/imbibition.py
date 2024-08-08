@@ -94,7 +94,7 @@ class ImbibitionSimulation(CycleSimulation):
                 )
                 snap_off_elements.append(element_id)
 
-        return snap_off_elements
+        return np.array(snap_off_elements, dtype=np.int64)
 
     def __update_snap_offs_pcs(self, pc):
         self.snap_off_throat_list = self.snap_off(
@@ -203,12 +203,9 @@ class ImbibitionSimulation(CycleSimulation):
         element.set_pc(element_pc)
 
     def _get_element_to_fill(self, pc, border_elements):
-        pore_id_list = np.concatenate(
-            (border_elements.get_pores_ids(), np.array(self.snap_off_pore_list, dtype=np.int64))
-        )
-        throat_id_list = np.concatenate(
-            (border_elements.get_throats_ids(), np.array(self.snap_off_throat_list, dtype=np.int64))
-        )
+        self.__clear_snapoff_lists()
+        pore_id_list = np.concatenate((border_elements.get_pores_ids(), self.snap_off_pore_list))
+        throat_id_list = np.concatenate((border_elements.get_throats_ids(), self.snap_off_throat_list))
         elements_to_fill = self._jit_pore_throats_element_to_fill(
             pc,
             pore_id_list,
@@ -325,4 +322,12 @@ class ImbibitionSimulation(CycleSimulation):
             self.network.pn[f"{type_name}.corner_oil_layer"][id],
             self.network.pn[f"{type_name}.n_corners"][id],
             pc,
+        )
+
+    def __clear_snapoff_lists(self):
+        self.snap_off_pore_list = np.delete(
+            self.snap_off_pore_list, self.network.pn["pore.water_filled"][self.snap_off_pore_list]
+        )
+        self.snap_off_throat_list = np.delete(
+            self.snap_off_throat_list, self.network.pn["throat.water_filled"][self.snap_off_throat_list]
         )

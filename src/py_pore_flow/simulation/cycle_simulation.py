@@ -786,7 +786,13 @@ class CycleSimulation:
         self._update_entry_pressures(pc)
 
         invasion_pc = pc
-        for element_to_fill in self._get_element_to_fill(pc, self.border_elements):
+        while True:
+            element_to_fill_list = self._get_element_to_fill(pc, self.border_elements)
+            if len(element_to_fill_list) == 0:
+                break
+            else:
+                element_to_fill = element_to_fill_list[0]
+
             invasion_pc = element_to_fill[2]
 
             if (target_sw is not None and increased_sw >= target_sw) or not self._can_be_filled(pc, invasion_pc):
