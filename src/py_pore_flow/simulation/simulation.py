@@ -132,7 +132,8 @@ class Simulation:
                 elif self.step_simulation.cycle_should_end():
                     simulation_end = True
 
-            self.pc_incrementer.update_pc(Sw)
+            if self.parameter_manager.control_by_pc:
+                self.pc_incrementer.update_pc(Sw)
 
         return Pc_array, Sw_array, Krw_array, Kro_array
 
