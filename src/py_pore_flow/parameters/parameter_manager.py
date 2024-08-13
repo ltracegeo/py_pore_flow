@@ -114,10 +114,10 @@ class ParameterManager:
         network.pn[f"throat.receding_contact_angle"] = network.pn[f"throat.initial_receding_ca"]
 
     def update_equilibrium_cas(self, network):
-        network.pn[f"pore.advancing_contact_angle"] = network.pn[f"pore.equilibrium_advancing_ca"]
-        network.pn[f"pore.receding_contact_angle"] = network.pn[f"pore.equilibrium_receding_ca"]
-        network.pn[f"throat.advancing_contact_angle"] = network.pn[f"throat.equilibrium_advancing_ca"]
-        network.pn[f"throat.receding_contact_angle"] = network.pn[f"throat.equilibrium_receding_ca"]
+        network.pn["pore.advancing_contact_angle"][network.pn["pore.oil_filled"]] = network.pn["pore.equilibrium_advancing_ca"][network.pn["pore.oil_filled"]]
+        network.pn["pore.receding_contact_angle"][network.pn["pore.oil_filled"]] = network.pn["pore.equilibrium_receding_ca"][network.pn["pore.oil_filled"]]
+        network.pn["throat.advancing_contact_angle"][network.pn["throat.oil_filled"]] = network.pn["throat.equilibrium_advancing_ca"][network.pn["throat.oil_filled"]]
+        network.pn["throat.receding_contact_angle"][network.pn["throat.oil_filled"]] = network.pn["throat.equilibrium_receding_ca"][network.pn["throat.oil_filled"]]
 
     def __update_cas(self, network, prefix):
         advancing_ca_array, receding_ca_array = self.__generate_cas(
