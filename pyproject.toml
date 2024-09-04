@@ -2,13 +2,13 @@
 name = "py_pore_flow"
 version = "0.0.1"
 dependencies = [
-    "numba==0.56.2",
+    "numba==0.60.0",
     "numpy==1.23.1",
     "openpnm==3.4.0",
     "PyQt6==6.7.0",
     "pyqtgraph @ git+https://github.com/ltracegeo/pyqtgraph.git@pyqtgraph-0.12.4.2",
     "pypardiso==0.4.3",
-    "vtk>=9.2.20230607",
+    "vtk>=9.2.2",
 ]
 
 [project.optional-dependencies]
