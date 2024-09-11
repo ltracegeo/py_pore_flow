@@ -107,20 +107,11 @@ class GraphicalTests:
         self.test_display.update_pc(6000, 1000)
 
         self.test_display.set_cycle("imbibition", 1000)
-        self.test_display.update_pc(1000, 1000)
-        self.test_display.update_pc(0, 1000)
-        self.test_display.update_pc(-1000, 1000)
-        self.test_display.update_pc(-4000, 1000)
-
-        # Invasion imbibition
-        self.test_display.update_pc(-5000, 1000)
-        self.test_display.update_pc(-6000, 500)
-        self.test_display.update_pc(-7000, 500)
-        self.test_display.update_pc(-8000, 500)
-        self.test_display.update_pc(-9000, 500)
-        self.test_display.update_pc(-10000, 500)
-        self.test_display.update_pc(-11000, 500)
-        self.test_display.update_pc(-12000, 5000)
+        self.test_display.update_pc(-4500, 1000)
+        self.test_display.update_pc(-4600, 1000)
+        self.test_display.update_pc(-6000, 1000)
+        self.test_display.update_pc(-8000, 1000)
+        self.test_display.update_pc(-15000, 1000)
 
     def snap_off_water_layer(self):
         pn = op.network.Network()
