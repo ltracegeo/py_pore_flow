@@ -35,8 +35,6 @@ class ImbibitionSimulation(CycleSimulation):
 
     def _update_invasions(self, pc, target_sw=None):
         invaded_pc = super()._update_invasions(pc, target_sw)
-        self.__update_oil_layers(pc)
-        self.__update_water_layers()
         return invaded_pc
 
     @staticmethod
@@ -301,6 +299,8 @@ class ImbibitionSimulation(CycleSimulation):
 
     def _update_network_geometry(self, pc):
         self.__update_b(pc)
+        self.__update_oil_layers(pc)
+        self.__update_water_layers()
         super()._update_network_geometry(pc)
 
     def __update_element_b(self, type_name, id, pc):
