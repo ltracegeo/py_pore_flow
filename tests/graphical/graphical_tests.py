@@ -1,6 +1,6 @@
 import numpy as np
 import openpnm as op
-from PyQt6 import QtCore, QtGui, QtTest, QtWidgets
+from PySide2 import QtCore, QtGui, QtTest, QtWidgets
 import pyqtgraph as pg
 
 from py_pore_flow.graphic.manual_simulation import ElementWidget

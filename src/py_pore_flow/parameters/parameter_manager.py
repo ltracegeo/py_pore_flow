@@ -248,7 +248,7 @@ class ParameterManager:
 
     @staticmethod
     def show_points(intrinsic, receding, advancing):
-        from PyQt6 import QtWidgets, QtGui
+        from PySide2 import QtWidgets, QtGui
         import pyqtgraph as pg
 
         pg.setConfigOption("background", "w")
@@ -273,7 +273,7 @@ class ParameterManager:
 
     @staticmethod
     def show_histogram(data):
-        from PyQt6 import QtWidgets, QtGui
+        from PySide2 import QtWidgets, QtGui
         import pyqtgraph as pg
 
         pg.setConfigOption("background", "w")

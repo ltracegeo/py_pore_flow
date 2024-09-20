@@ -5,7 +5,7 @@ import re
 import time
 
 import openpnm
-from PyQt6 import QtWidgets
+from PySide2 import QtWidgets
 
 import py_pore_flow as ppf
 from py_pore_flow.graphic.manual_simulation import ManualSimulationPlot
