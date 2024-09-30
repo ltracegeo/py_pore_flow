@@ -13,7 +13,7 @@ def cot(x):
 
 
 @njit
-def calculate_pc(shape_factor, radius, theta, shape, C, beta, n_corners):
+def calculate_pc(shape_factor, radius, theta, shape, beta, n_corners):
     G = shape_factor
     r = radius
 
@@ -37,33 +37,33 @@ def calculate_pc(shape_factor, radius, theta, shape, C, beta, n_corners):
 
 
 @njit
-def calculate_drainage_pc(shape_factor, radius, receding_contact_angle, shape, C_r, beta, n_corners):
+def calculate_drainage_pc(shape_factor, radius, receding_contact_angle, shape, beta, n_corners):
     theta = receding_contact_angle
-    return calculate_pc(shape_factor, radius, theta, shape, C_r, beta, n_corners)
+    return calculate_pc(shape_factor, radius, theta, shape, beta, n_corners)
 
 
 @njit
 def calculate_imbibition_pc(
-    shape_factor, radius, advancing_contact_angle, shape, C_a, pc, beta, n_corners, number_of_oil_filled_neighbors, K
+    shape_factor, radius, advancing_contact_angle, shape, pc, beta, n_corners, number_of_oil_filled_neighbors, K
 ):
     if number_of_oil_filled_neighbors > 1 and pc > 0:
         return calculate_pore_body_filling_pc(radius, advancing_contact_angle, K, number_of_oil_filled_neighbors, 0)
     else:
         return calculate_imbibition_piston_like_displacement_pc(
-            shape_factor, radius, advancing_contact_angle, shape, C_a, pc, beta, n_corners
+            shape_factor, radius, advancing_contact_angle, shape, pc, beta, n_corners
         )
 
 
 @njit
 def calculate_imbibition_piston_like_displacement_pc(
-    shape_factor, radius, advancing_contact_angle, shape, C_a, pc, beta, n_corners
+    shape_factor, radius, advancing_contact_angle, shape, pc, beta, n_corners
 ):
     if pc < 0:
         theta = pi - advancing_contact_angle
-        return -calculate_pc(shape_factor, radius, theta, shape, C_a, beta, n_corners)
+        return -calculate_pc(shape_factor, radius, theta, shape, beta, n_corners)
     else:
         theta = advancing_contact_angle
-        return calculate_pc(shape_factor, radius, theta, shape, C_a, beta, n_corners)
+        return calculate_pc(shape_factor, radius, theta, shape, beta, n_corners)
 
 
 @njit

@@ -43,8 +43,10 @@ DEFAULT_PARAMETERS = {
     "pc_step": 200,
     "pc_step_min": 1,
     "pc_step_max": 1000,
-    "sw_step": 0.01,
+    "drainage_sw_step": 0.005,
+    "imbibition_sw_step": 0.005,
     "end_at_sor": True,
+    "control_by_pc": False,
 }
 
 
@@ -86,12 +88,20 @@ class ParameterManager:
         return self.parameters_dict["pc_step_max"]
 
     @property
-    def sw_step(self):
-        return self.parameters_dict["sw_step"]
+    def drainage_sw_step(self):
+        return self.parameters_dict["drainage_sw_step"]
+
+    @property
+    def imbibition_sw_step(self):
+        return self.parameters_dict["imbibition_sw_step"]
 
     @property
     def end_at_sor(self):
         return self.parameters_dict["end_at_sor"]
+
+    @property
+    def control_by_pc(self):
+        return self.parameters_dict["control_by_pc"]
 
     def generate_contact_angles(self, network):
         self.__update_cas(network, "initial")
@@ -104,10 +114,18 @@ class ParameterManager:
         network.pn[f"throat.receding_contact_angle"] = network.pn[f"throat.initial_receding_ca"]
 
     def update_equilibrium_cas(self, network):
-        network.pn[f"pore.advancing_contact_angle"] = network.pn[f"pore.equilibrium_advancing_ca"]
-        network.pn[f"pore.receding_contact_angle"] = network.pn[f"pore.equilibrium_receding_ca"]
-        network.pn[f"throat.advancing_contact_angle"] = network.pn[f"throat.equilibrium_advancing_ca"]
-        network.pn[f"throat.receding_contact_angle"] = network.pn[f"throat.equilibrium_receding_ca"]
+        network.pn["pore.advancing_contact_angle"][network.pn["pore.oil_filled"]] = network.pn[
+            "pore.equilibrium_advancing_ca"
+        ][network.pn["pore.oil_filled"]]
+        network.pn["pore.receding_contact_angle"][network.pn["pore.oil_filled"]] = network.pn[
+            "pore.equilibrium_receding_ca"
+        ][network.pn["pore.oil_filled"]]
+        network.pn["throat.advancing_contact_angle"][network.pn["throat.oil_filled"]] = network.pn[
+            "throat.equilibrium_advancing_ca"
+        ][network.pn["throat.oil_filled"]]
+        network.pn["throat.receding_contact_angle"][network.pn["throat.oil_filled"]] = network.pn[
+            "throat.equilibrium_receding_ca"
+        ][network.pn["throat.oil_filled"]]
 
     def __update_cas(self, network, prefix):
         advancing_ca_array, receding_ca_array = self.__generate_cas(
@@ -230,7 +248,7 @@ class ParameterManager:
 
     @staticmethod
     def show_points(intrinsic, receding, advancing):
-        from PyQt6 import QtWidgets, QtGui
+        from PySide2 import QtWidgets, QtGui
         import pyqtgraph as pg
 
         pg.setConfigOption("background", "w")
@@ -250,12 +268,12 @@ class ParameterManager:
         plot_item.addItem(curve_item1)
 
         win.show()
-        app.exec()
+        app.exec_()
         exit()
 
     @staticmethod
     def show_histogram(data):
-        from PyQt6 import QtWidgets, QtGui
+        from PySide2 import QtWidgets, QtGui
         import pyqtgraph as pg
 
         pg.setConfigOption("background", "w")
@@ -273,5 +291,5 @@ class ParameterManager:
         # plot_item.addItem(curve_item1)
 
         win.show()
-        app.exec()
+        app.exec_()
         exit()

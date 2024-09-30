@@ -10,9 +10,11 @@ from py_pore_flow.equations.geometry import (
     WATER,
     OIL,
     MAX_NUMBER_OF_CORNERS,
-    calculate_C,
+    calculate_drainage_element_saturation,
     calculate_drainage_network_saturation,
     calculate_hinging_contact_angle,
+    calculate_network_hinging_contact_angle,
+    calculate_imbibition_element_saturation,
     calculate_imbibition_network_saturation,
     calculate_sw_total,
 )
@@ -23,6 +25,9 @@ from py_pore_flow.equations.conductance import (
     calculate_singlephase_conductance,
 )
 from py_pore_flow.network import Network
+
+PORE = 0
+THROAT = 1
 
 
 class ConductanceCalculator:
@@ -387,16 +392,17 @@ class KrelCalculator:
         network_clone.update(self.network.pn.copy())
         pore_id_to_remove_list = np.where(network_clone["pore.oil_saturation"] == 0)[0]
         throat_id_to_remove_list = np.where(network_clone["throat.oil_saturation"] == 0)[0]
-        if len(pore_id_to_remove_list) > 0 or len(throat_id_to_remove_list) > 0:
-            if not self.__trim(network_clone, pores=pore_id_to_remove_list, throats=throat_id_to_remove_list):
-                return 0
-        if len(network_clone.throats()) == 0 or len(network_clone.pores()) == 0:
+        try:
+            valid_clusters_list = self.__trim(
+                network_clone, pores=pore_id_to_remove_list, throats=throat_id_to_remove_list
+            )
+        except ValueError:
             return 0
-        new_network = Network(network_clone)
-        if len(new_network.get_inlets_ids()) == 0 or len(new_network.get_outlets_ids()) == 0:
-            return 0
-        flow_rate_calculator = FlowRateCalculator(new_network)
-        flow_rate = flow_rate_calculator.calculate_total_flow_rate(OIL, update_hydraulic_conductance)
+
+        flow_rate = self.__calculate_network_flowrate(
+            network_clone, update_hydraulic_conductance, valid_clusters_list, OIL
+        )
+
         return flow_rate / self.singlephase_flow_rate[OIL]
 
     def calculate_krw(self):
@@ -411,20 +417,44 @@ class KrelCalculator:
         network_clone.update(self.network.pn.copy())
         pore_id_to_remove_list = np.where(network_clone["pore.water_saturation"] == 0)[0]
         throat_id_to_remove_list = np.where(network_clone["throat.water_saturation"] == 0)[0]
-        if len(pore_id_to_remove_list) > 0 or len(throat_id_to_remove_list) > 0:
-            if not self.__trim(network_clone, pores=pore_id_to_remove_list, throats=throat_id_to_remove_list):
-                return 0
+        try:
+            valid_clusters_list = self.__trim(
+                network_clone, pores=pore_id_to_remove_list, throats=throat_id_to_remove_list
+            )
+        except ValueError:
+            return 0
+
+        flow_rate = self.__calculate_network_flowrate(
+            network_clone, update_hydraulic_conductance, valid_clusters_list, WATER
+        )
+        return flow_rate / self.singlephase_flow_rate[WATER]
+
+    def get_absolute_permeability(self):
+        return self.absolute_permeability
+
+    def __calculate_network_flowrate(self, network_clone, update_hydraulic_conductance, valid_clusters_list, phase):
+        if len(valid_clusters_list) > 0:
+            flow_rate = 0.0
+            for valid_cluster_id in valid_clusters_list:
+                sub_network_clone = openpnm.network.Network()
+                sub_network_clone.update(network_clone.copy())
+                self.__trim_cluster(sub_network_clone, valid_cluster_id)
+                flow_rate += self.__calculate_subnetwork_flowrate(
+                    sub_network_clone, update_hydraulic_conductance, phase
+                )
+        else:
+            flow_rate = self.__calculate_subnetwork_flowrate(network_clone, update_hydraulic_conductance, phase)
+        return flow_rate
+
+    def __calculate_subnetwork_flowrate(self, network_clone, update_hydraulic_conductance, phase):
         if len(network_clone.throats()) == 0 or len(network_clone.pores()) == 0:
             return 0
         new_network = Network(network_clone)
         if len(new_network.get_inlets_ids()) == 0 or len(new_network.get_outlets_ids()) == 0:
             return 0
         flow_rate_calculator = FlowRateCalculator(new_network)
-        flow_rate = flow_rate_calculator.calculate_total_flow_rate(WATER, update_hydraulic_conductance)
-        return flow_rate / self.singlephase_flow_rate[WATER]
-
-    def get_absolute_permeability(self):
-        return self.absolute_permeability
+        flow_rate = flow_rate_calculator.calculate_total_flow_rate(phase, update_hydraulic_conductance)
+        return flow_rate
 
     def __calculate_K(self):
         A, L = self.__get_network_size(self.network.pn)
@@ -433,35 +463,29 @@ class KrelCalculator:
 
     @staticmethod
     def __trim(pn, pores=[], throats=[]):
-        if len(pores) == len(pn.pores()):
-            return False
-        if len(throats) == len(pn.throats()):
-            return False
+        if len(pores) == 0 and len(throats) == 0:
+            return []
+        if len(pores) == len(pn.pores()) or len(throats) == len(pn.throats()):
+            raise ValueError()
         openpnm.topotools.trim(pn, pores=pores, throats=throats)
         try:
             pn.add_model(propname="pore.cluster_number", model=openpnm.models.network.cluster_number)
             pn.add_model(propname="pore.cluster_size", model=openpnm.models.network.cluster_size)
         except:
-            return True
+            return []
 
         clusters_with_inlets = pn["pore.cluster_number"][pn["pore.inlets"]]
         clusters_with_outlets = pn["pore.cluster_number"][pn["pore.outlets"]]
         valid_clusters = np.intersect1d(clusters_with_inlets, clusters_with_outlets)
         if len(valid_clusters) == 0:
-            return False
-        if len(valid_clusters) == 1:
-            choosen_cluster = valid_clusters[0]
-        else:
-            log.warning(f"Multiple connecting clusters")
-            # Get bigger cluster
-            cluster_sizes = []
-            for cluster_number in valid_clusters:
-                cluster_sizes.append(pn["pore.cluster_size"][pn["pore.cluster_number"] == cluster_number][0])
-            choosen_cluster = valid_clusters[np.argmax(cluster_sizes)]
+            raise ValueError()
+        return valid_clusters
+
+    @staticmethod
+    def __trim_cluster(pn, choosen_cluster):
         clustered_pores = pn[pn["pore.cluster_number"] != choosen_cluster]
 
         openpnm.topotools.trim(network=pn, pores=clustered_pores)
-        return True
 
     @staticmethod
     def __get_network_size(pn):
@@ -499,14 +523,26 @@ class SaturationCalculator:
     def __init__(self, network, phase):
         self.network = network
         self.phase = phase
+        self.total_volume = self.network.pn["pore.volume"].sum() + self.network.pn["throat.volume"].sum()
 
     def update_saturations(self, pc):
         if self.phase == OIL:
-            self.update_drainage_saturations(pc)
+            self.__update_drainage_saturations(pc)
         else:
-            self.update_imbibition_saturations(pc)
+            self.__update_imbibition_saturations()
 
-    def update_drainage_saturations(self, pc):
+    def update_element_saturations(self, type_name, id, pc):
+        if self.phase == OIL:
+            self.__update_drainage_element_saturations(type_name, id, pc)
+        else:
+            self.__update_imbibition_element_saturations(type_name, id)
+        return (
+            self.network.pn[f"{type_name}.water_saturation"][id]
+            * self.network.pn[f"{type_name}.volume"][id]
+            / self.total_volume
+        )
+
+    def __update_drainage_saturations(self, pc):
         (
             self.network.pn["pore.water_saturation"],
             self.network.pn["pore.oil_saturation"],
@@ -528,12 +564,11 @@ class SaturationCalculator:
             self.network.pn["throat.oil_filled"],
         )
 
-    def update_imbibition_saturations(self, pc):
+    def __update_imbibition_saturations(self):
         (
             self.network.pn["pore.water_saturation"],
             self.network.pn["pore.oil_saturation"],
         ) = calculate_imbibition_network_saturation(
-            self.network.pn["pore.shape"],
             self.network.pn["pore.area"],
             self.network.pn["pore.oil_filled"],
             self.network.pn["pore.advancing_contact_angle"],
@@ -548,7 +583,6 @@ class SaturationCalculator:
             self.network.pn["throat.water_saturation"],
             self.network.pn["throat.oil_saturation"],
         ) = calculate_imbibition_network_saturation(
-            self.network.pn["throat.shape"],
             self.network.pn["throat.cross_sectional_area"],
             self.network.pn["throat.oil_filled"],
             self.network.pn["throat.advancing_contact_angle"],
@@ -558,6 +592,44 @@ class SaturationCalculator:
             self.network.pn["throat.bo"],
             self.network.pn["throat.n_corners"],
             self.network.pn["throat.corner_oil_layer"],
+        )
+
+    def __update_drainage_element_saturations(self, type_name, id, pc):
+        if type_name == "pore":
+            area = self.network.pn["pore.area"][id]
+        else:
+            area = self.network.pn["throat.cross_sectional_area"][id]
+
+        (
+            self.network.pn[f"{type_name}.water_saturation"][id],
+            self.network.pn[f"{type_name}.oil_saturation"][id],
+        ) = calculate_drainage_element_saturation(
+            self.network.pn[f"{type_name}.shape"][id],
+            self.network.pn[f"{type_name}.C_r"][id],
+            pc,
+            area,
+            self.network.pn[f"{type_name}.oil_filled"][id],
+        )
+
+    def __update_imbibition_element_saturations(self, type_name, id):
+        if type_name == "pore":
+            area = self.network.pn["pore.area"][id]
+        else:
+            area = self.network.pn["throat.cross_sectional_area"][id]
+
+        (
+            self.network.pn[f"{type_name}.water_saturation"][id],
+            self.network.pn[f"{type_name}.oil_saturation"][id],
+        ) = calculate_imbibition_element_saturation(
+            area,
+            self.network.pn[f"{type_name}.oil_filled"][id],
+            self.network.pn[f"{type_name}.advancing_contact_angle"][id],
+            self.network.pn[f"{type_name}.hinging_contact_angle"][id],
+            self.network.pn[f"{type_name}.corner_half_angle"][id],
+            self.network.pn[f"{type_name}.b"][id],
+            self.network.pn[f"{type_name}.bo"][id],
+            self.network.pn[f"{type_name}.n_corners"][id],
+            self.network.pn[f"{type_name}.corner_oil_layer"][id],
         )
 
     def calculate_sw_total(self):
@@ -580,6 +652,7 @@ class SaturationCalculator:
                     self.network.pn["pore.clay_volume"],
                 )
             ),
+            self.total_volume,
         )
 
 
@@ -640,17 +713,34 @@ class CycleSimulation:
 
         self.border_elements = BorderElements()
         self.border_elements.set_pores_ids(nb.typed.List(self.network.get_inlets_ids()))
+        self.__find_initial_border_elements(self.border_elements, phase)
 
         self.trap_checker = TrapChecker(network, self.phase)
 
         self.saturation_calculator = SaturationCalculator(network, phase)
 
-    def update_pc(self, pc):
-        self._update_invasions(pc)
+        self.current_pc = None
 
-        self._update_b(pc)
-        self.__update_hinging_contact_angles(pc)
-        self.saturation_calculator.update_saturations(pc)
+    def update_pc(self, pc, target_sw=None):
+        invasion_pc = pc
+        total_increased_sw = 0.0
+        while True:
+            if target_sw is not None:
+                invasion_target_sw = target_sw - total_increased_sw
+            else:
+                invasion_target_sw = None
+            invaded_pc = invasion_pc
+            increased_sw, invasion_pc = self._update_invasions(invasion_pc, invasion_target_sw)
+            self._update_network_geometry(invaded_pc)
+            if target_sw is None:
+                break
+            elif increased_sw == 0.0:
+                break
+            else:
+                total_increased_sw += increased_sw
+                if total_increased_sw >= target_sw:
+                    break
+        return total_increased_sw, invaded_pc, invasion_pc
 
     def calculate_sw_total(self):
         return self.saturation_calculator.calculate_sw_total()
@@ -667,41 +757,74 @@ class CycleSimulation:
     def _check_invasion_condition(self, pc, element):
         pass
 
-    def _update_b(self, pc):
-        pass
+    def _update_element_filled_geometry(self, pc, element):
+        self.__update_element_hinging_contact_angles(element.type_name, element.id, pc)
+        return self.saturation_calculator.update_element_saturations(element.type_name, element.id, pc)
 
-    def _on_element_invaded(self, pc, element):
-        pass
+    def _update_network_geometry(self, pc):
+        self.__update_hinging_contact_angles(pc)
+        self.saturation_calculator.update_saturations(pc)
 
-    def _update_pc(self, element, pc):
+    def _update_element_entry_pc(self, element, pc):
         pass
 
     @abstractmethod
     def _get_element_to_fill(self, pc, border_elements):
         pass
 
-    def _update_invasions(self, pc):
+    def _update_entry_pressures(self, pc):
         for throat_id in self.border_elements.get_throats_ids():
             element = self.network.get_throat(throat_id)
-            self._update_pc(element, pc)
+            self._update_element_entry_pc(element, pc)
         for pore_id in self.border_elements.get_pores_ids():
             element = self.network.get_pore(pore_id)
-            self._update_pc(element, pc)
+            self._update_element_entry_pc(element, pc)
 
+    def _update_invasions(self, pc, target_sw=None):
+        increased_sw = 0.0
+
+        self._update_entry_pressures(pc)
+
+        invasion_pc = pc
         while True:
-            element = self._get_element_to_fill(pc, self.border_elements)
-            if element is None:
+            element_to_fill_list = self._get_element_to_fill(pc, self.border_elements)
+            if len(element_to_fill_list) == 0:
                 break
+            else:
+                element_to_fill = element_to_fill_list[0]
+
+            invasion_pc = element_to_fill[2]
+
+            if (target_sw is not None and increased_sw >= target_sw) or not self._can_be_filled(pc, invasion_pc):
+                break
+
+            if element_to_fill[0] == PORE:
+                element = self.network.get_pore(element_to_fill[1])
+            else:
+                element = self.network.get_throat(element_to_fill[1])
 
             log.debug(
                 f"Invasion {element.type_name:6} ID: {element.id:6} Pc: {element.pc:.5f} Radius: {element.r:.2e} G: {element.G:.4f} n_corners: {element.n_corners} area: {element.A}"
             )
 
-            self._fill_element(element, pc)
-            self._on_element_invaded(pc, element)
+            self.__fill_element(element, invasion_pc)
+            increased_sw += self._update_element_filled_geometry(invasion_pc, element)
             self.trap_checker.update_trapped_pores()
+            self.__remove_trapped_from_border()
 
-    def _fill_element(self, element, pc):
+        return increased_sw, invasion_pc
+
+    def __remove_trapped_from_border(self):
+        for throat_id in self.border_elements.get_throats_ids():
+            element = self.network.get_throat(throat_id)
+            if element.trapped:
+                self.border_elements.remove_throat(element.get_id())
+        for pore_id in self.border_elements.get_pores_ids():
+            element = self.network.get_pore(pore_id)
+            if element.trapped:
+                self.border_elements.remove_pore(element.get_id())
+
+    def __fill_element(self, element, pc):
         element.set_filled(self.phase, True)
         if element.is_pore():
             self.border_elements.remove_pore(element.get_id())
@@ -715,26 +838,63 @@ class CycleSimulation:
                     self.border_elements.add_pore(neighbor.get_id())
                 else:
                     self.border_elements.add_throat(neighbor.get_id())
-                self._update_pc(neighbor, pc)
+                self._update_element_entry_pc(neighbor, pc)
 
     def __update_hinging_contact_angles(self, pc):
-        for pore in self.network.get_pore_list():
-            hinging_contact_angle = calculate_hinging_contact_angle(pc, pore.beta, pore.b, pore.n_corners)
-            hinging_contact_angle = np.clip(
-                hinging_contact_angle, pore.receding_contact_angle, pore.advancing_contact_angle
-            )
-            pore.theta_h = hinging_contact_angle
-            if self.phase == OIL:
-                pore.C_h = calculate_C(pore.theta_h, pore.beta, pore.n_corners)
+        self.network.pn["pore.hinging_contact_angle"] = calculate_network_hinging_contact_angle(
+            pc,
+            self.network.pn["pore.corner_half_angle"],
+            self.network.pn["pore.b"],
+            self.network.pn["pore.n_corners"],
+            self.network.pn["pore.receding_contact_angle"],
+            self.network.pn["pore.advancing_contact_angle"],
+        )
+        self.network.pn["throat.hinging_contact_angle"] = calculate_network_hinging_contact_angle(
+            pc,
+            self.network.pn["throat.corner_half_angle"],
+            self.network.pn["throat.b"],
+            self.network.pn["throat.n_corners"],
+            self.network.pn["throat.receding_contact_angle"],
+            self.network.pn["throat.advancing_contact_angle"],
+        )
 
-        for throat in self.network.get_throat_list():
-            hinging_contact_angle = calculate_hinging_contact_angle(pc, throat.beta, throat.b, throat.n_corners)
-            hinging_contact_angle = np.clip(
-                hinging_contact_angle, throat.receding_contact_angle, throat.advancing_contact_angle
-            )
-            throat.theta_h = hinging_contact_angle
-            if self.phase == OIL:
-                throat.C_h = calculate_C(throat.theta_h, throat.beta, throat.n_corners)
+    def __update_element_hinging_contact_angles(self, type_name, id, pc):
+        self.network.pn[f"{type_name}.hinging_contact_angle"][id] = calculate_hinging_contact_angle(
+            pc,
+            self.network.pn[f"{type_name}.corner_half_angle"][id],
+            self.network.pn[f"{type_name}.b"][id],
+            self.network.pn[f"{type_name}.n_corners"][id],
+            self.network.pn[f"{type_name}.receding_contact_angle"][id],
+            self.network.pn[f"{type_name}.advancing_contact_angle"][id],
+        )
+
+    def __find_initial_border_elements(self, border_elements, phase):
+        def update_element_in_border(element):
+            if element.is_filled(self.phase):
+                if element.is_pore():
+                    self.border_elements.remove_pore(element.get_id())
+                else:
+                    self.border_elements.remove_throat(element.get_id())
+                neighbor_list = self.network.get_neighbors(element)
+                for neighbor in neighbor_list:
+                    if not neighbor.is_filled(self.phase):
+                        if neighbor.is_pore():
+                            self.border_elements.add_pore(neighbor.get_id())
+                        else:
+                            self.border_elements.add_throat(neighbor.get_id())
+                return True
+            return False
+
+        border_changed = True
+        while border_changed:
+            border_changed = False
+            for pore_id in border_elements.get_pores_ids():
+                element = self.network.get_pore(pore_id)
+                border_changed |= update_element_in_border(element)
+
+            for throat_id in border_elements.get_throats_ids():
+                element = self.network.get_throat(throat_id)
+                border_changed |= update_element_in_border(element)
 
 
 class TrapChecker:
@@ -764,6 +924,9 @@ class TrapChecker:
 
 spec = [
     ("enable_control", nb.types.float64),
+    ("cycle", nb.types.int32),
+    ("DRAINAGE_CYCLE", nb.types.int32),
+    ("IMBIBITION_CYCLE", nb.types.int32),
     ("pc", nb.types.float64),
     ("pc_step_initial", nb.types.float64),
     ("pc_step", nb.types.float64),
@@ -780,6 +943,9 @@ spec = [
 @jitclass(spec)
 class PcIncrementer:
     def __init__(self, pc_step, pc_step_min, pc_step_max, sw_step, pc_maximum, pc_minimum, enable_control=True):
+        self.DRAINAGE_CYCLE = 0
+        self.IMBIBITION_CYCLE = 1
+
         self.enable_control = enable_control
         self.pc_step_initial = pc_step
         self.pc_step_min = pc_step_min
@@ -788,11 +954,16 @@ class PcIncrementer:
         self.pc_maximum = pc_maximum
         self.pc_minimum = pc_minimum
 
+        self.cycle = self.DRAINAGE_CYCLE
+
         self.pc = 0
         self.pc_step = self.pc_step_initial
 
         self.first_step = True
         self.sw_last = 0
+
+    def set_cycle(self, cycle):
+        self.cycle = cycle
 
     def get_pc(self):
         return self.pc
@@ -802,6 +973,9 @@ class PcIncrementer:
 
     def get_pc_min(self):
         return self.pc_minimum
+
+    def set_pc(self, new_pc):
+        self.pc = new_pc
 
     def set_pc_to_min(self):
         self.pc = self.pc_minimum
@@ -822,6 +996,18 @@ class PcIncrementer:
         self.sw_last = sw_current
         self.first_step = False
         return self.pc
+
+    def update_pc(self, sw_current=0.0):
+        if self.cycle == self.DRAINAGE_CYCLE:
+            return self.increment(sw_current)
+        else:
+            return self.decrement(sw_current)
+
+    def cycle_should_end(self):
+        if self.cycle == self.DRAINAGE_CYCLE:
+            return self.pc >= self.get_pc_max()
+        else:
+            return self.pc <= self.get_pc_min()
 
     def __adjust_pc_step(self, sw_current):
         if self.enable_control and not self.first_step:

@@ -2,7 +2,7 @@ import math
 
 import matplotlib.pyplot as plt
 import numpy as np
-from PyQt6 import QtCore, QtGui, QtWidgets
+from PySide2 import QtCore, QtGui, QtWidgets
 import pyqtgraph as pg
 
 

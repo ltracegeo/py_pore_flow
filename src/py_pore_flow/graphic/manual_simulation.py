@@ -3,7 +3,7 @@ import re
 
 import numpy as np
 import pandas as pd
-from PyQt6 import QtCore, QtGui, QtWidgets
+from PySide2 import QtCore, QtGui, QtWidgets
 import pyqtgraph as pg
 
 from py_pore_flow.graphic.element_graphic import ElementPlotter
