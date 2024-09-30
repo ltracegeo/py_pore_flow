@@ -18,4 +18,4 @@ def plot_krel(cycle, Sw, Krw, Kro):
         plot_item.addItem(kro_curve_item)
 
     win.show()
-    app.exec()
+    app.exec_()

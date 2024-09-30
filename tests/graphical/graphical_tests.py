@@ -218,4 +218,4 @@ if __name__ == "__main__":
     app = QtWidgets.QApplication([])
     graphical_test = GraphicalTests()
     QtCore.QTimer.singleShot(1, graphical_test.run)
-    app.exec()
+    app.exec_()

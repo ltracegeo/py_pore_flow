@@ -268,7 +268,7 @@ class ParameterManager:
         plot_item.addItem(curve_item1)
 
         win.show()
-        app.exec()
+        app.exec_()
         exit()
 
     @staticmethod
@@ -291,5 +291,5 @@ class ParameterManager:
         # plot_item.addItem(curve_item1)
 
         win.show()
-        app.exec()
+        app.exec_()
         exit()

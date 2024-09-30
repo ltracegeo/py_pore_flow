@@ -46,7 +46,7 @@ def manual_simulation(pn, parameters):
 
     app = QtWidgets.QApplication([])
     simulation.show()
-    app.exec()
+    app.exec_()
 
 
 def automatic_simulation(pn, parameters={}, generate_vtu=False, debug=False):
