@@ -82,12 +82,12 @@ class Network:
         throat_core_list = [None] * number_of_throats
 
         for pore_id in self.pn.pores():
-            self.pore_list[pore_id] = Pore(self.pn, pore_id)
+            self.pore_list[pore_id] = Pore(self.pn_core.pore, pore_id)
             pore_core_list[pore_id] = ElementCore(pore_id)
         self.pore_core_list = nb.typed.List(pore_core_list)
 
         for throat_id in self.pn.throats():
-            self.throat_list[throat_id] = Throat(self.pn, throat_id)
+            self.throat_list[throat_id] = Throat(self.pn_core.throat, throat_id)
             throat_core_list[throat_id] = ElementCore(throat_id)
         self.throat_core_list = nb.typed.List(throat_core_list)
 
@@ -195,247 +195,216 @@ class Network:
 
 
 class PnElement:
-    def __init__(self, network, type_name, id):
-        self.pn = network
+    def __init__(self, element, type_name, id):
+        self.element = element
         self.type_name = type_name
         self.id = id
 
-        self._G = None
-        self._r = None
-        self._A = None
-        self._V = None
-        self._Vclay = None
-        self._advancing_contact_angle = None
-        self._receding_contact_angle = None
-        self._C_r = None
-        self._C_a = None
-        self._C_h = None
-        self._shape = None
-        self._trapped = None
-        self._water_filled = None
-        self._oil_filled = None
-        self._n_corners = None
-        self._spontaneous_imbibition = None
-        self._beta = None
-        self._theta_h = None
-        self._b = None
-        self._bo = None
-        self._corner_oil_layer = None
-
-        self.pc = None
-
     @property
     def G(self):
-        return self.pn[f"{self.type_name}.shape_factor"][self.id]
+        return self.element.shape_factor[self.id]
 
     @property
     def r(self):
-        return self.pn[f"{self.type_name}.radius"][self.id]
+        return self.element.radius[self.id]
 
     @property
     def V(self):
-        return self.pn[f"{self.type_name}.volume"][self.id]
+        return self.element.volume[self.id]
 
     @property
     def Vclay(self):
-        return self.pn[f"{self.type_name}.clay_volume"][self.id]
+        return self.element.clay_volume[self.id]
 
     @property
     def Sw(self):
-        return self.pn[f"{self.type_name}.water_saturation"][self.id]
+        return self.element.water_saturation[self.id]
 
     @property
     def So(self):
-        return self.pn[f"{self.type_name}.oil_saturation"][self.id]
+        return self.element.oil_saturation[self.id]
 
     @property
     def advancing_contact_angle(self):
-        return self.pn[f"{self.type_name}.advancing_contact_angle"][self.id]
+        return self.element.advancing_contact_angle[self.id]
 
     @property
     def receding_contact_angle(self):
-        return self.pn[f"{self.type_name}.receding_contact_angle"][self.id]
+        return self.element.receding_contact_angle[self.id]
 
     @property
     def C_r(self):
-        return self.pn[f"{self.type_name}.C_r"][self.id]
+        return self.element.C_r[self.id]
 
     @property
     def C_a(self):
-        return self.pn[f"{self.type_name}.C_a"][self.id]
+        return self.element.C_a[self.id]
 
     @property
     def C_h(self):
-        return self.pn[f"{self.type_name}.C_h"][self.id]
+        return self.element.C_h[self.id]
 
     @property
     def shape(self):
-        return self.pn[f"{self.type_name}.shape"][self.id]
+        return self.element.shape[self.id]
 
     @property
     def trapped(self):
-        return self.pn[f"{self.type_name}.trapped"][self.id]
+        return self.element.trapped[self.id]
 
     @property
     def oil_filled(self):
-        return self.pn[f"{self.type_name}.oil_filled"][self.id]
+        return self.element.oil_filled[self.id]
 
     @property
     def water_filled(self):
-        return self.pn[f"{self.type_name}.water_filled"][self.id]
+        return self.element.water_filled[self.id]
 
     @property
     def n_corners(self):
-        return self.pn[f"{self.type_name}.n_corners"][self.id]
+        return self.element.n_corners[self.id]
 
     @property
     def spontaneous_imbibition(self):
-        return self.pn[f"{self.type_name}.spontaneous_imbibition"][self.id]
+        return self.element.spontaneous_imbibition[self.id]
 
     @property
     def snap_off_viability(self):
-        return self.pn[f"{self.type_name}.snap_off_viability"][self.id]
+        return self.element.snap_off_viability[self.id]
 
     @property
     def beta(self):
-        return self.pn[f"{self.type_name}.corner_half_angle"][self.id]
+        return self.element.corner_half_angle[self.id]
 
     @property
     def theta_h(self):
-        return self.pn[f"{self.type_name}.hinging_contact_angle"][self.id]
+        return self.element.hinging_contact_angle[self.id]
 
     @property
     def b(self):
-        return self.pn[f"{self.type_name}.b"][self.id]
+        return self.element.b[self.id]
 
     @property
     def bo(self):
-        return self.pn[f"{self.type_name}.bo"][self.id]
+        return self.element.bo[self.id]
 
     @property
     def max_b(self):
-        return self.pn[f"{self.type_name}.max_b"][self.id]
+        return self.element.max_b[self.id]
 
     @property
     def corner_water_layer(self):
-        return self.pn[f"{self.type_name}.corner_water_layer"][self.id]
+        return self.element.corner_water_layer[self.id]
 
     @property
     def corner_oil_layer(self):
-        return self.pn[f"{self.type_name}.corner_oil_layer"][self.id]
+        return self.element.corner_oil_layer[self.id]
+
+    @property
+    def pc(self):
+        return self.element.entry_pressure[self.id]
 
     @G.setter
     def G(self, value):
-        self.pn[f"{self.type_name}.shape_factor"][self.id] = value
+        self.element.shape_factor[self.id] = value
 
     @Sw.setter
     def Sw(self, value):
-        self.pn[f"{self.type_name}.water_saturation"][self.id] = value
+        self.element.water_saturation[self.id] = value
 
     @So.setter
     def So(self, value):
-        self.pn[f"{self.type_name}.oil_saturation"][self.id] = value
+        self.element.oil_saturation[self.id] = value
 
     @advancing_contact_angle.setter
     def advancing_contact_angle(self, value):
-        self._advancing_contact_angle = value
-        self.pn[f"{self.type_name}.advancing_contact_angle"][self.id] = value
+        self.element.advancing_contact_angle[self.id] = value
 
     @receding_contact_angle.setter
     def receding_contact_angle(self, value):
-        self._receding_contact_angle = value
-        self.pn[f"{self.type_name}.receding_contact_angle"][self.id] = value
+        self.element.receding_contact_angle[self.id] = value
 
     @C_r.setter
     def C_r(self, C_r):
-        self._C_r = C_r
-        self.pn[f"{self.type_name}.C_r"][self.id] = C_r
+        self.element.C_r[self.id] = C_r
 
     @C_a.setter
     def C_a(self, C_a):
-        self._C_a = C_a
-        self.pn[f"{self.type_name}.C_a"][self.id] = C_a
+        self.element.C_a[self.id] = C_a
 
     @C_h.setter
     def C_h(self, C_h):
-        self._C_h = C_h
-        self.pn[f"{self.type_name}.C_h"][self.id] = C_h
+        self.element.C_h[self.id] = C_h
 
     @shape.setter
     def shape(self, shape):
-        self._shape = shape
-        self.pn[f"{self.type_name}.shape"][self.id] = shape
+        self.element.shape[self.id] = shape
 
         if shape == TRIANGLE:
-            self._n_corners = int(3)
+            n_corners = int(3)
         elif shape == SQUARE:
-            self._n_corners = int(4)
+            n_corners = int(4)
         else:
-            self._n_corners = int(0)
-        self.pn[f"{self.type_name}.n_corners"][self.id] = self._n_corners
+            n_corners = int(0)
+        self.element.n_corners[self.id] = n_corners
 
     @trapped.setter
     def trapped(self, trapped):
-        self._trapped = trapped
-        self.pn[f"{self.type_name}.trapped"][self.id] = trapped
+        self.element.trapped[self.id] = trapped
 
     @oil_filled.setter
     def oil_filled(self, oil_filled):
-        self._oil_filled = oil_filled
-        self.pn[f"{self.type_name}.oil_filled"][self.id] = oil_filled
+        self.element.oil_filled[self.id] = oil_filled
 
     @water_filled.setter
     def water_filled(self, water_filled):
-        self._water_filled = water_filled
-        self.pn[f"{self.type_name}.water_filled"][self.id] = water_filled
+        self.element.water_filled[self.id] = water_filled
 
     @spontaneous_imbibition.setter
     def spontaneous_imbibition(self, spontaneous_imbibition):
-        self._spontaneous_imbibition = spontaneous_imbibition
-        self.pn[f"{self.type_name}.spontaneous_imbibition"][self.id] = spontaneous_imbibition
+        self.element.spontaneous_imbibition[self.id] = spontaneous_imbibition
 
     @snap_off_viability.setter
     def snap_off_viability(self, snap_off_viability):
-        self.pn[f"{self.type_name}.snap_off_viability"][self.id] = snap_off_viability
+        self.element.snap_off_viability[self.id] = snap_off_viability
 
     @beta.setter
     def beta(self, beta):
-        self._beta = beta
-        self.pn[f"{self.type_name}.corner_half_angle"][self.id] = beta
+        self.element.corner_half_angle[self.id] = beta
 
     @theta_h.setter
     def theta_h(self, theta_h):
-        self._theta_h = theta_h
-        self.pn[f"{self.type_name}.hinging_contact_angle"][self.id] = theta_h
+        self.element.hinging_contact_angle[self.id] = theta_h
 
     @b.setter
     def b(self, b):
-        self._b = b
-        self.pn[f"{self.type_name}.b"][self.id] = b
+        self.element.b[self.id] = b
 
     @bo.setter
     def bo(self, bo):
-        self._bo = bo
-        self.pn[f"{self.type_name}.bo"][self.id] = bo
+        self.element.bo[self.id] = bo
 
     @max_b.setter
     def max_b(self, max_b):
-        self.pn[f"{self.type_name}.max_b"][self.id] = max_b
+        self.element.max_b[self.id] = max_b
 
     @corner_oil_layer.setter
     def corner_oil_layer(self, corner_oil_layer):
-        self._corner_oil_layer = corner_oil_layer
-        self.pn[f"{self.type_name}.corner_oil_layer"][self.id] = corner_oil_layer
+        self.element.corner_oil_layer[self.id] = corner_oil_layer
 
     @corner_water_layer.setter
     def corner_water_layer(self, corner_water_layer):
-        self.pn[f"{self.type_name}.corner_water_layer"][self.id] = corner_water_layer
+        self.element.corner_water_layer[self.id] = corner_water_layer
+
+    @pc.setter
+    def pc(self, entry_pressure):
+        self.element.entry_pressure[self.id] = entry_pressure
 
     def get_id(self):
         return self.id
 
     def get_pc(self):
-        return self.pc
+        return self.element.entry_pressure[self.id]
 
     def set_oil_filled(self, filled: bool):
         self.oil_filled = filled
@@ -457,9 +426,8 @@ class PnElement:
         else:
             return self.oil_filled
 
-    def set_pc(self, pc):
-        self.pc = pc
-        self.pn[f"{self.type_name}.entry_pressure"][self.id] = pc
+    def set_pc(self, entry_pressure):
+        self.element.entry_pressure[self.id] = entry_pressure
 
     @abstractmethod
     def is_pore(self):
@@ -471,16 +439,16 @@ class PnElement:
 
 
 class Pore(PnElement):
-    def __init__(self, network, id):
-        super().__init__(network, "pore", id)
+    def __init__(self, element, id):
+        super().__init__(element, "pore", id)
 
     @property
     def A(self):
-        return self.pn[f"{self.type_name}.area"][self.id]
+        return self.element.area[self.id]
 
     @A.setter
     def A(self, value):
-        self.pn[f"{self.type_name}.area"][self.id] = value
+        self.element.area[self.id] = value
 
     def is_pore(self):
         return True
@@ -490,21 +458,21 @@ class Pore(PnElement):
 
 
 class Throat(PnElement):
-    def __init__(self, network, id):
-        super().__init__(network, "throat", id)
+    def __init__(self, element, id):
+        super().__init__(element, "throat", id)
         self._L = None
 
     @property
     def A(self):
-        return self.pn[f"{self.type_name}.cross_sectional_area"][self.id]
+        return self.element.cross_sectional_area[self.id]
 
     @property
     def L(self):
-        return self.pn[f"{self.type_name}.length"][self.id]
+        return self.element.length[self.id]
 
     @A.setter
     def A(self, value):
-        self.pn[f"{self.type_name}.cross_sectional_area"][self.id] = value
+        self.element.cross_sectional_area[self.id] = value
 
     def is_pore(self):
         return False
