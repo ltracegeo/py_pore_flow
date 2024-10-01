@@ -78,18 +78,12 @@ class Network:
 
         self.pore_list = [None] * number_of_pores
         self.throat_list = [None] * number_of_throats
-        pore_core_list = [None] * number_of_pores
-        throat_core_list = [None] * number_of_throats
 
         for pore_id in self.pn.pores():
             self.pore_list[pore_id] = Pore(self.pn_core.pore, pore_id)
-            pore_core_list[pore_id] = ElementCore(pore_id)
-        self.pore_core_list = nb.typed.List(pore_core_list)
 
         for throat_id in self.pn.throats():
             self.throat_list[throat_id] = Throat(self.pn_core.throat, throat_id)
-            throat_core_list[throat_id] = ElementCore(throat_id)
-        self.throat_core_list = nb.typed.List(throat_core_list)
 
     def get_pore(self, id):
         return self.pore_list[id]
@@ -102,12 +96,6 @@ class Network:
 
     def get_throat_list(self):
         return self.throat_list
-
-    def get_pore_core_list(self):
-        return self.pore_core_list
-
-    def get_throat_core_list(self):
-        return self.throat_core_list
 
     def get_inlets_ids(self):
         return list(np.where(self.pn_core.pore.inlets == True)[0])
@@ -156,42 +144,6 @@ class Network:
             setattr(pore, property_name, None)
         for throat in self.throat_list:
             setattr(throat, property_name, None)
-
-    def update_core_elements(self):
-        for pore_id in self.pn.pores():
-            element = self.pore_list[pore_id]
-            core = self.pore_core_list[pore_id]
-            self.__update_core(core, element)
-
-        for throat_id in self.pn.throats():
-            element = self.throat_list[throat_id]
-            core = self.throat_core_list[throat_id]
-            self.__update_core(core, element)
-
-    @staticmethod
-    def __update_core(core, element):
-        core.G = element.G
-        core.r = element.r
-        core.A = element.A
-        core.V = element.V
-        core.Vclay = element.Vclay
-        core.Sw = element.Sw
-        core.So = element.So
-        core.theta_a = element.advancing_contact_angle
-        core.theta_r = element.receding_contact_angle
-        core.C_r = element.C_r
-        core.C_a = element.C_a
-        core.C_h = element.C_h
-        core.shape = element.shape
-        core.trapped = element.trapped
-        core.beta = element.beta
-        core.theta_h = element.theta_h
-        core.b = element.b
-        core.bo = element.bo
-        core.corner_oil_layer = element.corner_oil_layer
-        core.oil_filled = element.oil_filled
-        core.n_corners = element.n_corners
-        core.spontaneous_imbibition = element.spontaneous_imbibition
 
 
 class PnElement:
@@ -479,61 +431,6 @@ class Throat(PnElement):
 
     def is_throat(self):
         return True
-
-
-spec = [
-    ("id", nb.types.int32),
-    ("G", nb.types.float64),
-    ("r", nb.types.float64),
-    ("A", nb.types.float64),
-    ("V", nb.types.float64),
-    ("Vclay", nb.types.float64),
-    ("Sw", nb.types.float64),
-    ("So", nb.types.float64),
-    ("theta_a", nb.types.float64),
-    ("theta_r", nb.types.float64),
-    ("C_r", nb.types.float64),
-    ("C_a", nb.types.float64),
-    ("C_h", nb.types.float64),
-    ("shape", nb.types.int32),
-    ("trapped", nb.types.boolean),
-    ("beta", nb.types.float64[:]),
-    ("theta_h", nb.types.float64[:]),
-    ("b", nb.types.float64[:]),
-    ("bo", nb.types.float64[:]),
-    ("corner_oil_layer", nb.types.boolean[:]),
-    ("oil_filled", nb.types.boolean),
-    ("n_corners", nb.types.int32),
-    ("spontaneous_imbibition", nb.types.boolean),
-]
-
-
-@jitclass(spec)
-class ElementCore:
-    def __init__(self, id):
-        self.id = id
-        self.G = 0.0
-        self.r = 0.0
-        self.A = 0.0
-        self.V = 0.0
-        self.Vclay = 0.0
-        self.Sw = 0.0
-        self.So = 0.0
-        self.theta_a = 0.0
-        self.theta_r = 0.0
-        self.C_r = 0.0
-        self.C_a = 0.0
-        self.C_h = 0.0
-        self.shape = 0
-        self.trapped = False
-        self.beta = np.empty(MAX_NUMBER_OF_CORNERS, dtype=np.float64)
-        self.theta_h = np.empty(MAX_NUMBER_OF_CORNERS, dtype=np.float64)
-        self.b = np.empty(MAX_NUMBER_OF_CORNERS, dtype=np.float64)
-        self.bo = np.empty(MAX_NUMBER_OF_CORNERS, dtype=np.float64)
-        self.corner_oil_layer = np.empty(MAX_NUMBER_OF_CORNERS, dtype=np.bool_)
-        self.oil_filled = True
-        self.n_corners = 0
-        self.spontaneous_imbibition = True
 
 
 class ElementNetwork:
