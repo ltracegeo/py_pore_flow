@@ -200,6 +200,36 @@ class ImbibitionSimulation(CycleSimulation):
             )
         element.set_pc(element_pc)
 
+    def _update_pore_entry_pc(self, pore_id, pc):
+        K = self.krel_calculator.get_absolute_permeability()
+        number_of_oil_filled_neighbors = self.network.pn["throat.oil_filled"][
+            self.network.get_neighbor_throats_ids(pore_id)
+        ].sum()
+        element_pc = calculate_imbibition_pc(
+            self.network.pn["pore.shape_factor"][pore_id],
+            self.network.pn["pore.radius"][pore_id],
+            self.network.pn["pore.advancing_contact_angle"][pore_id],
+            self.network.pn["pore.shape"][pore_id],
+            pc,
+            self.network.pn["pore.corner_half_angle"][pore_id],
+            self.network.pn["pore.n_corners"][pore_id],
+            number_of_oil_filled_neighbors,
+            K,
+        )
+        self.network.pn["pore.entry_pressure"][pore_id] = element_pc
+
+    def _update_throat_entry_pc(self, throat_id, pc):
+        element_pc = calculate_imbibition_piston_like_displacement_pc(
+            self.network.pn["throat.shape_factor"][throat_id],
+            self.network.pn["throat.radius"][throat_id],
+            self.network.pn["throat.advancing_contact_angle"][throat_id],
+            self.network.pn["throat.shape"][throat_id],
+            pc,
+            self.network.pn["throat.corner_half_angle"][throat_id],
+            self.network.pn["throat.n_corners"][throat_id],
+        )
+        self.network.pn["throat.entry_pressure"][throat_id] = element_pc
+
     def _get_element_to_fill(self, pc, border_elements):
         self.__clear_snapoff_lists()
         pore_id_list = np.concatenate((border_elements.get_pores_ids(), self.snap_off_pore_list))

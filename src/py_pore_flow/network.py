@@ -124,6 +124,12 @@ class Network:
     def get_number_of_throats(self):
         return len(self.pn.pores())
 
+    def get_neighbor_throats_ids(self, pore_id):
+        return self.pn["pore.conns"][pore_id][: self.pn["pore.n_conns"][pore_id]]
+
+    def get_neighbor_pores_ids(self, throat_id):
+        return self.pn["throat.conns"][throat_id]
+
     def get_neighbor_pores(self, throat_id):
         neighbor_pores_list = []
         for pore_id in self.pn.find_connected_pores(throat_id)[0]:
@@ -132,7 +138,7 @@ class Network:
 
     def get_neighbor_throats(self, pore_id):
         neighbor_throats_list = []
-        for throat_id in self.pn["pore.conns"][pore_id][:self.pn["pore.n_conns"][pore_id]]:
+        for throat_id in self.pn["pore.conns"][pore_id][: self.pn["pore.n_conns"][pore_id]]:
             neighbor_throats_list.append(self.throat_list[throat_id])
         return neighbor_throats_list
 

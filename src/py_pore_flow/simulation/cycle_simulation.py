@@ -700,6 +700,14 @@ class BorderElements:
         if pore_id in self.pores_ids:
             self.pores_ids.remove(pore_id)
 
+    def remove_throat_list(self, throat_id_list):
+        for id in throat_id_list:
+            self.remove_throat(id)
+
+    def remove_pore_list(self, pore_id_list):
+        for id in pore_id_list:
+            self.remove_pore(id)
+
 
 class CycleSimulation:
     def __init__(self, network, phase, calculate_full_conductance=False):
@@ -768,17 +776,21 @@ class CycleSimulation:
     def _update_element_entry_pc(self, element, pc):
         pass
 
+    def _update_throat_entry_pc(self, throat_id, pc):
+        pass
+
+    def _update_pore_entry_pc(self, pore_id, pc):
+        pass
+
     @abstractmethod
     def _get_element_to_fill(self, pc, border_elements):
         pass
 
     def _update_entry_pressures(self, pc):
         for throat_id in self.border_elements.get_throats_ids():
-            element = self.network.get_throat(throat_id)
-            self._update_element_entry_pc(element, pc)
+            self._update_throat_entry_pc(throat_id, pc)
         for pore_id in self.border_elements.get_pores_ids():
-            element = self.network.get_pore(pore_id)
-            self._update_element_entry_pc(element, pc)
+            self._update_pore_entry_pc(pore_id, pc)
 
     def _update_invasions(self, pc, target_sw=None):
         increased_sw = 0.0
@@ -815,14 +827,13 @@ class CycleSimulation:
         return increased_sw, invasion_pc
 
     def __remove_trapped_from_border(self):
-        for throat_id in self.border_elements.get_throats_ids():
-            element = self.network.get_throat(throat_id)
-            if element.trapped:
-                self.border_elements.remove_throat(element.get_id())
-        for pore_id in self.border_elements.get_pores_ids():
-            element = self.network.get_pore(pore_id)
-            if element.trapped:
-                self.border_elements.remove_pore(element.get_id())
+        throat_id_list = self.border_elements.get_throats_ids()
+        trapped_throat_list = np.where(self.network.pn["throat.trapped"][throat_id_list] == True)[0]
+        self.border_elements.remove_throat_list(throat_id_list[trapped_throat_list])
+
+        pore_id_list = self.border_elements.get_pores_ids()
+        trapped_pore_list = np.where(self.network.pn["pore.trapped"][pore_id_list] == True)[0]
+        self.border_elements.remove_pore_list(pore_id_list[trapped_pore_list])
 
     def __fill_element(self, element, pc):
         element.set_filled(self.phase, True)
