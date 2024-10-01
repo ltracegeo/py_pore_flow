@@ -5,6 +5,8 @@ from numba.experimental import jitclass
 import numpy as np
 import openpnm
 
+from pyflowsolver import NetworkManager, DarcySolver
+
 from py_pore_flow import log
 from py_pore_flow.equations.geometry import (
     WATER,
@@ -70,7 +72,7 @@ class ConductanceCalculator:
                 self.network.pn["pore.water_saturation"],
                 self.network.pn["pore.water_filled"],
             )
-        else:
+        elif phase == OIL:
             return self.multiphase_oil_conductance(
                 number_of_throats,
                 throat_id_list,
@@ -311,13 +313,14 @@ class FlowRateCalculator:
             f"throat.{phase_name}_singlephase_conductance"
         ]
 
+        """
         if phase == WATER:
             phase = openpnm.phase.Water(network=self.network.pn)
         else:
             phase = openpnm.phase.Air(network=self.network.pn)
+        
         # water.add_model_collection(openpnm.models.collections.physics.standard)
         stokes_flow = openpnm.algorithms.StokesFlow(network=self.network.pn, phase=phase)
-
         stokes_flow.set_value_BC(
             pores=self.network.get_inlets_ids(), values=101325, mode="overwrite"
         )  # pressure in pa: 101325 pa = 1 atm
@@ -326,12 +329,35 @@ class FlowRateCalculator:
         inlet_flow = stokes_flow.rate(pores=self.network.get_inlets_ids())
         outlet_flow = stokes_flow.rate(pores=self.network.get_outlets_ids())
         flow_rate = (inlet_flow[0] - outlet_flow[0]) / 2
+        """
+        conn = self.network.pn["throat.conns"].astype(np.int32)
+        cond = self.network.pn["throat.hydraulic_conductance"].astype(np.float64)
+        inlets = self.network.pn["pore.inlets"]
+        outlets = self.network.pn["pore.outlets"]
+        network_manager = NetworkManager(
+            conn=conn,
+            cond=cond,
+            inlets=inlets,
+            outlets=outlets,
+        )
+        network_manager.generate_sparse_system()
+        a_sparse_array, b_array = network_manager.get_sparse_system()
+
+        darcy_solver = DarcySolver()
+        darcy_solver.set_linear_system(a_sparse_array, b_array)
+        darcy_solver.generate_preconditioner("inverse_diagonal")
+        x, error, iterations = darcy_solver.solve_pcg()
+
+        pressure = network_manager.get_pressure_list(x)
+        flow_rate = network_manager.get_flow_rate(pressure)
+
         return flow_rate
 
     def calculate_total_flow_rate(self, phase, update_hydraulic_conductance=True):
         if update_hydraulic_conductance:
             self.update_hydraulic_conductance(phase)
 
+        """
         if phase == WATER:
             phase = openpnm.phase.Water(network=self.network.pn)
         else:
@@ -347,6 +373,29 @@ class FlowRateCalculator:
         inlet_flow = stokes_flow.rate(pores=self.network.get_inlets_ids())
         outlet_flow = stokes_flow.rate(pores=self.network.get_outlets_ids())
         flow_rate = (inlet_flow[0] - outlet_flow[0]) / 2
+        """
+
+        conn = self.network.pn["throat.conns"].astype(np.int32)
+        cond = self.network.pn["throat.hydraulic_conductance"].astype(np.float64)
+        inlets = self.network.pn["pore.inlets"]
+        outlets = self.network.pn["pore.outlets"]
+        network_manager = NetworkManager(
+            conn=conn,
+            cond=cond,
+            inlets=inlets,
+            outlets=outlets,
+        )
+        network_manager.generate_sparse_system()
+        a_sparse_array, b_array = network_manager.get_sparse_system()
+
+        darcy_solver = DarcySolver()
+        darcy_solver.set_linear_system(a_sparse_array, b_array)
+        darcy_solver.generate_preconditioner("inverse_diagonal")
+        x, error, iterations = darcy_solver.solve_pcg()
+
+        pressure = network_manager.get_pressure_list(x)
+        flow_rate = network_manager.get_flow_rate(pressure)
+
         return flow_rate
 
     def update_hydraulic_conductance(self, phase):
