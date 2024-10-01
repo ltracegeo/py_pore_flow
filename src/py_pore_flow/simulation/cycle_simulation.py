@@ -27,6 +27,8 @@ from py_pore_flow.equations.conductance import (
     calculate_singlephase_conductance,
 )
 from py_pore_flow.network import Network
+from pypardiso import spsolve
+from scipy.sparse import csr_matrix
 
 PORE = 0
 THROAT = 1
@@ -330,10 +332,19 @@ class FlowRateCalculator:
         outlet_flow = stokes_flow.rate(pores=self.network.get_outlets_ids())
         flow_rate = (inlet_flow[0] - outlet_flow[0]) / 2
         """
-        conn = self.network.pn["throat.conns"].astype(np.int32)
-        cond = self.network.pn["throat.hydraulic_conductance"].astype(np.float64)
-        inlets = self.network.pn["pore.inlets"]
-        outlets = self.network.pn["pore.outlets"]
+
+        connected_pores, connected_throats = get_connected_spy_network(
+            self.network.pn,
+        )
+        sub_network = get_sub_spy(self.network.pn, connected_pores, connected_throats)
+        if sub_network is False:
+            return 0
+
+        conn = sub_network["throat.conns"].astype(np.int32)
+        cond = sub_network["throat.hydraulic_conductance"].astype(np.float64)
+        inlets = sub_network["pore.inlets"]
+        outlets = sub_network["pore.outlets"]
+        print(f"\n\n{conn.shape}\n\n{cond.shape}\n\n{inlets.shape}\n\n{outlets.shape}\n\n")
         network_manager = NetworkManager(
             conn=conn,
             cond=cond,
@@ -343,10 +354,14 @@ class FlowRateCalculator:
         network_manager.generate_sparse_system()
         a_sparse_array, b_array = network_manager.get_sparse_system()
 
-        darcy_solver = DarcySolver()
-        darcy_solver.set_linear_system(a_sparse_array, b_array)
-        darcy_solver.generate_preconditioner("inverse_diagonal")
-        x, error, iterations = darcy_solver.solve_pcg()
+        A_csr = csr_matrix(
+            (
+                a_sparse_array["val"],
+                a_sparse_array["col_idx"],
+                np.append(a_sparse_array["row_ptr"], a_sparse_array["val"].size),
+            )
+        )
+        x = spsolve(A_csr, b_array)
 
         pressure = network_manager.get_pressure_list(x)
         flow_rate = network_manager.get_flow_rate(pressure)
@@ -375,10 +390,17 @@ class FlowRateCalculator:
         flow_rate = (inlet_flow[0] - outlet_flow[0]) / 2
         """
 
-        conn = self.network.pn["throat.conns"].astype(np.int32)
-        cond = self.network.pn["throat.hydraulic_conductance"].astype(np.float64)
-        inlets = self.network.pn["pore.inlets"]
-        outlets = self.network.pn["pore.outlets"]
+        connected_pores, connected_throats = get_connected_spy_network(
+            self.network.pn,
+        )
+        sub_network = get_sub_spy(self.network.pn, connected_pores, connected_throats)
+        if sub_network is False:
+            return 0
+
+        conn = sub_network["throat.conns"].astype(np.int32)
+        cond = sub_network["throat.hydraulic_conductance"].astype(np.float64)
+        inlets = sub_network["pore.inlets"]
+        outlets = sub_network["pore.outlets"]
         network_manager = NetworkManager(
             conn=conn,
             cond=cond,
@@ -388,10 +410,14 @@ class FlowRateCalculator:
         network_manager.generate_sparse_system()
         a_sparse_array, b_array = network_manager.get_sparse_system()
 
-        darcy_solver = DarcySolver()
-        darcy_solver.set_linear_system(a_sparse_array, b_array)
-        darcy_solver.generate_preconditioner("inverse_diagonal")
-        x, error, iterations = darcy_solver.solve_pcg()
+        A_csr = csr_matrix(
+            (
+                a_sparse_array["val"],
+                a_sparse_array["col_idx"],
+                np.append(a_sparse_array["row_ptr"], a_sparse_array["val"].size),
+            )
+        )
+        x = spsolve(A_csr, b_array)
 
         pressure = network_manager.get_pressure_list(x)
         flow_rate = network_manager.get_flow_rate(pressure)
@@ -1073,3 +1099,57 @@ class PcIncrementer:
             self.pc_step = min(self.pc_step, self.pc_step_max)
         else:
             self.pc_step = self.pc_step_initial
+
+
+def get_sub_spy(spy_network, sub_pores, sub_throats):
+    sub_pn = {}
+    for prop in spy_network.keys():
+        if prop.split(".")[0] == "pore":
+            sub_pn[prop] = spy_network[prop][sub_pores]
+        else:
+            sub_pn[prop] = spy_network[prop][sub_throats]
+
+    counter = _counter()
+    f_counter = lambda x: next(counter) if x else 0
+    new_pore_index = np.fromiter(map(f_counter, sub_pores), dtype="int")
+
+    if len(sub_pn["throat.conns"]) == 0:
+        return False
+    for i in np.nditer(sub_pn["throat.conns"], op_flags=["readwrite"]):
+        i[...] = new_pore_index[i]
+    return sub_pn
+
+
+def get_connected_spy_network(network):
+
+    _, cluster_labels = get_clusters(network)
+    in_labels = np.unique(cluster_labels[network[f"pore.inlets"]])
+    out_labels = np.unique(cluster_labels[network[f"pore.outlets"]])
+    common_labels = np.intersect1d(in_labels, out_labels, assume_unique=True)
+
+    connected_pores = network.pores()[np.isin(cluster_labels, common_labels)]
+    #connected_throats = network.throats()[
+    #    np.isin(network["throat.conns"], connected_pores).all(axis=1)
+    #]
+
+    return np.isin(cluster_labels, common_labels), np.isin(
+        network["throat.conns"], connected_pores
+    ).all(axis=1)
+
+
+def _counter():
+    i = -1
+    while True:
+        i += 1
+        yield i
+
+
+def get_clusters(network):
+    """
+    clusters are numbered starting at 0
+    """
+    from scipy.sparse import csgraph as csg
+
+    am = network.create_adjacency_matrix(fmt="coo", triu=True, drop_zeros=True)
+    N, Cs = csg.connected_components(am, directed=False)
+    return N, Cs
