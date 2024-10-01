@@ -132,7 +132,7 @@ class Network:
 
     def get_neighbor_throats(self, pore_id):
         neighbor_throats_list = []
-        for throat_id in np.resize(self.pn["pore.conns"][pore_id], self.pn["pore.n_conns"][pore_id]):
+        for throat_id in self.pn["pore.conns"][pore_id][:self.pn["pore.n_conns"][pore_id]]:
             neighbor_throats_list.append(self.throat_list[throat_id])
         return neighbor_throats_list
 

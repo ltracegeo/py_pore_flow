@@ -905,7 +905,6 @@ class TrapChecker:
     def update_trapped_pores(self):
         self.network.pn["pore.trapped"] = False
         self.network.pn["throat.trapped"] = False
-        outlets_pore_id_list = self.network.get_outlets_ids()
         if self.phase == OIL:
             cluster_array = openpnm.topotools.find_clusters(
                 self.network.pn, mask=self.network.pn["pore.water_saturation"] > 0
@@ -914,10 +913,12 @@ class TrapChecker:
             cluster_array = openpnm.topotools.find_clusters(
                 self.network.pn, mask=self.network.pn["pore.oil_saturation"] > 0
             )
+        outlets_pore_id_list = self.network.get_outlets_ids()
+        clusters_with_outlets = np.unique(cluster_array.pore_labels[outlets_pore_id_list])
         for cluster_label in range(np.max(cluster_array.pore_labels) + 1):
             pore_cluster = np.where(cluster_array.pore_labels == cluster_label)[0]
             throat_cluster = np.where(cluster_array.throat_labels == cluster_label)[0]
-            is_cluster_trapped = not np.isin(outlets_pore_id_list, pore_cluster).any()
+            is_cluster_trapped = cluster_label not in clusters_with_outlets
             self.network.pn["pore.trapped"][pore_cluster] = is_cluster_trapped
             self.network.pn["throat.trapped"][throat_cluster] = is_cluster_trapped
 
