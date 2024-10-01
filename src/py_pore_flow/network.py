@@ -46,6 +46,8 @@ def initialize_pn(pn):
         pn[f"{element_type}.snap_off_viability"] = True
         pn[f"{element_type}.entry_pressure"] = 0.0
 
+    pn["throat.hydraulic_conductance"] = 0.0
+
     # Initialize connection properties
     pn["throat.n_conns"] = int(2)
     pn["pore.n_conns"] = int(0)
@@ -69,6 +71,7 @@ def initialize_pn(pn):
 class Network:
     def __init__(self, network):
         self.pn = network
+        self.pn_core = NetworkCore(self.pn)
 
         number_of_pores = len(self.pn[f"pore.all"])
         number_of_throats = len(self.pn[f"throat.all"])
@@ -563,3 +566,110 @@ class ElementCore:
         self.oil_filled = True
         self.n_corners = 0
         self.spontaneous_imbibition = True
+
+
+class ElementNetwork:
+    def __init__(self):
+        self.pn = None
+
+    def __setitem__(self, idx, value):
+        self.pn[idx] = value
+        setattr(self, idx.split(".")[1], value)
+
+
+class PoresNetwork(ElementNetwork):
+    def __init__(self, pn):
+        self.pn = pn
+
+        self.shape_factor = pn["pore.shape_factor"]
+        self.radius = pn["pore.radius"]
+        self.volume = pn["pore.volume"]
+        self.clay_volume = pn["pore.clay_volume"]
+        self.oil_filled = pn["pore.oil_filled"]
+        self.water_filled = pn["pore.water_filled"]
+        self.oil_saturation = pn["pore.oil_saturation"]
+        self.water_saturation = pn["pore.water_saturation"]
+        self.corner_half_angle = pn["pore.corner_half_angle"]
+        self.sides = pn["pore.sides"]
+        self.hinging_contact_angle = pn["pore.hinging_contact_angle"]
+        self.b = pn["pore.b"]
+        self.bo = pn["pore.bo"]
+        self.max_b = pn["pore.max_b"]
+        self.corner_water_layer = pn["pore.corner_water_layer"]
+        self.corner_oil_layer = pn["pore.corner_oil_layer"]
+        self.C_r = pn["pore.C_r"]
+        self.C_a = pn["pore.C_a"]
+        self.C_h = pn["pore.C_h"]
+        self.advancing_contact_angle = pn["pore.advancing_contact_angle"]
+        self.receding_contact_angle = pn["pore.receding_contact_angle"]
+        self.oil_singlephase_conductance = pn["pore.oil_singlephase_conductance"]
+        self.water_singlephase_conductance = pn["pore.water_singlephase_conductance"]
+        self.oil_multiphase_conductance = pn["pore.oil_multiphase_conductance"]
+        self.water_multiphase_conductance = pn["pore.water_multiphase_conductance"]
+        self.shape = pn["pore.shape"]
+        self.trapped = pn["pore.trapped"]
+        self.n_corners = pn["pore.n_corners"]
+        self.spontaneous_imbibition = pn["pore.spontaneous_imbibition"]
+        self.snap_off_viability = pn["pore.snap_off_viability"]
+        self.entry_pressure = pn["pore.entry_pressure"]
+        self.conns = pn["pore.conns"]
+        self.n_conns = pn["pore.n_conns"]
+        self.area = pn["pore.area"]
+
+
+class ThroatsNetwork(ElementNetwork):
+    def __init__(self, pn):
+        self.pn = pn
+
+        self.shape_factor = pn["throat.shape_factor"]
+        self.radius = pn["throat.radius"]
+        self.volume = pn["throat.volume"]
+        self.clay_volume = pn["throat.clay_volume"]
+        self.oil_filled = pn["throat.oil_filled"]
+        self.water_filled = pn["throat.water_filled"]
+        self.oil_saturation = pn["throat.oil_saturation"]
+        self.water_saturation = pn["throat.water_saturation"]
+        self.corner_half_angle = pn["throat.corner_half_angle"]
+        self.sides = pn["throat.sides"]
+        self.hinging_contact_angle = pn["throat.hinging_contact_angle"]
+        self.b = pn["throat.b"]
+        self.bo = pn["throat.bo"]
+        self.max_b = pn["throat.max_b"]
+        self.corner_water_layer = pn["throat.corner_water_layer"]
+        self.corner_oil_layer = pn["throat.corner_oil_layer"]
+        self.C_r = pn["throat.C_r"]
+        self.C_a = pn["throat.C_a"]
+        self.C_h = pn["throat.C_h"]
+        self.advancing_contact_angle = pn["throat.advancing_contact_angle"]
+        self.receding_contact_angle = pn["throat.receding_contact_angle"]
+        self.oil_singlephase_conductance = pn["throat.oil_singlephase_conductance"]
+        self.water_singlephase_conductance = pn["throat.water_singlephase_conductance"]
+        self.oil_multiphase_conductance = pn["throat.oil_multiphase_conductance"]
+        self.water_multiphase_conductance = pn["throat.water_multiphase_conductance"]
+        self.shape = pn["throat.shape"]
+        self.trapped = pn["throat.trapped"]
+        self.n_corners = pn["throat.n_corners"]
+        self.spontaneous_imbibition = pn["throat.spontaneous_imbibition"]
+        self.snap_off_viability = pn["throat.snap_off_viability"]
+        self.entry_pressure = pn["throat.entry_pressure"]
+        self.conns = pn["throat.conns"]
+        self.n_conns = pn["throat.n_conns"]
+        self.cross_sectional_area = pn["throat.cross_sectional_area"]
+        self.length = pn["throat.length"]
+        self.hydraulic_conductance = pn["throat.hydraulic_conductance"]
+
+
+class NetworkCore:
+    def __init__(self, pn):
+        self.pn = pn
+        self.throat = ThroatsNetwork(pn)
+        self.pore = PoresNetwork(pn)
+
+    def __setitem__(self, idx, value):
+        self.pn[idx] = value
+
+        splitted = idx.split(".")
+        if splitted[0] == "pore":
+            setattr(self.pore, splitted[1], self.pn[idx])
+        else:
+            setattr(self.throat, splitted[1], self.pn[idx])

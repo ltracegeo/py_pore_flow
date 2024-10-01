@@ -279,7 +279,7 @@ class ImbibitionSimulation(CycleSimulation):
         return current_pc <= invasion_pc
 
     def __update_b(self, pc):
-        self.network.pn["pore.b"] = calculate_imbibition_network_b(
+        self.network.pn_core["pore.b"] = calculate_imbibition_network_b(
             self.network.pn["pore.corner_half_angle"],
             self.network.pn["pore.max_b"],
             self.network.pn["pore.receding_contact_angle"],
@@ -290,7 +290,7 @@ class ImbibitionSimulation(CycleSimulation):
             pc,
             self.Rmin,
         )
-        self.network.pn["throat.b"] = calculate_imbibition_network_b(
+        self.network.pn_core["throat.b"] = calculate_imbibition_network_b(
             self.network.pn["throat.corner_half_angle"],
             self.network.pn["throat.max_b"],
             self.network.pn["throat.receding_contact_angle"],
@@ -302,7 +302,7 @@ class ImbibitionSimulation(CycleSimulation):
             self.Rmin,
         )
 
-        self.network.pn["pore.bo"] = calculate_imbibition_network_bo(
+        self.network.pn_core["pore.bo"] = calculate_imbibition_network_bo(
             self.network.pn["pore.corner_half_angle"],
             self.network.pn["pore.max_b"],
             self.network.pn["pore.advancing_contact_angle"],
@@ -310,7 +310,7 @@ class ImbibitionSimulation(CycleSimulation):
             self.network.pn["pore.n_corners"],
             pc,
         )
-        self.network.pn["throat.bo"] = calculate_imbibition_network_bo(
+        self.network.pn_core["throat.bo"] = calculate_imbibition_network_bo(
             self.network.pn["throat.corner_half_angle"],
             self.network.pn["throat.max_b"],
             self.network.pn["throat.advancing_contact_angle"],

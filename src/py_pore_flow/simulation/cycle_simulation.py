@@ -307,7 +307,7 @@ class FlowRateCalculator:
         else:
             phase_name = "oil"
 
-        self.network.pn["throat.hydraulic_conductance"] = self.network.pn[
+        self.network.pn_core["throat.hydraulic_conductance"] = self.network.pn[
             f"throat.{phase_name}_singlephase_conductance"
         ]
 
@@ -364,8 +364,10 @@ class FlowRateCalculator:
             phase, multiphase_throat_id_list
         )
 
-        self.network.pn[f"throat.{phase_name}_multiphase_conductance"] = multiphase_conductance
-        self.network.pn["throat.hydraulic_conductance"] = self.network.pn[f"throat.{phase_name}_multiphase_conductance"]
+        self.network.pn_core[f"throat.{phase_name}_multiphase_conductance"] = multiphase_conductance
+        self.network.pn_core["throat.hydraulic_conductance"] = self.network.pn[
+            f"throat.{phase_name}_multiphase_conductance"
+        ]
 
 
 class KrelCalculator:
@@ -852,7 +854,7 @@ class CycleSimulation:
                 self._update_element_entry_pc(neighbor, pc)
 
     def __update_hinging_contact_angles(self, pc):
-        self.network.pn["pore.hinging_contact_angle"] = calculate_network_hinging_contact_angle(
+        self.network.pn_core["pore.hinging_contact_angle"] = calculate_network_hinging_contact_angle(
             pc,
             self.network.pn["pore.corner_half_angle"],
             self.network.pn["pore.b"],
@@ -860,7 +862,7 @@ class CycleSimulation:
             self.network.pn["pore.receding_contact_angle"],
             self.network.pn["pore.advancing_contact_angle"],
         )
-        self.network.pn["throat.hinging_contact_angle"] = calculate_network_hinging_contact_angle(
+        self.network.pn_core["throat.hinging_contact_angle"] = calculate_network_hinging_contact_angle(
             pc,
             self.network.pn["throat.corner_half_angle"],
             self.network.pn["throat.b"],
@@ -914,8 +916,8 @@ class TrapChecker:
         self.phase = phase
 
     def update_trapped_pores(self):
-        self.network.pn["pore.trapped"] = False
-        self.network.pn["throat.trapped"] = False
+        self.network.pn_core["pore.trapped"] = False
+        self.network.pn_core["throat.trapped"] = False
         if self.phase == OIL:
             cluster_array = openpnm.topotools.find_clusters(
                 self.network.pn, mask=self.network.pn["pore.water_saturation"] > 0
