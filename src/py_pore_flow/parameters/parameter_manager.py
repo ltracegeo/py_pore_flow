@@ -108,37 +108,37 @@ class ParameterManager:
         self.__update_cas(network, "equilibrium")
 
     def update_initial_cas(self, network):
-        network.pn[f"pore.advancing_contact_angle"] = network.pn[f"pore.initial_advancing_ca"]
-        network.pn[f"pore.receding_contact_angle"] = network.pn[f"pore.initial_receding_ca"]
-        network.pn[f"throat.advancing_contact_angle"] = network.pn[f"throat.initial_advancing_ca"]
-        network.pn[f"throat.receding_contact_angle"] = network.pn[f"throat.initial_receding_ca"]
+        network.pn_core["pore.advancing_contact_angle"] = network.pn_core.pore.initial_advancing_ca
+        network.pn_core["pore.receding_contact_angle"] = network.pn_core.pore.initial_receding_ca
+        network.pn_core["throat.advancing_contact_angle"] = network.pn_core.throat.initial_advancing_ca
+        network.pn_core["throat.receding_contact_angle"] = network.pn_core.throat.initial_receding_ca
 
     def update_equilibrium_cas(self, network):
-        network.pn["pore.advancing_contact_angle"][network.pn["pore.oil_filled"]] = network.pn[
-            "pore.equilibrium_advancing_ca"
-        ][network.pn["pore.oil_filled"]]
-        network.pn["pore.receding_contact_angle"][network.pn["pore.oil_filled"]] = network.pn[
-            "pore.equilibrium_receding_ca"
-        ][network.pn["pore.oil_filled"]]
-        network.pn["throat.advancing_contact_angle"][network.pn["throat.oil_filled"]] = network.pn[
-            "throat.equilibrium_advancing_ca"
-        ][network.pn["throat.oil_filled"]]
-        network.pn["throat.receding_contact_angle"][network.pn["throat.oil_filled"]] = network.pn[
-            "throat.equilibrium_receding_ca"
-        ][network.pn["throat.oil_filled"]]
+        network.pn_core.pore.advancing_contact_angle[
+            network.pn_core.pore.oil_filled
+        ] = network.pn_core.pore.equilibrium_advancing_ca[network.pn_core.pore.oil_filled]
+        network.pn_core.pore.receding_contact_angle[
+            network.pn_core.pore.oil_filled
+        ] = network.pn_core.pore.equilibrium_receding_ca[network.pn_core.pore.oil_filled]
+        network.pn_core.throat.advancing_contact_angle[
+            network.pn_core.throat.oil_filled
+        ] = network.pn_core.throat.equilibrium_advancing_ca[network.pn_core.throat.oil_filled]
+        network.pn_core.throat.receding_contact_angle[
+            network.pn_core.throat.oil_filled
+        ] = network.pn_core.throat.equilibrium_receding_ca[network.pn_core.throat.oil_filled]
 
     def __update_cas(self, network, prefix):
         advancing_ca_array, receding_ca_array = self.__generate_cas(
-            prefix, len(network.pn["pore.radius"]), network.pn["pore.radius"]
+            prefix, len(network.pn_core.pore.radius), network.pn_core.pore.radius
         )
-        network.pn[f"pore.{prefix}_advancing_ca"] = advancing_ca_array
-        network.pn[f"pore.{prefix}_receding_ca"] = receding_ca_array
+        network.pn_core[f"pore.{prefix}_advancing_ca"] = advancing_ca_array
+        network.pn_core[f"pore.{prefix}_receding_ca"] = receding_ca_array
 
         advancing_ca_array, receding_ca_array = self.__generate_cas(
-            prefix, len(network.pn["throat.radius"]), network.pn["throat.radius"]
+            prefix, len(network.pn_core.throat.radius), network.pn_core.throat.radius
         )
-        network.pn[f"throat.{prefix}_advancing_ca"] = advancing_ca_array
-        network.pn[f"throat.{prefix}_receding_ca"] = receding_ca_array
+        network.pn_core[f"throat.{prefix}_advancing_ca"] = advancing_ca_array
+        network.pn_core[f"throat.{prefix}_receding_ca"] = receding_ca_array
 
     def __generate_cas(self, prefix, size, radius_array):
         intrinsic_ca_array = self.__generate_intrinsic_cas(prefix, size, radius_array)

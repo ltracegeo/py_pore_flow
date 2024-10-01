@@ -73,8 +73,8 @@ class Network:
         self.pn = network
         self.pn_core = NetworkCore(self.pn)
 
-        number_of_pores = len(self.pn[f"pore.all"])
-        number_of_throats = len(self.pn[f"throat.all"])
+        number_of_pores = len(self.pn_core.pore.all)
+        number_of_throats = len(self.pn_core.throat.all)
 
         self.pore_list = [None] * number_of_pores
         self.throat_list = [None] * number_of_throats
@@ -110,10 +110,10 @@ class Network:
         return self.throat_core_list
 
     def get_inlets_ids(self):
-        return list(np.where(self.pn["pore.inlets"] == True)[0])
+        return list(np.where(self.pn_core.pore.inlets == True)[0])
 
     def get_outlets_ids(self):
-        return list(np.where(self.pn["pore.outlets"] == True)[0])
+        return list(np.where(self.pn_core.pore.outlets == True)[0])
 
     def get_pores_ids(self):
         return list(self.pn.pores())
@@ -128,10 +128,10 @@ class Network:
         return len(self.pn.pores())
 
     def get_neighbor_throats_ids(self, pore_id):
-        return self.pn["pore.conns"][pore_id][: self.pn["pore.n_conns"][pore_id]]
+        return self.pn_core.pore.conns[pore_id][: self.pn_core.pore.n_conns[pore_id]]
 
     def get_neighbor_pores_ids(self, throat_id):
-        return self.pn["throat.conns"][throat_id]
+        return self.pn_core.throat.conns[throat_id]
 
     def get_neighbor_pores(self, throat_id):
         neighbor_pores_list = []
@@ -141,7 +141,7 @@ class Network:
 
     def get_neighbor_throats(self, pore_id):
         neighbor_throats_list = []
-        for throat_id in self.pn["pore.conns"][pore_id][: self.pn["pore.n_conns"][pore_id]]:
+        for throat_id in self.pn_core.pore.conns[pore_id][: self.pn_core.pore.n_conns[pore_id]]:
             neighbor_throats_list.append(self.throat_list[throat_id])
         return neighbor_throats_list
 
@@ -581,6 +581,7 @@ class PoresNetwork(ElementNetwork):
     def __init__(self, pn):
         self.pn = pn
 
+        self.all = pn["pore.all"]
         self.shape_factor = pn["pore.shape_factor"]
         self.radius = pn["pore.radius"]
         self.volume = pn["pore.volume"]
@@ -615,12 +616,15 @@ class PoresNetwork(ElementNetwork):
         self.conns = pn["pore.conns"]
         self.n_conns = pn["pore.n_conns"]
         self.area = pn["pore.area"]
+        self.inlets = pn["pore.inlets"]
+        self.outlets = pn["pore.outlets"]
 
 
 class ThroatsNetwork(ElementNetwork):
     def __init__(self, pn):
         self.pn = pn
 
+        self.all = pn["throat.all"]
         self.shape_factor = pn["throat.shape_factor"]
         self.radius = pn["throat.radius"]
         self.volume = pn["throat.volume"]

@@ -11,11 +11,11 @@ class DrainageSimulation(CycleSimulation):
         super().__init__(network, OIL, calculate_full_conductance)
 
     def get_pores_left(self):
-        return np.logical_not(self.network.pn["pore.oil_filled"] | self.network.pn["pore.trapped"]).sum()
+        return np.logical_not(self.network.pn_core.pore.oil_filled | self.network.pn_core.pore.trapped).sum()
 
     def _get_element_to_fill(self, pc, border_elements):
-        pore_entry_pressure = self.network.pn[f"pore.entry_pressure"]
-        throat_entry_pressure = self.network.pn[f"throat.entry_pressure"]
+        pore_entry_pressure = self.network.pn_core.pore.entry_pressure
+        throat_entry_pressure = self.network.pn_core.throat.entry_pressure
         tuple_list = []
         for id in border_elements.get_pores_ids():
             tuple_list.append((PORE, id, pore_entry_pressure[id]))

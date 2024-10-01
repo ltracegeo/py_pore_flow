@@ -31,7 +31,7 @@ class ImbibitionSimulation(CycleSimulation):
         self.snap_off_pore_list = []
 
     def get_pores_left(self):
-        return np.logical_not(self.network.pn["pore.water_filled"] | self.network.pn["pore.trapped"]).sum()
+        return np.logical_not(self.network.pn_core.pore.water_filled | self.network.pn_core.pore.trapped).sum()
 
     def _update_invasions(self, pc, target_sw=None):
         invaded_pc = super()._update_invasions(pc, target_sw)
@@ -97,20 +97,20 @@ class ImbibitionSimulation(CycleSimulation):
     def __update_snap_offs_pcs(self, pc):
         self.snap_off_throat_list = self.snap_off(
             self.network.pn.throats(),
-            self.network.pn["throat.n_corners"],
-            self.network.pn["throat.conns"],
-            self.network.pn["throat.n_conns"],
-            self.network.pn["throat.water_filled"],
-            self.network.pn["throat.oil_filled"],
-            self.network.pn["throat.shape"],
-            self.network.pn["throat.radius"],
-            self.network.pn["throat.corner_half_angle"],
-            self.network.pn["throat.advancing_contact_angle"],
-            self.network.pn["throat.receding_contact_angle"],
-            self.network.pn["throat.hinging_contact_angle"],
-            self.network.pn["throat.snap_off_viability"],
-            self.network.pn["throat.entry_pressure"],
-            self.network.pn["pore.water_filled"],
+            self.network.pn_core.throat.n_corners,
+            self.network.pn_core.throat.conns,
+            self.network.pn_core.throat.n_conns,
+            self.network.pn_core.throat.water_filled,
+            self.network.pn_core.throat.oil_filled,
+            self.network.pn_core.throat.shape,
+            self.network.pn_core.throat.radius,
+            self.network.pn_core.throat.corner_half_angle,
+            self.network.pn_core.throat.advancing_contact_angle,
+            self.network.pn_core.throat.receding_contact_angle,
+            self.network.pn_core.throat.hinging_contact_angle,
+            self.network.pn_core.throat.snap_off_viability,
+            self.network.pn_core.throat.entry_pressure,
+            self.network.pn_core.pore.water_filled,
             self.Rmin,
             pc,
             self.border_elements,
@@ -119,20 +119,20 @@ class ImbibitionSimulation(CycleSimulation):
 
         self.snap_off_pore_list = self.snap_off(
             self.network.pn.pores(),
-            self.network.pn["pore.n_corners"],
-            self.network.pn["pore.conns"],
-            self.network.pn["pore.n_conns"],
-            self.network.pn["pore.water_filled"],
-            self.network.pn["pore.oil_filled"],
-            self.network.pn["pore.shape"],
-            self.network.pn["pore.radius"],
-            self.network.pn["pore.corner_half_angle"],
-            self.network.pn["pore.advancing_contact_angle"],
-            self.network.pn["pore.receding_contact_angle"],
-            self.network.pn["pore.hinging_contact_angle"],
-            self.network.pn["pore.snap_off_viability"],
-            self.network.pn["pore.entry_pressure"],
-            self.network.pn["throat.water_filled"],
+            self.network.pn_core.pore.n_corners,
+            self.network.pn_core.pore.conns,
+            self.network.pn_core.pore.n_conns,
+            self.network.pn_core.pore.water_filled,
+            self.network.pn_core.pore.oil_filled,
+            self.network.pn_core.pore.shape,
+            self.network.pn_core.pore.radius,
+            self.network.pn_core.pore.corner_half_angle,
+            self.network.pn_core.pore.advancing_contact_angle,
+            self.network.pn_core.pore.receding_contact_angle,
+            self.network.pn_core.pore.hinging_contact_angle,
+            self.network.pn_core.pore.snap_off_viability,
+            self.network.pn_core.pore.entry_pressure,
+            self.network.pn_core.throat.water_filled,
             self.Rmin,
             pc,
             self.border_elements,
@@ -140,30 +140,30 @@ class ImbibitionSimulation(CycleSimulation):
         )
 
     def __update_oil_layers(self, pc):
-        self.network.pn[f"pore.corner_oil_layer"] = calculate_oil_layer_network(
-            self.network.pn[f"pore.corner_oil_layer"],
-            self.network.pn[f"pore.corner_half_angle"],
-            self.network.pn[f"pore.advancing_contact_angle"],
-            self.network.pn[f"pore.b"],
-            self.network.pn[f"pore.n_corners"],
+        self.network.pn_core["pore.corner_oil_layer"] = calculate_oil_layer_network(
+            self.network.pn_core.pore.corner_oil_layer,
+            self.network.pn_core.pore.corner_half_angle,
+            self.network.pn_core.pore.advancing_contact_angle,
+            self.network.pn_core.pore.b,
+            self.network.pn_core.pore.n_corners,
             pc,
         )
 
-        self.network.pn[f"throat.corner_oil_layer"] = calculate_oil_layer_network(
-            self.network.pn[f"throat.corner_oil_layer"],
-            self.network.pn[f"throat.corner_half_angle"],
-            self.network.pn[f"throat.advancing_contact_angle"],
-            self.network.pn[f"throat.b"],
-            self.network.pn[f"throat.n_corners"],
+        self.network.pn_core["throat.corner_oil_layer"] = calculate_oil_layer_network(
+            self.network.pn_core.throat.corner_oil_layer,
+            self.network.pn_core.throat.corner_half_angle,
+            self.network.pn_core.throat.advancing_contact_angle,
+            self.network.pn_core.throat.b,
+            self.network.pn_core.throat.n_corners,
             pc,
         )
 
     def __update_water_layers(self):
-        self.network.pn[f"throat.corner_water_layer"] = check_water_layer_network(
-            self.network.pn[f"throat.corner_oil_layer"], self.network.pn[f"throat.oil_filled"]
+        self.network.pn_core["throat.corner_water_layer"] = check_water_layer_network(
+            self.network.pn_core.throat.corner_oil_layer, self.network.pn_core.throat.oil_filled
         )
-        self.network.pn[f"pore.corner_water_layer"] = check_water_layer_network(
-            self.network.pn[f"pore.corner_oil_layer"], self.network.pn[f"pore.oil_filled"]
+        self.network.pn_core["pore.corner_water_layer"] = check_water_layer_network(
+            self.network.pn_core.pore.corner_oil_layer, self.network.pn_core.pore.oil_filled
         )
 
     def _update_entry_pressures(self, pc):
@@ -202,33 +202,33 @@ class ImbibitionSimulation(CycleSimulation):
 
     def _update_pore_entry_pc(self, pore_id, pc):
         K = self.krel_calculator.get_absolute_permeability()
-        number_of_oil_filled_neighbors = self.network.pn["throat.oil_filled"][
+        number_of_oil_filled_neighbors = self.network.pn_core.throat.oil_filled[
             self.network.get_neighbor_throats_ids(pore_id)
         ].sum()
         element_pc = calculate_imbibition_pc(
-            self.network.pn["pore.shape_factor"][pore_id],
-            self.network.pn["pore.radius"][pore_id],
-            self.network.pn["pore.advancing_contact_angle"][pore_id],
-            self.network.pn["pore.shape"][pore_id],
+            self.network.pn_core.pore.shape_factor[pore_id],
+            self.network.pn_core.pore.radius[pore_id],
+            self.network.pn_core.pore.advancing_contact_angle[pore_id],
+            self.network.pn_core.pore.shape[pore_id],
             pc,
-            self.network.pn["pore.corner_half_angle"][pore_id],
-            self.network.pn["pore.n_corners"][pore_id],
+            self.network.pn_core.pore.corner_half_angle[pore_id],
+            self.network.pn_core.pore.n_corners[pore_id],
             number_of_oil_filled_neighbors,
             K,
         )
-        self.network.pn["pore.entry_pressure"][pore_id] = element_pc
+        self.network.pn_core.pore.entry_pressure[pore_id] = element_pc
 
     def _update_throat_entry_pc(self, throat_id, pc):
         element_pc = calculate_imbibition_piston_like_displacement_pc(
-            self.network.pn["throat.shape_factor"][throat_id],
-            self.network.pn["throat.radius"][throat_id],
-            self.network.pn["throat.advancing_contact_angle"][throat_id],
-            self.network.pn["throat.shape"][throat_id],
+            self.network.pn_core.throat.shape_factor[throat_id],
+            self.network.pn_core.throat.radius[throat_id],
+            self.network.pn_core.throat.advancing_contact_angle[throat_id],
+            self.network.pn_core.throat.shape[throat_id],
             pc,
-            self.network.pn["throat.corner_half_angle"][throat_id],
-            self.network.pn["throat.n_corners"][throat_id],
+            self.network.pn_core.throat.corner_half_angle[throat_id],
+            self.network.pn_core.throat.n_corners[throat_id],
         )
-        self.network.pn["throat.entry_pressure"][throat_id] = element_pc
+        self.network.pn_core.throat.entry_pressure[throat_id] = element_pc
 
     def _get_element_to_fill(self, pc, border_elements):
         self.__clear_snapoff_lists()
@@ -237,11 +237,11 @@ class ImbibitionSimulation(CycleSimulation):
         elements_to_fill = self._jit_pore_throats_element_to_fill(
             pc,
             pore_id_list,
-            self.network.pn[f"pore.entry_pressure"],
-            self.network.pn[f"pore.spontaneous_imbibition"],
+            self.network.pn_core.pore.entry_pressure,
+            self.network.pn_core.pore.spontaneous_imbibition,
             throat_id_list,
-            self.network.pn[f"throat.entry_pressure"],
-            self.network.pn[f"throat.spontaneous_imbibition"],
+            self.network.pn_core.throat.entry_pressure,
+            self.network.pn_core.throat.spontaneous_imbibition,
         )
         return elements_to_fill
 
@@ -280,42 +280,42 @@ class ImbibitionSimulation(CycleSimulation):
 
     def __update_b(self, pc):
         self.network.pn_core["pore.b"] = calculate_imbibition_network_b(
-            self.network.pn["pore.corner_half_angle"],
-            self.network.pn["pore.max_b"],
-            self.network.pn["pore.receding_contact_angle"],
-            self.network.pn["pore.advancing_contact_angle"],
-            self.network.pn["pore.hinging_contact_angle"],
-            self.network.pn["pore.corner_water_layer"],
-            self.network.pn["pore.n_corners"],
+            self.network.pn_core.pore.corner_half_angle,
+            self.network.pn_core.pore.max_b,
+            self.network.pn_core.pore.receding_contact_angle,
+            self.network.pn_core.pore.advancing_contact_angle,
+            self.network.pn_core.pore.hinging_contact_angle,
+            self.network.pn_core.pore.corner_water_layer,
+            self.network.pn_core.pore.n_corners,
             pc,
             self.Rmin,
         )
         self.network.pn_core["throat.b"] = calculate_imbibition_network_b(
-            self.network.pn["throat.corner_half_angle"],
-            self.network.pn["throat.max_b"],
-            self.network.pn["throat.receding_contact_angle"],
-            self.network.pn["throat.advancing_contact_angle"],
-            self.network.pn["throat.hinging_contact_angle"],
-            self.network.pn["throat.corner_water_layer"],
-            self.network.pn["throat.n_corners"],
+            self.network.pn_core.throat.corner_half_angle,
+            self.network.pn_core.throat.max_b,
+            self.network.pn_core.throat.receding_contact_angle,
+            self.network.pn_core.throat.advancing_contact_angle,
+            self.network.pn_core.throat.hinging_contact_angle,
+            self.network.pn_core.throat.corner_water_layer,
+            self.network.pn_core.throat.n_corners,
             pc,
             self.Rmin,
         )
 
         self.network.pn_core["pore.bo"] = calculate_imbibition_network_bo(
-            self.network.pn["pore.corner_half_angle"],
-            self.network.pn["pore.max_b"],
-            self.network.pn["pore.advancing_contact_angle"],
-            self.network.pn["pore.corner_oil_layer"],
-            self.network.pn["pore.n_corners"],
+            self.network.pn_core.pore.corner_half_angle,
+            self.network.pn_core.pore.max_b,
+            self.network.pn_core.pore.advancing_contact_angle,
+            self.network.pn_core.pore.corner_oil_layer,
+            self.network.pn_core.pore.n_corners,
             pc,
         )
         self.network.pn_core["throat.bo"] = calculate_imbibition_network_bo(
-            self.network.pn["throat.corner_half_angle"],
-            self.network.pn["throat.max_b"],
-            self.network.pn["throat.advancing_contact_angle"],
-            self.network.pn["throat.corner_oil_layer"],
-            self.network.pn["throat.n_corners"],
+            self.network.pn_core.throat.corner_half_angle,
+            self.network.pn_core.throat.max_b,
+            self.network.pn_core.throat.advancing_contact_angle,
+            self.network.pn_core.throat.corner_oil_layer,
+            self.network.pn_core.throat.n_corners,
             pc,
         )
 
@@ -334,30 +334,35 @@ class ImbibitionSimulation(CycleSimulation):
         super()._update_network_geometry(pc)
 
     def __update_element_b(self, type_name, id, pc):
-        self.network.pn[f"{type_name}.b"][id] = calculate_imbibition_element_b(
-            self.network.pn[f"{type_name}.corner_half_angle"][id],
-            self.network.pn[f"{type_name}.max_b"][id],
-            self.network.pn[f"{type_name}.receding_contact_angle"][id],
-            self.network.pn[f"{type_name}.advancing_contact_angle"][id],
-            self.network.pn[f"{type_name}.hinging_contact_angle"][id],
-            self.network.pn[f"{type_name}.corner_water_layer"][id],
-            self.network.pn[f"{type_name}.n_corners"][id],
+        if type_name == "pore":
+            element = self.network.pn_core.pore
+        else:
+            element = self.network.pn_core.throat
+
+        element.b[id] = calculate_imbibition_element_b(
+            element.corner_half_angle[id],
+            element.max_b[id],
+            element.receding_contact_angle[id],
+            element.advancing_contact_angle[id],
+            element.hinging_contact_angle[id],
+            element.corner_water_layer[id],
+            element.n_corners[id],
             pc,
             self.Rmin,
         )
-        self.network.pn[f"{type_name}.bo"][id] = calculate_imbibition_element_bo(
-            self.network.pn[f"{type_name}.corner_half_angle"][id],
-            self.network.pn[f"{type_name}.max_b"][id],
-            self.network.pn[f"{type_name}.advancing_contact_angle"][id],
-            self.network.pn[f"{type_name}.corner_oil_layer"][id],
-            self.network.pn[f"{type_name}.n_corners"][id],
+        element.bo[id] = calculate_imbibition_element_bo(
+            element.corner_half_angle[id],
+            element.max_b[id],
+            element.advancing_contact_angle[id],
+            element.corner_oil_layer[id],
+            element.n_corners[id],
             pc,
         )
 
     def __clear_snapoff_lists(self):
         self.snap_off_pore_list = np.delete(
-            self.snap_off_pore_list, self.network.pn["pore.water_filled"][self.snap_off_pore_list]
+            self.snap_off_pore_list, self.network.pn_core.pore.water_filled[self.snap_off_pore_list]
         )
         self.snap_off_throat_list = np.delete(
-            self.snap_off_throat_list, self.network.pn["throat.water_filled"][self.snap_off_throat_list]
+            self.snap_off_throat_list, self.network.pn_core.throat.water_filled[self.snap_off_throat_list]
         )
