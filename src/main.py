@@ -1,3 +1,4 @@
+import cProfile
 import datetime
 import json
 from pathlib import Path
@@ -17,7 +18,16 @@ def print_props():
     print(pn.props())
 
 
-def run(directory_path, parameters={}, manual=False, generate_vtu=False, debug=False):
+def run(sample_directory, manual, generate_vtu, debug, enable_profiling):
+    if enable_profiling:
+        prof = cProfile.Profile()
+        prof.run(f'run_simulation("{sample_directory}", {{}}, {manual}, {generate_vtu}, {debug}, False)')
+        prof.dump_stats("output.prof")
+    else:
+        run_simulation(sample_directory, {}, manual, generate_vtu, debug)
+
+
+def run_simulation(directory_path, parameters={}, manual=False, generate_vtu=False, debug=False, show_final_plot=True):
     network_name = ""
     my_path = Path(directory_path)
     pattern = re.compile("(\S+)_node1.dat")
@@ -38,7 +48,7 @@ def run(directory_path, parameters={}, manual=False, generate_vtu=False, debug=F
     if manual:
         manual_simulation(pn, parameters)
     else:
-        automatic_simulation(pn, parameters, generate_vtu, debug)
+        automatic_simulation(pn, parameters, generate_vtu, debug, show_final_plot)
 
 
 def manual_simulation(pn, parameters):
@@ -49,7 +59,7 @@ def manual_simulation(pn, parameters):
     app.exec_()
 
 
-def automatic_simulation(pn, parameters={}, generate_vtu=False, debug=False):
+def automatic_simulation(pn, parameters={}, generate_vtu=False, debug=False, show_final_plot=True):
     start = time.time()
 
     ppf.log.configure(output=ppf.log.STDOUT, level=ppf.log.DEBUG if debug else ppf.log.INFO)
@@ -60,7 +70,8 @@ def automatic_simulation(pn, parameters={}, generate_vtu=False, debug=False):
 
     print(f"Time elapsed: {time_elapsed}")
 
-    plot_krel(cycle, Sw, Krw, Kro)
+    if show_final_plot:
+        plot_krel(cycle, Sw, Krw, Kro)
 
 
 if __name__ == "__main__":
@@ -68,5 +79,6 @@ if __name__ == "__main__":
     manual = False
     generate_vtu = False
     debug = False
+    enable_profiling = False
 
-    run(sample_directory, {}, manual, generate_vtu, debug)
+    run(sample_directory, manual, generate_vtu, debug, enable_profiling)
