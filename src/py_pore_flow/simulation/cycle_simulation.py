@@ -311,43 +311,12 @@ class FlowRateCalculator:
             f"throat.{phase_name}_singlephase_conductance"
         ]
 
-        if phase == WATER:
-            phase = openpnm.phase.Water(network=self.network.pn)
-        else:
-            phase = openpnm.phase.Air(network=self.network.pn)
-        # water.add_model_collection(openpnm.models.collections.physics.standard)
-        stokes_flow = openpnm.algorithms.StokesFlow(network=self.network.pn, phase=phase)
-
-        stokes_flow.set_value_BC(
-            pores=self.network.get_inlets_ids(), values=101325, mode="overwrite"
-        )  # pressure in pa: 101325 pa = 1 atm
-        stokes_flow.set_value_BC(pores=self.network.get_outlets_ids(), values=0, mode="overwrite")
-        stokes_flow.run()
-        inlet_flow = stokes_flow.rate(pores=self.network.get_inlets_ids())
-        outlet_flow = stokes_flow.rate(pores=self.network.get_outlets_ids())
-        flow_rate = (inlet_flow[0] - outlet_flow[0]) / 2
-        return flow_rate
+        return self.__solve_flow_rate(phase)
 
     def calculate_total_flow_rate(self, phase, update_hydraulic_conductance=True):
         if update_hydraulic_conductance:
             self.update_hydraulic_conductance(phase)
-
-        if phase == WATER:
-            phase = openpnm.phase.Water(network=self.network.pn)
-        else:
-            phase = openpnm.phase.Air(network=self.network.pn)
-        # water.add_model_collection(openpnm.models.collections.physics.standard)
-        stokes_flow = openpnm.algorithms.StokesFlow(network=self.network.pn, phase=phase)
-
-        stokes_flow.set_value_BC(
-            pores=self.network.get_inlets_ids(), values=101325, mode="overwrite"
-        )  # pressure in pa: 101325 pa = 1 atm
-        stokes_flow.set_value_BC(pores=self.network.get_outlets_ids(), values=0, mode="overwrite")
-        stokes_flow.run()
-        inlet_flow = stokes_flow.rate(pores=self.network.get_inlets_ids())
-        outlet_flow = stokes_flow.rate(pores=self.network.get_outlets_ids())
-        flow_rate = (inlet_flow[0] - outlet_flow[0]) / 2
-        return flow_rate
+        return self.__solve_flow_rate(phase)
 
     def update_hydraulic_conductance(self, phase):
         if phase == WATER:
@@ -368,6 +337,24 @@ class FlowRateCalculator:
         self.network.pn_core["throat.hydraulic_conductance"] = self.network.pn[
             f"throat.{phase_name}_multiphase_conductance"
         ]
+
+    def __solve_flow_rate(self, phase):
+        if phase == WATER:
+            phase = openpnm.phase.Water(network=self.network.pn)
+        else:
+            phase = openpnm.phase.Air(network=self.network.pn)
+        # water.add_model_collection(openpnm.models.collections.physics.standard)
+        stokes_flow = openpnm.algorithms.StokesFlow(network=self.network.pn, phase=phase)
+
+        stokes_flow.set_value_BC(
+            pores=self.network.get_inlets_ids(), values=101325, mode="overwrite"
+        )  # pressure in pa: 101325 pa = 1 atm
+        stokes_flow.set_value_BC(pores=self.network.get_outlets_ids(), values=0, mode="overwrite")
+        stokes_flow.run()
+        inlet_flow = stokes_flow.rate(pores=self.network.get_inlets_ids())
+        outlet_flow = stokes_flow.rate(pores=self.network.get_outlets_ids())
+        flow_rate = (inlet_flow[0] - outlet_flow[0]) / 2
+        return flow_rate
 
 
 class KrelCalculator:
