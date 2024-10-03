@@ -39,7 +39,7 @@ class ImbibitionSimulation(CycleSimulation):
 
     @staticmethod
     @nb.njit
-    def snap_off(
+    def __snap_off(
         element_id_list,
         element_n_corners,
         element_conns,
@@ -54,6 +54,7 @@ class ImbibitionSimulation(CycleSimulation):
         element_theta_h,
         element_snap_off_viability,
         element_snap_off_pc,
+        element_trapped,
         neighbor_water_filled,
         Rmin,
         pc,
@@ -66,6 +67,7 @@ class ImbibitionSimulation(CycleSimulation):
                 element_snap_off_viability[element_id]
                 and not element_water_filled[element_id]
                 and element_shape[element_id] != CIRCLE
+                and not element_trapped[element_id]
             ):
                 if False:  # Which has best performance?
                     if is_throats:
@@ -95,7 +97,7 @@ class ImbibitionSimulation(CycleSimulation):
         return np.array(snap_off_elements, dtype=np.int64)
 
     def __update_snap_offs_pcs(self, pc):
-        self.snap_off_throat_list = self.snap_off(
+        self.snap_off_throat_list = self.__snap_off(
             self.network.pn.throats(),
             self.network.pn_core.throat.n_corners,
             self.network.pn_core.throat.conns,
@@ -110,6 +112,7 @@ class ImbibitionSimulation(CycleSimulation):
             self.network.pn_core.throat.hinging_contact_angle,
             self.network.pn_core.throat.snap_off_viability,
             self.network.pn_core.throat.entry_pressure,
+            self.network.pn_core.throat.trapped,
             self.network.pn_core.pore.water_filled,
             self.Rmin,
             pc,
@@ -117,7 +120,7 @@ class ImbibitionSimulation(CycleSimulation):
             is_throats=True,
         )
 
-        self.snap_off_pore_list = self.snap_off(
+        self.snap_off_pore_list = self.__snap_off(
             self.network.pn.pores(),
             self.network.pn_core.pore.n_corners,
             self.network.pn_core.pore.conns,
@@ -132,6 +135,7 @@ class ImbibitionSimulation(CycleSimulation):
             self.network.pn_core.pore.hinging_contact_angle,
             self.network.pn_core.pore.snap_off_viability,
             self.network.pn_core.pore.entry_pressure,
+            self.network.pn_core.pore.trapped,
             self.network.pn_core.throat.water_filled,
             self.Rmin,
             pc,
@@ -342,8 +346,12 @@ class ImbibitionSimulation(CycleSimulation):
 
     def __clear_snapoff_lists(self):
         self.snap_off_pore_list = np.delete(
-            self.snap_off_pore_list, self.network.pn_core.pore.water_filled[self.snap_off_pore_list]
+            self.snap_off_pore_list,
+            self.network.pn_core.pore.water_filled[self.snap_off_pore_list]
+            | self.network.pn_core.pore.trapped[self.snap_off_pore_list],
         )
         self.snap_off_throat_list = np.delete(
-            self.snap_off_throat_list, self.network.pn_core.throat.water_filled[self.snap_off_throat_list]
+            self.snap_off_throat_list,
+            self.network.pn_core.throat.water_filled[self.snap_off_throat_list]
+            | self.network.pn_core.throat.trapped[self.snap_off_throat_list],
         )
