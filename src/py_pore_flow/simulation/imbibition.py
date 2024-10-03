@@ -219,7 +219,12 @@ class ImbibitionSimulation(CycleSimulation):
             self.network.pn_core.throat.entry_pressure,
             self.network.pn_core.throat.spontaneous_imbibition,
         )
-        return elements_to_fill
+
+        if len(elements_to_fill) > 0:
+            element_to_fill = elements_to_fill[0]
+            return (element_to_fill[0], element_to_fill[1], min(element_to_fill[2], pc))
+        else:
+            return None
 
     @staticmethod
     @nb.njit

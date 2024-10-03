@@ -833,21 +833,19 @@ class CycleSimulation:
 
         invasion_pc = pc
         while True:
-            element_to_fill_list = self._get_element_to_fill(pc, self.border_elements)
-            if len(element_to_fill_list) == 0:
+            element_to_fill = self._get_element_to_fill(pc, self.border_elements)
+            if element_to_fill is None:
                 break
-            else:
-                element_to_fill = element_to_fill_list[0]
 
-            invasion_pc = element_to_fill[2]
+            element_type, element_id, invasion_pc = element_to_fill
 
             if (target_sw is not None and increased_sw >= target_sw) or not self._can_be_filled(pc, invasion_pc):
                 break
 
-            if element_to_fill[0] == PORE:
-                element = self.network.get_pore(element_to_fill[1])
+            if element_type == PORE:
+                element = self.network.get_pore(element_id)
             else:
-                element = self.network.get_throat(element_to_fill[1])
+                element = self.network.get_throat(element_id)
 
             log.debug(
                 f"Invasion {element.type_name:6} ID: {element.id:6} Pc: {element.pc:.5f} Radius: {element.r:.2e} G: {element.G:.4f} n_corners: {element.n_corners} area: {element.A}"
