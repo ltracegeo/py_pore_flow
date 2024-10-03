@@ -852,8 +852,9 @@ class CycleSimulation:
 
             self.__fill_element(element, invasion_pc)
             increased_sw += self._update_element_filled_geometry(invasion_pc, element)
-            self.trap_checker.update_trapped_pores()
-            self.__remove_trapped_from_border()
+            if (self.phase == OIL and element.So == 1.0) or (self.phase == WATER and element.Sw == 1.0):
+                self.trap_checker.update_trapped_pores()
+                self.__remove_trapped_from_border()
 
         return increased_sw, invasion_pc
 
