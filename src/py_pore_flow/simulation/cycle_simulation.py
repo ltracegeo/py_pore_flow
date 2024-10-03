@@ -566,15 +566,16 @@ class SaturationCalculator:
             self.__update_imbibition_saturations()
 
     def update_element_saturations(self, type_name, id, pc):
+        if type_name == "pore":
+            element_data = self.network.pn_core.pore
+        else:
+            element_data = self.network.pn_core.throat
+
         if self.phase == OIL:
             self.__update_drainage_element_saturations(type_name, id, pc)
         else:
             self.__update_imbibition_element_saturations(type_name, id)
-        return (
-            self.network.pn[f"{type_name}.water_saturation"][id]
-            * self.network.pn[f"{type_name}.volume"][id]
-            / self.total_volume
-        )
+        return element_data.water_saturation[id] * element_data.volume[id] / self.total_volume
 
     def __update_drainage_saturations(self, pc):
         (
@@ -630,40 +631,38 @@ class SaturationCalculator:
 
     def __update_drainage_element_saturations(self, type_name, id, pc):
         if type_name == "pore":
+            element_data = self.network.pn_core.pore
             area = self.network.pn_core.pore.area[id]
         else:
+            element_data = self.network.pn_core.throat
             area = self.network.pn_core.throat.cross_sectional_area[id]
 
-        (
-            self.network.pn[f"{type_name}.water_saturation"][id],
-            self.network.pn[f"{type_name}.oil_saturation"][id],
-        ) = calculate_drainage_element_saturation(
-            self.network.pn[f"{type_name}.shape"][id],
-            self.network.pn[f"{type_name}.C_r"][id],
+        (element_data.water_saturation[id], element_data.oil_saturation[id],) = calculate_drainage_element_saturation(
+            element_data.shape[id],
+            element_data.C_r[id],
             pc,
             area,
-            self.network.pn[f"{type_name}.oil_filled"][id],
+            element_data.oil_filled[id],
         )
 
     def __update_imbibition_element_saturations(self, type_name, id):
         if type_name == "pore":
+            element_data = self.network.pn_core.pore
             area = self.network.pn_core.pore.area[id]
         else:
+            element_data = self.network.pn_core.throat
             area = self.network.pn_core.throat.cross_sectional_area[id]
 
-        (
-            self.network.pn[f"{type_name}.water_saturation"][id],
-            self.network.pn[f"{type_name}.oil_saturation"][id],
-        ) = calculate_imbibition_element_saturation(
+        (element_data.water_saturation[id], element_data.oil_saturation[id],) = calculate_imbibition_element_saturation(
             area,
-            self.network.pn[f"{type_name}.oil_filled"][id],
-            self.network.pn[f"{type_name}.advancing_contact_angle"][id],
-            self.network.pn[f"{type_name}.hinging_contact_angle"][id],
-            self.network.pn[f"{type_name}.corner_half_angle"][id],
-            self.network.pn[f"{type_name}.b"][id],
-            self.network.pn[f"{type_name}.bo"][id],
-            self.network.pn[f"{type_name}.n_corners"][id],
-            self.network.pn[f"{type_name}.corner_oil_layer"][id],
+            element_data.oil_filled[id],
+            element_data.advancing_contact_angle[id],
+            element_data.hinging_contact_angle[id],
+            element_data.corner_half_angle[id],
+            element_data.b[id],
+            element_data.bo[id],
+            element_data.n_corners[id],
+            element_data.corner_oil_layer[id],
         )
 
     def calculate_sw_total(self):
@@ -902,13 +901,17 @@ class CycleSimulation:
         )
 
     def __update_element_hinging_contact_angles(self, type_name, id, pc):
-        self.network.pn[f"{type_name}.hinging_contact_angle"][id] = calculate_hinging_contact_angle(
+        if type_name == "pore":
+            element_data = self.network.pn_core.pore
+        else:
+            element_data = self.network.pn_core.throat
+        element_data.hinging_contact_angle[id] = calculate_hinging_contact_angle(
             pc,
-            self.network.pn[f"{type_name}.corner_half_angle"][id],
-            self.network.pn[f"{type_name}.b"][id],
-            self.network.pn[f"{type_name}.n_corners"][id],
-            self.network.pn[f"{type_name}.receding_contact_angle"][id],
-            self.network.pn[f"{type_name}.advancing_contact_angle"][id],
+            element_data.corner_half_angle[id],
+            element_data.b[id],
+            element_data.n_corners[id],
+            element_data.receding_contact_angle[id],
+            element_data.advancing_contact_angle[id],
         )
 
     def __find_initial_border_elements(self, border_elements, phase):
