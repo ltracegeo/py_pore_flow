@@ -875,7 +875,7 @@ class CycleSimulation:
 
         neighbor_list = self.network.get_neighbors(element)
         for neighbor in neighbor_list:
-            if not neighbor.is_filled(self.phase):
+            if not neighbor.is_filled(self.phase) and not neighbor.trapped:
                 if neighbor.is_pore():
                     self.border_elements.add_pore(neighbor.get_id())
                 else:
