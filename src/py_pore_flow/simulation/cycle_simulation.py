@@ -757,6 +757,7 @@ class CycleSimulation:
         self.__find_initial_border_elements(self.border_elements, phase)
 
         self.trap_checker = TrapChecker(network, self.phase)
+        self.trap_checker.update_trapped_pores()
 
         self.saturation_calculator = SaturationCalculator(network, phase)
 
