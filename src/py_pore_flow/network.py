@@ -45,6 +45,7 @@ def initialize_pn(pn):
         pn[f"{element_type}.spontaneous_imbibition"] = True
         pn[f"{element_type}.snap_off_viability"] = True
         pn[f"{element_type}.entry_pressure"] = 0.0
+        pn[f"{element_type}.id"] = list(range(len(pn[f"{element_type}.all"])))
 
     pn["throat.hydraulic_conductance"] = 0.0
 
