@@ -45,6 +45,12 @@ def initialize_pn(pn):
         pn[f"{element_type}.spontaneous_imbibition"] = True
         pn[f"{element_type}.snap_off_viability"] = True
         pn[f"{element_type}.entry_pressure"] = 0.0
+        pn[f"{element_type}.initial_advancing_ca"] = 0.0
+        pn[f"{element_type}.initial_receding_ca"] = 0.0
+        pn[f"{element_type}.equilibrium_advancing_ca"] = 0.0
+        pn[f"{element_type}.equilibrium_receding_ca"] = 0.0
+        pn[f"{element_type}.second_advancing_ca"] = 0.0
+        pn[f"{element_type}.second_receding_ca"] = 0.0
         pn[f"{element_type}.id"] = list(range(len(pn[f"{element_type}.all"])))
 
     pn["throat.hydraulic_conductance"] = 0.0
@@ -484,6 +490,12 @@ class PoresNetwork(ElementNetwork):
         self.area = pn["pore.area"]
         self.inlets = pn["pore.inlets"]
         self.outlets = pn["pore.outlets"]
+        self.initial_advancing_ca = pn["pore.initial_advancing_ca"]
+        self.initial_receding_ca = pn["pore.initial_receding_ca"]
+        self.equilibrium_advancing_ca = pn["pore.equilibrium_advancing_ca"]
+        self.equilibrium_receding_ca = pn["pore.equilibrium_receding_ca"]
+        self.second_advancing_ca = pn["pore.second_advancing_ca"]
+        self.second_receding_ca = pn["pore.second_receding_ca"]
 
 
 class ThroatsNetwork(ElementNetwork):
@@ -527,6 +539,12 @@ class ThroatsNetwork(ElementNetwork):
         self.cross_sectional_area = pn["throat.cross_sectional_area"]
         self.length = pn["throat.length"]
         self.hydraulic_conductance = pn["throat.hydraulic_conductance"]
+        self.initial_advancing_ca = pn["throat.initial_advancing_ca"]
+        self.initial_receding_ca = pn["throat.initial_receding_ca"]
+        self.equilibrium_advancing_ca = pn["throat.equilibrium_advancing_ca"]
+        self.equilibrium_receding_ca = pn["throat.equilibrium_receding_ca"]
+        self.second_advancing_ca = pn["throat.second_advancing_ca"]
+        self.second_receding_ca = pn["throat.second_receding_ca"]
 
 
 class NetworkCore:
