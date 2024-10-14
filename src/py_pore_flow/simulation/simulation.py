@@ -158,8 +158,11 @@ def calculate_drainage_values(network, max_pc):
     conductance_calculator = ConductanceCalculator(network)
     oil_singlephase_conductance = conductance_calculator.calculate_singlephase_conductance(OIL)
     water_singlephase_conductance = conductance_calculator.calculate_singlephase_conductance(WATER)
-    network.pn["throat.oil_singlephase_conductance"] = oil_singlephase_conductance
-    network.pn["throat.water_singlephase_conductance"] = water_singlephase_conductance
+    network.pn_core["throat.oil_singlephase_conductance"] = oil_singlephase_conductance
+    network.pn_core["throat.water_singlephase_conductance"] = water_singlephase_conductance
+
+    network.pn_core["pore.trapped"] = False
+    network.pn_core["throat.trapped"] = False
 
     return network
 
@@ -174,8 +177,11 @@ def calculate_imbibition_values(network, max_pc):
     conductance_calculator = ConductanceCalculator(network)
     oil_singlephase_conductance = conductance_calculator.calculate_singlephase_conductance(OIL)
     water_singlephase_conductance = conductance_calculator.calculate_singlephase_conductance(WATER)
-    network.pn["throat.oil_singlephase_conductance"] = oil_singlephase_conductance
-    network.pn["throat.water_singlephase_conductance"] = water_singlephase_conductance
+    network.pn_core["throat.oil_singlephase_conductance"] = oil_singlephase_conductance
+    network.pn_core["throat.water_singlephase_conductance"] = water_singlephase_conductance
+
+    network.pn_core["pore.trapped"] = False
+    network.pn_core["throat.trapped"] = False
 
     return network
 
