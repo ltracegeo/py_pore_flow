@@ -75,7 +75,7 @@ def automatic_simulation(pn, parameters={}, generate_vtu=False, debug=False, sho
 
 
 if __name__ == "__main__":
-    sample_directory = "tests/resources/a"
+    sample_directory = Path(__file__).parent.resolve() / "../tests/resources/image2"
     manual = False
     generate_vtu = False
     debug = False

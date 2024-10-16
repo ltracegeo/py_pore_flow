@@ -387,6 +387,22 @@ class FlowRateCalculator:
         network_manager.generate_sparse_system()
         a_sparse_array, b_array = network_manager.get_sparse_system()
 
+        #print(self.network.pn["throat.conns"].astype(np.int32),"\n",
+        #self.network.pn["throat.hydraulic_conductance"].astype(np.float64),"\n",
+        #self.network.pn["pore.inlets"],"\n",
+        #self.network.pn["pore.outlets"],"\n",
+        #)
+
+        #print(conn,"\n",
+        #    cond,"\n",
+        #    inlets,"\n",
+        #    outlets,"\n",
+        #)
+        #print(a_sparse_array["val"],"\n",
+        #        a_sparse_array["col_idx"],"\n",
+        #        np.append(a_sparse_array["row_ptr"], a_sparse_array["val"].size),
+        #        )
+
         A_csr = csr_matrix(
             (
                 a_sparse_array["val"],
