@@ -61,7 +61,7 @@ def run_two_phase_simulation(pn, parameters_dict={}, generate_vtu=False):
 class Simulation:
     def __init__(self, pn, parameters_dict={}, generate_vtu=False):
         self.pn = pn
-        self.step_simulation = MultiStepSimulation(self.pn, parameters_dict, generate_cas=True, calculate_full_conductance=False)
+        self.step_simulation = MultiStepSimulation(self.pn, parameters_dict, generate_cas=True, calculate_full_conductance=True)
         self.parameter_manager = self.step_simulation.get_parameter_manager()
 
         self.generate_vtu = generate_vtu
