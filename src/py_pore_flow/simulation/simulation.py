@@ -61,7 +61,9 @@ def run_two_phase_simulation(pn, parameters_dict={}, generate_vtu=False):
 class Simulation:
     def __init__(self, pn, parameters_dict={}, generate_vtu=False):
         self.pn = pn
-        self.step_simulation = MultiStepSimulation(self.pn, parameters_dict, generate_cas=True, calculate_full_conductance=True)
+        self.step_simulation = MultiStepSimulation(
+            self.pn, parameters_dict, generate_cas=True, calculate_full_conductance=True
+        )
         self.parameter_manager = self.step_simulation.get_parameter_manager()
 
         self.generate_vtu = generate_vtu
@@ -286,12 +288,20 @@ class StepSimulation:
         Sw = self.simulation.calculate_sw_total()
         Krw, Kro = self.simulation.calculate_krel()
         pn = self.network.pn_core
-        if (pn.throat.water_multiphase_conductance > pn.throat.water_singlephase_conductance).any():
-            count = (pn.throat.water_multiphase_conductance > pn.throat.water_singlephase_conductance).sum()
-            log.error(f"irregular water conductance - number of affected throats: {count}")
-        if (pn.throat.oil_multiphase_conductance > pn.throat.oil_singlephase_conductance).any():
-            count = (pn.throat.oil_multiphase_conductance > pn.throat.oil_singlephase_conductance).sum()
-            log.error(f"irregular oil conductance - number of affected throats: {count}")
+
+        diff = pn.throat.water_multiphase_conductance - pn.throat.water_singlephase_conductance
+        percentage = diff / pn.throat.water_singlephase_conductance
+        ids = np.where(percentage > 1e-15)[0]
+        count = len(ids)
+        if count > 0:
+            log.error(f"irregular water conductance - number of affected throats: {count} - {percentage[ids]}")
+
+        diff = pn.throat.oil_multiphase_conductance - pn.throat.oil_singlephase_conductance
+        percentage = diff / pn.throat.oil_singlephase_conductance
+        ids = np.where(percentage > 1e-15)[0]
+        count = len(ids)
+        if count > 0:
+            log.error(f"irregular oil conductance - number of affected throats: {count} - {percentage[ids]}")
 
         pores_filled, total_pores, percentage = self.simulation.get_oil_filled_percentage()
 
