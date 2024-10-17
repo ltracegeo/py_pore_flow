@@ -573,9 +573,10 @@ class SaturationCalculator:
 
         if self.phase == OIL:
             self.__update_drainage_element_saturations(type_name, id, pc)
+            return element_data.oil_saturation[id] * element_data.volume[id] / self.total_volume
         else:
             self.__update_imbibition_element_saturations(type_name, id)
-        return element_data.water_saturation[id] * element_data.volume[id] / self.total_volume
+            return element_data.water_saturation[id] * element_data.volume[id] / self.total_volume
 
     def __update_drainage_saturations(self, pc):
         (
@@ -765,24 +766,24 @@ class CycleSimulation:
 
     def update_pc(self, pc, target_sw=None):
         invasion_pc = pc
-        total_increased_sw = 0.0
+        total_sw_delta = 0.0
         while True:
             if target_sw is not None:
-                invasion_target_sw = target_sw - total_increased_sw
+                invasion_target_sw = target_sw - total_sw_delta
             else:
                 invasion_target_sw = None
             invaded_pc = invasion_pc
-            increased_sw, invasion_pc = self._update_invasions(invasion_pc, invasion_target_sw)
+            sw_delta, invasion_pc = self._update_invasions(invasion_pc, invasion_target_sw)
             self._update_network_geometry(invaded_pc)
             if target_sw is None:
                 break
-            elif increased_sw == 0.0:
+            elif sw_delta == 0.0:
                 break
             else:
-                total_increased_sw += increased_sw
-                if total_increased_sw >= target_sw:
+                total_sw_delta += sw_delta
+                if total_sw_delta >= target_sw:
                     break
-        return total_increased_sw, invaded_pc, invasion_pc
+        return total_sw_delta, invaded_pc, invasion_pc
 
     def calculate_sw_total(self):
         return self.saturation_calculator.calculate_sw_total()
@@ -827,7 +828,7 @@ class CycleSimulation:
             self._update_pore_entry_pc(pore_id, pc)
 
     def _update_invasions(self, pc, target_sw=None):
-        increased_sw = 0.0
+        sw_delta = 0.0
 
         self._update_entry_pressures(pc)
 
@@ -839,7 +840,7 @@ class CycleSimulation:
 
             element_type, element_id, invasion_pc = element_to_fill
 
-            if (target_sw is not None and increased_sw >= target_sw) or not self._can_be_filled(pc, invasion_pc):
+            if (target_sw is not None and sw_delta >= target_sw) or not self._can_be_filled(pc, invasion_pc):
                 break
 
             if element_type == PORE:
@@ -852,12 +853,12 @@ class CycleSimulation:
             )
 
             self.__fill_element(element, invasion_pc)
-            increased_sw += self._update_element_filled_geometry(invasion_pc, element)
+            sw_delta += self._update_element_filled_geometry(invasion_pc, element)
             if (self.phase == OIL and element.So == 1.0) or (self.phase == WATER and element.Sw == 1.0):
                 self.trap_checker.update_trapped_pores()
                 self.__remove_trapped_from_border()
 
-        return increased_sw, invasion_pc
+        return sw_delta, invasion_pc
 
     def __remove_trapped_from_border(self):
         throat_id_list = self.border_elements.get_throats_ids()
