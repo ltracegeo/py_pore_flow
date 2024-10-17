@@ -337,7 +337,9 @@ class FlowRateCalculator:
             phase, multiphase_throat_id_list
         )
 
-        self.network.pn_core[f"throat.{phase_name}_multiphase_conductance"] = multiphase_conductance
+        self.network.pn_core[f"throat.{phase_name}_multiphase_conductance"] = np.clip(
+            multiphase_conductance, 0, self.network.pn[f"throat.{phase_name}_singlephase_conductance"]
+        )
         self.network.pn_core["throat.hydraulic_conductance"] = self.network.pn[
             f"throat.{phase_name}_multiphase_conductance"
         ]
