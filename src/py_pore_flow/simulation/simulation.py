@@ -352,13 +352,13 @@ class MultiStepSimulation(StepSimulation):
         return current_pc
 
     def __step_by_sw(self, pc):
-        total_increased_sw = 0.0
+        total_sw_delta = 0.0
         next_pc = pc
         while True:
-            increased_sw, current_pc, next_pc = self.simulation.update_pc(next_pc, self.sw_step)
+            sw_delta, current_pc, next_pc = self.simulation.update_pc(next_pc, self.sw_step)
             self.max_pc = max(self.max_pc, current_pc)
-            total_increased_sw += increased_sw
-            if total_increased_sw >= self.sw_step or self.cycle_should_end():
+            total_sw_delta += sw_delta
+            if total_sw_delta >= self.sw_step or self.cycle_should_end():
                 break
             if current_pc == next_pc:
                 self.pc_incrementer.set_pc(current_pc)
