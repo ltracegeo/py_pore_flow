@@ -289,20 +289,6 @@ class StepSimulation:
         Krw, Kro = self.simulation.calculate_krel()
         pn = self.network.pn_core
 
-        diff = pn.throat.water_multiphase_conductance - pn.throat.water_singlephase_conductance
-        percentage = diff / pn.throat.water_singlephase_conductance
-        ids = np.where(percentage > 1e-15)[0]
-        count = len(ids)
-        if count > 0:
-            log.error(f"irregular water conductance - number of affected throats: {count} - {percentage[ids]}")
-
-        diff = pn.throat.oil_multiphase_conductance - pn.throat.oil_singlephase_conductance
-        percentage = diff / pn.throat.oil_singlephase_conductance
-        ids = np.where(percentage > 1e-15)[0]
-        count = len(ids)
-        if count > 0:
-            log.error(f"irregular oil conductance - number of affected throats: {count} - {percentage[ids]}")
-
         pores_filled, total_pores, percentage = self.simulation.get_oil_filled_percentage()
 
         return current_pc, Sw, Krw, Kro, pores_filled, total_pores, percentage
