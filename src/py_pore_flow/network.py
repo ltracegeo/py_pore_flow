@@ -263,6 +263,14 @@ class PnElement:
     def pc(self):
         return self.element.entry_pressure[self.id]
 
+    @property
+    def sides(self):
+        return self.element.sides[self.id]
+
+    @sides.setter
+    def sides(self, value):
+        self.element.sides[self.id] = value
+
     @G.setter
     def G(self, value):
         self.element.shape_factor[self.id] = value
