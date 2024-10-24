@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import re
 import time
+import os
 
 import openpnm
 from PySide2 import QtWidgets
@@ -75,7 +76,10 @@ def automatic_simulation(pn, parameters={}, generate_vtu=False, debug=False, sho
 
 
 if __name__ == "__main__":
-    sample_directory = "tests/resources/a"
+    
+    root_path = os.path.dirname(os.path.abspath(__file__))
+    file_path = "tests/resources/b"
+    sample_directory = root_path + ("/../") + file_path
     manual = False
     generate_vtu = False
     debug = False

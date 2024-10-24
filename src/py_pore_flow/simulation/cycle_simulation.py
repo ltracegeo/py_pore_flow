@@ -33,6 +33,7 @@ from scipy.sparse import csr_matrix
 PORE = 0
 THROAT = 1
 
+TRAP_TOLERANCE = 0.0
 
 class ConductanceCalculator:
     def __init__(self, network):
@@ -952,9 +953,15 @@ class TrapChecker:
     def __init__(self, network, phase):
         self.network = network
         self.phase = phase
-        self.pn_clone = openpnm.network.Network()
+        #self.pn_clone = openpnm.network.Network()
+        self.nP = len(self.network.pn_core.pore.all)
+        self.nT = len(self.network.pn_core.throat.all)
+        self.parent_array = np.arange(self.nP + self.nT, dtype=np.uint32)
+        self.size_array = np.ones((self.nP + self.nT))
+        self.network.pn_core.pore.trapped[:] = False
+        self.network.pn_core.throat.trapped[:] = False
 
-    def update_trapped_pores(self):
+    def update_trapped_pores_legacy(self):
         self.pn_clone.clear()
         self.pn_clone.update(self.network.pn.copy())
 
@@ -988,6 +995,95 @@ class TrapChecker:
                 throat_id_list = self.pn_clone["throat.id"][throat_cluster]
                 self.network.pn_core.pore.trapped[pore_id_list] = True
                 self.network.pn_core.throat.trapped[throat_id_list] = True
+
+
+    def reset_status(self):
+        #self.network.pn_core.pore.trapped[:] = False
+        #self.network.pn_core.throat.trapped[:] = False
+        self._jit_reset_status(
+            self.parent_array, 
+            self.size_array, 
+            self.nP, 
+            self.nT,
+        )
+
+    def update_trapped_pores(self):
+        self.reset_status()
+        self._jit_update_trapped_pores(
+            self.parent_array, 
+            self.size_array, 
+            self.nP, 
+            self.nT,
+            self.network.pn_core.pore.trapped,
+            self.network.pn_core.throat.trapped,
+            self.network.pn_core.pore.oil_saturation,
+            self.network.pn_core.throat.oil_saturation,
+            self.network.pn_core.throat.conns,
+            self.network.pn_core.pore.outlets,
+            self.phase,
+        )
+        
+    @staticmethod
+    @nb.njit
+    def _jit_update_trapped_pores(
+        parent_array, 
+        size_array, 
+        nP, 
+        nT,
+        pore_trapped,
+        throat_trapped,
+        pore_oil_saturation,
+        throat_oil_saturation,
+        throat_conns,
+        pore_outlets,
+        phase,
+    ):
+        union = lambda p, q: wqupc_union(p, q, parent_array, size_array)
+        find = lambda p: wqupc_find(p, parent_array)
+
+        if phase == OIL:
+            is_trapped = lambda x: x >= (1.0 - TRAP_TOLERANCE)
+        elif phase == WATER:
+            is_trapped = lambda x: x <= (TRAP_TOLERANCE)
+        for throat in range(nT):
+            t_saturation = throat_oil_saturation[throat]
+            if is_trapped(t_saturation): 
+                continue
+            pore_0, pore_1 = throat_conns[throat]
+            p0_saturation = pore_oil_saturation[pore_0]
+            p1_saturation = pore_oil_saturation[pore_1]
+            if not is_trapped(p0_saturation):
+                union(throat, (pore_0 + nT))
+            if not  is_trapped(p1_saturation):
+                union(throat, (pore_1 + nT))
+
+        outlets_clusters = set()
+
+        for pore in range(nP):
+            if pore_outlets[pore] == True:
+                cluster = find(pore + nT)
+                outlets_clusters.add(cluster)
+
+        for throat in range(nT):
+            cluster = find(throat)
+            if cluster not in outlets_clusters:
+                throat_trapped[throat] = True
+
+        for pore in range(nP):
+            cluster = find(pore + nT)
+            if cluster not in outlets_clusters:
+                pore_trapped[pore] = True
+
+
+    @staticmethod
+    @nb.njit
+    def _jit_reset_status(parent_array, size_array, nP, nT):
+        for i in range(nP + nT):
+            parent_array[i] = i
+            size_array[i] = 1
+
+
+        
 
 
 spec = [
@@ -1143,3 +1239,33 @@ def get_clusters(network):
     am = network.create_adjacency_matrix(fmt="coo", triu=True, drop_zeros=True)
     N, Cs = csg.connected_components(am, directed=False)
     return N, Cs
+
+@nb.njit
+def wqupc_find(p, parent_array):
+    root = p
+    while root != parent_array[root]:
+        #parent_array[root] = parent_array[parent_array[root]]
+        root = parent_array[root]
+    
+    while p != root:
+        next_p = parent_array[p]
+        parent_array[p] = root
+        p = next_p
+    
+    return root
+
+@nb.njit
+def wqupc_union(p, q, parent_array, size_array):
+    # Find the roots of the elements p and q
+    rootP = wqupc_find(p, parent_array)
+    rootQ = wqupc_find(q, parent_array)
+    
+    if rootP == rootQ:
+        return
+    
+    if size_array[rootP] < size_array[rootQ]:
+        parent_array[rootP] = rootQ
+        size_array[rootQ] += size_array[rootP]
+    else:
+        parent_array[rootQ] = rootP
+        size_array[rootP] += size_array[rootQ]
