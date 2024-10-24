@@ -103,15 +103,27 @@ def calculate_waterwet_snapoff_pc(r, beta, theta_a, theta_h, n_corners, h):
     i2 = (i0 - 1) % n_corners
     if beta[i1] > beta[i2]:
         i1, i2 = i2, i1
-    Pc_0 = (
+
+    Pc_0 = calculate_two_moving_menisci_pc(r, beta[i0], beta[i1], theta_a)
+    Pc_1 = calculate_single_moving_meniscus_pc(r, beta[i0], beta[i2], beta[i1], theta_a, theta_h[i1])
+    Pc = max(Pc_0, Pc_1)
+    return Pc
+
+
+@njit
+def calculate_two_moving_menisci_pc(r, beta1, beta2, theta_a):
+    Pc = c.sigma / r * (cos(theta_a) - (2 * sin(theta_a) / (cot(beta1) + cot(beta2))))
+    return Pc
+
+
+@njit
+def calculate_single_moving_meniscus_pc(r, beta1, beta2, beta3, theta_a, theta_h3):
+    Pc = (
         c.sigma
         / r
-        * (cos(theta_a) * cot(beta[i0]) - sin(theta_a) + cos(theta_h[i2]) * cot(beta[i2]) - sin(theta_h[i1]))
-        / (cot(beta[i0]) + cot(beta[i1]))
-        - (c.pw - c.po) * c.g * h
+        * (cos(theta_a) * cot(beta1) - sin(theta_a) + cos(theta_h3) * cot(beta3) - sin(theta_h3))
+        / (cot(beta1) + cot(beta2))
     )
-    Pc_1 = c.sigma / r * (cos(theta_a) - (2 * sin(theta_a) / (cot(beta[i0]) + cot(beta[i1])))) - (c.pw - c.po) * c.g * h
-    Pc = max(Pc_0, Pc_1)
     return Pc
 
 
