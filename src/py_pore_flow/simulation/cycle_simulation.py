@@ -406,6 +406,8 @@ class KrelCalculator:
     def __init__(self, network, calculate_full_conductance=False):
         self.network = network
         self.calculate_full_conductance = calculate_full_conductance
+        self.network_clone = openpnm.network.Network()
+        self.sub_network_clone = openpnm.network.Network()
 
         flow_rate_calculator = FlowRateCalculator(self.network)
 
@@ -422,19 +424,19 @@ class KrelCalculator:
         else:
             update_hydraulic_conductance = True
 
-        network_clone = openpnm.network.Network()
-        network_clone.update(self.network.pn.copy())
-        pore_id_to_remove_list = np.where(network_clone["pore.oil_saturation"] == 0)[0]
-        throat_id_to_remove_list = np.where(network_clone["throat.oil_saturation"] == 0)[0]
+        self.network_clone.clear()
+        self.network_clone.update(self.network.pn.copy())
+        pore_id_to_remove_list = np.where(self.network_clone["pore.oil_saturation"] == 0)[0]
+        throat_id_to_remove_list = np.where(self.network_clone["throat.oil_saturation"] == 0)[0]
         try:
             valid_clusters_list = self.__trim(
-                network_clone, pores=pore_id_to_remove_list, throats=throat_id_to_remove_list
+                self.network_clone, pores=pore_id_to_remove_list, throats=throat_id_to_remove_list
             )
         except ValueError:
             return 0
 
         flow_rate = self.__calculate_network_flowrate(
-            network_clone, update_hydraulic_conductance, valid_clusters_list, OIL
+            self.network_clone, update_hydraulic_conductance, valid_clusters_list, OIL
         )
 
         return flow_rate / self.singlephase_flow_rate[OIL]
@@ -447,19 +449,19 @@ class KrelCalculator:
         else:
             update_hydraulic_conductance = True
 
-        network_clone = openpnm.network.Network()
-        network_clone.update(self.network.pn.copy())
-        pore_id_to_remove_list = np.where(network_clone["pore.water_saturation"] == 0)[0]
-        throat_id_to_remove_list = np.where(network_clone["throat.water_saturation"] == 0)[0]
+        self.network_clone.clear()
+        self.network_clone.update(self.network.pn.copy())
+        pore_id_to_remove_list = np.where(self.network_clone["pore.water_saturation"] == 0)[0]
+        throat_id_to_remove_list = np.where(self.network_clone["throat.water_saturation"] == 0)[0]
         try:
             valid_clusters_list = self.__trim(
-                network_clone, pores=pore_id_to_remove_list, throats=throat_id_to_remove_list
+                self.network_clone, pores=pore_id_to_remove_list, throats=throat_id_to_remove_list
             )
         except ValueError:
             return 0
 
         flow_rate = self.__calculate_network_flowrate(
-            network_clone, update_hydraulic_conductance, valid_clusters_list, WATER
+            self.network_clone, update_hydraulic_conductance, valid_clusters_list, WATER
         )
         return flow_rate / self.singlephase_flow_rate[WATER]
 
@@ -470,11 +472,11 @@ class KrelCalculator:
         if len(valid_clusters_list) > 0:
             flow_rate = 0.0
             for valid_cluster_id in valid_clusters_list:
-                sub_network_clone = openpnm.network.Network()
-                sub_network_clone.update(network_clone.copy())
-                self.__trim_cluster(sub_network_clone, valid_cluster_id)
+                self.sub_network_clone.clear()
+                self.sub_network_clone.update(network_clone.copy())
+                self.__trim_cluster(self.sub_network_clone, valid_cluster_id)
                 flow_rate += self.__calculate_subnetwork_flowrate(
-                    sub_network_clone, update_hydraulic_conductance, phase
+                    self.sub_network_clone, update_hydraulic_conductance, phase
                 )
         else:
             flow_rate = self.__calculate_subnetwork_flowrate(network_clone, update_hydraulic_conductance, phase)
