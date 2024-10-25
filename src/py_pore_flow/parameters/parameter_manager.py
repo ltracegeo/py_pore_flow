@@ -38,6 +38,7 @@ DEFAULT_PARAMETERS = {
     "second_ca_k": 3.5,
     "second_ca_correlation": UNCORRELATED,
     "second_ca_fraction": 0.5,
+    "pc_initial": 0,
     "pc_maximum": 40000,
     "pc_minimum": -40000,
     "pc_step": 200,
@@ -54,6 +55,7 @@ DEFAULT_PARAMETERS = {
     "pore_fill_weight_a6": 10.0,
     "end_at_sor": True,
     "control_by_pc": False,
+    "skip_imbibition": False,
 }
 
 
@@ -81,6 +83,10 @@ class ParameterManager:
         constants.pore_fill_weights[3] = self.parameters_dict["pore_fill_weight_a4"]
         constants.pore_fill_weights[4] = self.parameters_dict["pore_fill_weight_a5"]
         constants.pore_fill_weights[5] = self.parameters_dict["pore_fill_weight_a6"]
+
+    @property
+    def pc_initial(self):
+        return self.parameters_dict["pc_initial"]
 
     @property
     def pc_maximum(self):
@@ -117,6 +123,10 @@ class ParameterManager:
     @property
     def control_by_pc(self):
         return self.parameters_dict["control_by_pc"]
+
+    @property
+    def skip_imbibition(self):
+        return self.parameters_dict["skip_imbibition"]
 
     def generate_contact_angles(self, network):
         self.__update_cas(network, "initial")
