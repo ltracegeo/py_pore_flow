@@ -75,7 +75,7 @@ def automatic_simulation(pn, parameters={}, generate_vtu=False, debug=False, sho
 
 
 if __name__ == "__main__":
-    sample_directory = "tests/resources/bug_conductance"
+    sample_directory = "tests/resources/bug_conductance2"
     manual = False
     generate_vtu = False
     debug = False
