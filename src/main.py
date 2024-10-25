@@ -78,11 +78,11 @@ def automatic_simulation(pn, parameters={}, generate_vtu=False, debug=False, sho
 if __name__ == "__main__":
     
     root_path = os.path.dirname(os.path.abspath(__file__))
-    file_path = "tests/resources/b"
+    file_path = "tests/resources/c"
     sample_directory = root_path + ("/../") + file_path
     manual = False
     generate_vtu = False
     debug = False
-    enable_profiling = False
+    enable_profiling = True
 
     run(sample_directory, manual, generate_vtu, debug, enable_profiling)

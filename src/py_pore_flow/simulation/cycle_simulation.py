@@ -808,7 +808,6 @@ class CycleSimulation:
         return self.saturation_calculator.update_element_saturations(element.type_name, element.id, pc)
 
     def _update_network_geometry(self, pc):
-        self.__update_hinging_contact_angles(pc)
         self.saturation_calculator.update_saturations(pc)
 
     def _update_element_entry_pc(self, element, pc):
@@ -888,22 +887,24 @@ class CycleSimulation:
                     self.border_elements.add_throat(neighbor.get_id())
                 self._update_element_entry_pc(neighbor, pc)
 
-    def __update_hinging_contact_angles(self, pc):
-        self.network.pn_core["pore.hinging_contact_angle"] = calculate_network_hinging_contact_angle(
+    def _update_hinging_contact_angles(self, pc):
+        calculate_network_hinging_contact_angle(
             pc,
             self.network.pn_core.pore.corner_half_angle,
             self.network.pn_core.pore.b,
             self.network.pn_core.pore.n_corners,
             self.network.pn_core.pore.receding_contact_angle,
             self.network.pn_core.pore.advancing_contact_angle,
+            self.network.pn_core.pore.hinging_contact_angle,
         )
-        self.network.pn_core["throat.hinging_contact_angle"] = calculate_network_hinging_contact_angle(
+        calculate_network_hinging_contact_angle(
             pc,
             self.network.pn_core.throat.corner_half_angle,
             self.network.pn_core.throat.b,
             self.network.pn_core.throat.n_corners,
             self.network.pn_core.throat.receding_contact_angle,
             self.network.pn_core.throat.advancing_contact_angle,
+            self.network.pn_core.throat.hinging_contact_angle,
         )
 
     def __update_element_hinging_contact_angles(self, type_name, id, pc):
@@ -911,13 +912,14 @@ class CycleSimulation:
             element_data = self.network.pn_core.pore
         else:
             element_data = self.network.pn_core.throat
-        element_data.hinging_contact_angle[id] = calculate_hinging_contact_angle(
+        calculate_hinging_contact_angle(
             pc,
             element_data.corner_half_angle[id],
             element_data.b[id],
             element_data.n_corners[id],
             element_data.receding_contact_angle[id],
             element_data.advancing_contact_angle[id],
+            element_data.hinging_contact_angle[id],
         )
 
     def __find_initial_border_elements(self, border_elements, phase):
@@ -1081,9 +1083,6 @@ class TrapChecker:
         for i in range(nP + nT):
             parent_array[i] = i
             size_array[i] = 1
-
-
-        
 
 
 spec = [
