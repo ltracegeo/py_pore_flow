@@ -106,7 +106,7 @@ def calculate_waterwet_snapoff_pc(r, beta, theta_a, theta_h, n_corners, h):
     Pc_0 = (
         c.sigma
         / r
-        * (cos(theta_a) * cot(beta[i0]) - sin(theta_a) + cos(theta_h[i2]) * cot(beta[i2]) - sin(theta_h[i1]))
+        * (cos(theta_a) * cot(beta[i0]) - sin(theta_a) + cos(theta_h[i2]) * cot(beta[i2]) - sin(theta_h[i2]))
         / (cot(beta[i0]) + cot(beta[i1]))
         - (c.pw - c.po) * c.g * h
     )
