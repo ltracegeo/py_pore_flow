@@ -38,6 +38,7 @@ DEFAULT_PARAMETERS = {
     "second_ca_k": 3.5,
     "second_ca_correlation": UNCORRELATED,
     "second_ca_fraction": 0.5,
+    "pc_initial": 0,
     "pc_maximum": 40000,
     "pc_minimum": -40000,
     "pc_step": 200,
@@ -66,6 +67,10 @@ class ParameterManager:
         constants.sigma = self.parameters_dict["interfacial_tension"]
         constants.miw = self.parameters_dict["water_viscosity"]
         constants.mio = self.parameters_dict["oil_viscosity"]
+
+    @property
+    def pc_initial(self):
+        return self.parameters_dict["pc_initial"]
 
     @property
     def pc_maximum(self):

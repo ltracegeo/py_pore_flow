@@ -1,6 +1,8 @@
+import json
 import sys
 
 import numpy as np
+import openpnm
 
 from py_pore_flow import log
 from py_pore_flow.equations.geometry import (
@@ -59,10 +61,13 @@ def run_two_phase_simulation(pn, parameters_dict={}, generate_vtu=False):
 
 
 class Simulation:
-    def __init__(self, pn, parameters_dict={}, generate_vtu=False):
+    def __init__(self, pn, parameters_dict={}, generate_vtu=False, setup_network=True):
         self.pn = pn
+        generate_cas=setup_network
+        set_initial_values=setup_network
+
         self.step_simulation = MultiStepSimulation(
-            self.pn, parameters_dict, generate_cas=True, calculate_full_conductance=True
+            self.pn, parameters_dict, generate_cas=generate_cas, calculate_full_conductance=True, set_initial_values=set_initial_values
         )
         self.parameter_manager = self.step_simulation.get_parameter_manager()
 
@@ -75,6 +80,7 @@ class Simulation:
             self.parameter_manager.drainage_sw_step,
             self.parameter_manager.pc_maximum,
             self.parameter_manager.pc_minimum,
+            self.parameter_manager.pc_initial,
             enable_control=self.parameter_manager.control_by_pc,
         )
         self.step_simulation.set_pc_incrementer(self.pc_incrementer)
@@ -250,22 +256,28 @@ def calculate_element_imbibition_values(element, max_pc):
 
 
 class StepSimulation:
-    def __init__(self, pn, parameters_dict={}, generate_cas=True, calculate_full_conductance=False):
+    def __init__(
+        self, pn, parameters_dict={}, generate_cas=True, calculate_full_conductance=False, set_initial_values=True
+    ):
         self.simulation = None
         self.max_pc = None
         self.calculate_full_conductance = calculate_full_conductance
         self.is_first_step = True
+        self.current_pc = 0
         self.cycle = "drainage"
 
         self.parameter_manager = ParameterManager(parameters_dict)
 
-        initialize_pn(pn)
+        if set_initial_values:
+            initialize_pn(pn)
+
         self.network = Network(pn)
 
         if generate_cas:
             self.parameter_manager.generate_contact_angles(self.network)
 
-        calculate_initial_values(self.network)
+        if set_initial_values:
+            calculate_initial_values(self.network)
 
     def set_max_pc(self, max_pc):
         self.max_pc = max_pc
@@ -283,7 +295,7 @@ class StepSimulation:
             self.simulation = ImbibitionSimulation(self.network, self.max_pc, self.calculate_full_conductance)
 
     def update(self, pc):
-        current_pc = self._perform_step(pc)
+        self.current_pc = self._perform_step(pc)
 
         Sw = self.simulation.calculate_sw_total()
         Krw, Kro = self.simulation.calculate_krel()
@@ -305,13 +317,33 @@ class StepSimulation:
 
         pores_filled, total_pores, percentage = self.simulation.get_oil_filled_percentage()
 
-        return current_pc, Sw, Krw, Kro, pores_filled, total_pores, percentage
+        return self.current_pc, Sw, Krw, Kro, pores_filled, total_pores, percentage
 
     def get_pores_left(self):
         return self.simulation.get_pores_left()
 
     def get_parameter_manager(self):
         return self.parameter_manager
+
+    def save_snapshot(self, filename):
+        snapshot_dict = {}
+        snapshot_dict["parameters"] = self.parameter_manager.parameters_dict
+        snapshot_dict["pc"] = self.current_pc
+        snapshot_dict["cycle"] = self.cycle
+        snapshot_dict["network"] = self.network.pn.clone()
+
+        with open(filename, "w") as fp:
+            json.dump(snapshot_dict, fp)
+
+    @staticmethod
+    def load_snapshot(snapshot_file):
+        with open(snapshot_file, "r") as fp:
+            snapshot_dict = json.load(fp)
+
+        pn = openpnm.network.Network()
+        pn.update(snapshot_dict["network"])
+        parameters = snapshot_dict["parameters"]
+        return pn, parameters
 
     def _perform_step(self, pc):
         return self.__step_by_pc(pc)
@@ -323,8 +355,8 @@ class StepSimulation:
 
 
 class MultiStepSimulation(StepSimulation):
-    def __init__(self, pn, parameters_dict={}, generate_cas=True, calculate_full_conductance=False):
-        super().__init__(pn, parameters_dict, generate_cas, calculate_full_conductance)
+    def __init__(self, pn, parameters_dict={}, generate_cas=True, calculate_full_conductance=False, set_initial_values=True):
+        super().__init__(pn, parameters_dict, generate_cas, calculate_full_conductance, set_initial_values)
         self.pc_incrementer = None
         self.sw_step = None
 

@@ -12,10 +12,14 @@ from py_pore_flow.simulation.simulation import StepSimulation
 
 
 class ManualSimulationPlot:
-    def __init__(self, pn, parameters_dict={}, generate_cas=True):
+    def __init__(self, pn, parameters_dict={}, generate_cas=True, set_initial_values=True):
         self.pn = pn
         self.manual_simulation = StepSimulation(
-            pn, parameters_dict, generate_cas=generate_cas, calculate_full_conductance=True
+            pn,
+            parameters_dict,
+            generate_cas=generate_cas,
+            calculate_full_conductance=True,
+            set_initial_values=set_initial_values,
         )
         self.manual_simulation.set_max_pc(40000)
 

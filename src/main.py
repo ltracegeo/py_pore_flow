@@ -74,11 +74,23 @@ def automatic_simulation(pn, parameters={}, generate_vtu=False, debug=False, sho
         plot_krel(cycle, Sw, Krw, Kro)
 
 
-if __name__ == "__main__":
-    sample_directory = "tests/resources/bug_conductance"
-    manual = False
-    generate_vtu = False
-    debug = False
-    enable_profiling = False
+def snapshot(snapshot_file):
+    with open(snapshot_file, "r") as fp:
+        snapshot_dict = json.load(fp)
 
-    run(sample_directory, manual, generate_vtu, debug, enable_profiling)
+    pn = openpnm.network.Network()
+    pn.update(snapshot_dict["network"])
+    parameters = snapshot_dict["parameters"]
+
+    automatic_simulation(pn, parameters, False, False, True)
+
+if __name__ == "__main__":
+    # sample_directory = "tests/resources/bug_conductance"
+    # manual = True
+    # generate_vtu = False
+    # debug = False
+    # enable_profiling = False
+
+    # run(sample_directory, manual, generate_vtu, debug, enable_profiling)
+    snapshot_file = "snapshot.json"
+    snapshot(snapshot_file)
