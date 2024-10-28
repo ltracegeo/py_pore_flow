@@ -78,6 +78,8 @@ def calculate_element_multiphase_water_conductance(theta_h, b, beta, n_corners):
         Ac = ((b[i] * sin(beta[i])) / cos(theta_h[i] + beta[i])) ** 2 * (
             cos(theta_h[i]) * cos(theta_h[i] + beta[i]) / sin(beta[i]) + theta_h[i] + beta[i] - pi / 2
         )
+        if Ac <= 0.0:
+            continue
         Gc = Ac / (
             4 * b[i] ** 2 * (1 - sin(beta[i]) / cos(theta_h[i] + beta[i]) * (theta_h[i] + beta[i] - pi / 2)) ** 2
         )
