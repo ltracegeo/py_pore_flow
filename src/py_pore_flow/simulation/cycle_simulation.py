@@ -15,7 +15,6 @@ from py_pore_flow.equations.geometry import (
     calculate_drainage_element_saturation,
     calculate_drainage_network_saturation,
     calculate_hinging_contact_angle,
-    calculate_network_hinging_contact_angle,
     calculate_imbibition_element_saturation,
     calculate_imbibition_network_saturation,
     calculate_sw_total,
@@ -896,26 +895,6 @@ class CycleSimulation:
                 else:
                     self.border_elements.add_throat(neighbor.get_id())
                 self._update_element_entry_pc(neighbor, pc)
-
-    def _update_hinging_contact_angles(self, pc):
-        calculate_network_hinging_contact_angle(
-            pc,
-            self.network.pn_core.pore.corner_half_angle,
-            self.network.pn_core.pore.b,
-            self.network.pn_core.pore.n_corners,
-            self.network.pn_core.pore.receding_contact_angle,
-            self.network.pn_core.pore.advancing_contact_angle,
-            self.network.pn_core.pore.hinging_contact_angle,
-        )
-        calculate_network_hinging_contact_angle(
-            pc,
-            self.network.pn_core.throat.corner_half_angle,
-            self.network.pn_core.throat.b,
-            self.network.pn_core.throat.n_corners,
-            self.network.pn_core.throat.receding_contact_angle,
-            self.network.pn_core.throat.advancing_contact_angle,
-            self.network.pn_core.throat.hinging_contact_angle,
-        )
 
     def __update_element_hinging_contact_angles(self, type_name, id, pc):
         if type_name == "pore":
