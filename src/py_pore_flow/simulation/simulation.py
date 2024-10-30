@@ -19,6 +19,7 @@ from py_pore_flow.equations.entry_pressure import (
     calculate_drainage_pc,
     calculate_snap_off_viability,
     calculate_spontaneous_imbibition_viability,
+    calculate_snap_off_pc_network,
 )
 from py_pore_flow.network import initialize_pn, Network
 from py_pore_flow.output import pn_to_vtu
@@ -186,7 +187,33 @@ def calculate_imbibition_values(network, max_pc):
     network.pn_core["pore.trapped"] = False
     network.pn_core["throat.trapped"] = False
 
+    calculate_snap_off_values(network, max_pc)
+
     return network
+
+
+def calculate_snap_off_values(network, max_pc):
+    Rmin = calculate_r(max_pc, 100000)
+
+    network.pn_core["throat.snap_off_pressure"] = calculate_snap_off_pc_network(
+        network.pn_core.throat.radius,
+        network.pn_core.throat.corner_half_angle,
+        network.pn_core.throat.advancing_contact_angle,
+        network.pn_core.throat.receding_contact_angle,
+        network.pn_core.throat.n_corners,
+        Rmin,
+        np.zeros(len(network.pn_core.throat.radius)),
+    )
+
+    network.pn_core["pore.snap_off_pressure"] = calculate_snap_off_pc_network(
+        network.pn_core.pore.radius,
+        network.pn_core.pore.corner_half_angle,
+        network.pn_core.pore.advancing_contact_angle,
+        network.pn_core.pore.receding_contact_angle,
+        network.pn_core.pore.n_corners,
+        Rmin,
+        np.zeros(len(network.pn_core.pore.radius)),
+    )
 
 
 def calculate_element_initial_values(

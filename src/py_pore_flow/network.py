@@ -45,6 +45,7 @@ def initialize_pn(pn):
         pn[f"{element_type}.spontaneous_imbibition"] = True
         pn[f"{element_type}.snap_off_viability"] = True
         pn[f"{element_type}.entry_pressure"] = 0.0
+        pn[f"{element_type}.snap_off_pressure"] = 0.0
         pn[f"{element_type}.initial_advancing_ca"] = 0.0
         pn[f"{element_type}.initial_receding_ca"] = 0.0
         pn[f"{element_type}.equilibrium_advancing_ca"] = 0.0
@@ -493,6 +494,7 @@ class PoresNetwork(ElementNetwork):
         self.spontaneous_imbibition = pn["pore.spontaneous_imbibition"]
         self.snap_off_viability = pn["pore.snap_off_viability"]
         self.entry_pressure = pn["pore.entry_pressure"]
+        self.snap_off_pressure = pn["pore.snap_off_pressure"]
         self.conns = pn["pore.conns"]
         self.n_conns = pn["pore.n_conns"]
         self.area = pn["pore.area"]
@@ -542,6 +544,7 @@ class ThroatsNetwork(ElementNetwork):
         self.spontaneous_imbibition = pn["throat.spontaneous_imbibition"]
         self.snap_off_viability = pn["throat.snap_off_viability"]
         self.entry_pressure = pn["throat.entry_pressure"]
+        self.snap_off_pressure = pn["throat.snap_off_pressure"]
         self.conns = pn["throat.conns"]
         self.n_conns = pn["throat.n_conns"]
         self.cross_sectional_area = pn["throat.cross_sectional_area"]
