@@ -144,12 +144,3 @@ def calculate_spontaneous_imbibition_viability(theta_a, theta_r, beta, n_corners
         angle_sum += cos(theta_r + beta[i])
 
     return theta_a <= acos((-4 * G * angle_sum) / (r / Rmin - cos(theta_r) + 12 * G * sin(theta_r)))
-
-
-@njit
-def calculate_snap_off_viability(theta_r, beta, n_corners):
-    if n_corners > 0:
-        beta_min = np.min(beta[:n_corners])
-        return theta_r + beta_min < pi / 2
-    else:
-        return False

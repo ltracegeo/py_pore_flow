@@ -52,7 +52,6 @@ class ImbibitionSimulation(CycleSimulation):
         element_theta_a,
         element_theta_r,
         element_theta_h,
-        element_snap_off_viability,
         element_snap_off_pc,
         element_trapped,
         neighbor_water_filled,
@@ -64,8 +63,7 @@ class ImbibitionSimulation(CycleSimulation):
         snap_off_elements = []
         for element_id in element_id_list:
             if (
-                element_snap_off_viability[element_id]
-                and not element_water_filled[element_id]
+                not element_water_filled[element_id]
                 and element_shape[element_id] != CIRCLE
                 and not element_trapped[element_id]
             ):
@@ -101,7 +99,6 @@ class ImbibitionSimulation(CycleSimulation):
             self.network.pn_core.throat.advancing_contact_angle,
             self.network.pn_core.throat.receding_contact_angle,
             self.network.pn_core.throat.hinging_contact_angle,
-            self.network.pn_core.throat.snap_off_viability,
             self.network.pn_core.throat.snap_off_pressure,
             self.network.pn_core.throat.trapped,
             self.network.pn_core.pore.water_filled,
@@ -124,7 +121,6 @@ class ImbibitionSimulation(CycleSimulation):
             self.network.pn_core.pore.advancing_contact_angle,
             self.network.pn_core.pore.receding_contact_angle,
             self.network.pn_core.pore.hinging_contact_angle,
-            self.network.pn_core.pore.snap_off_viability,
             self.network.pn_core.pore.snap_off_pressure,
             self.network.pn_core.pore.trapped,
             self.network.pn_core.throat.water_filled,
