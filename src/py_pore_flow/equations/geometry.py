@@ -221,11 +221,11 @@ def calculate_C(theta, beta, n_corners):
 
 @njit
 def calculate_network_hinging_contact_angle(
-    Pc, 
-    beta, 
-    b, 
-    n_corners, 
-    theta_r, 
+    Pc,
+    beta,
+    b,
+    n_corners,
+    theta_r,
     theta_a,
     theta_h,
 ):
