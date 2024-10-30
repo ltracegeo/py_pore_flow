@@ -951,19 +951,13 @@ class CycleSimulation:
                 border_changed |= update_element_in_border(element)
 
 
-class TrapChecker:
+class TrapCheckerOpenpnm:
     def __init__(self, network, phase):
         self.network = network
         self.phase = phase
-        #self.pn_clone = openpnm.network.Network()
-        self.nP = len(self.network.pn_core.pore.all)
-        self.nT = len(self.network.pn_core.throat.all)
-        self.parent_array = np.arange(self.nP + self.nT, dtype=np.uint32)
-        self.size_array = np.ones((self.nP + self.nT))
-        self.network.pn_core.pore.trapped[:] = False
-        self.network.pn_core.throat.trapped[:] = False
+        self.pn_clone = openpnm.network.Network()
 
-    def update_trapped_pores_legacy(self):
+    def update_trapped_pores(self):
         self.pn_clone.clear()
         self.pn_clone.update(self.network.pn.copy())
 
@@ -998,6 +992,17 @@ class TrapChecker:
                 self.network.pn_core.pore.trapped[pore_id_list] = True
                 self.network.pn_core.throat.trapped[throat_id_list] = True
 
+
+class TrapChecker:
+    def __init__(self, network, phase):
+        self.network = network
+        self.phase = phase
+        self.nP = len(self.network.pn_core.pore.all)
+        self.nT = len(self.network.pn_core.throat.all)
+        self.parent_array = np.arange(self.nP + self.nT, dtype=np.uint32)
+        self.size_array = np.ones((self.nP + self.nT))
+        self.network.pn_core.pore.trapped[:] = False
+        self.network.pn_core.throat.trapped[:] = False
 
     def reset_status(self):
         #self.network.pn_core.pore.trapped[:] = False
