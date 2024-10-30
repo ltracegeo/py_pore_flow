@@ -30,10 +30,17 @@ from py_pore_flow.network import Network
 from pypardiso import spsolve
 from scipy.sparse import csr_matrix
 
+# Flags
+USE_OPENPNM_SOLVER = False
+USE_OPENPNM_TRAPCHECKER = False
+
+TRAP_TOLERANCE = 0.0
+
+
+# Constants
 PORE = 0
 THROAT = 1
 
-TRAP_TOLERANCE = 0.0
 
 class ConductanceCalculator:
     def __init__(self, network):
@@ -344,10 +351,10 @@ class FlowRateCalculator:
         ]
 
     def __solve_flow_rate(self, phase):
-        if True:
-            return self.__pyflowsolver()
-        else:
+        if USE_OPENPNM_SOLVER:
             return self.__openpnm_solver(phase)
+        else:
+            return self.__pyflowsolver()
 
     def __openpnm_solver(self, phase):
         if phase == WATER:
@@ -760,7 +767,10 @@ class CycleSimulation:
         self.border_elements.set_pores_ids(nb.typed.List(self.network.get_inlets_ids()))
         self.__find_initial_border_elements(self.border_elements, phase)
 
-        self.trap_checker = TrapChecker(network, self.phase)
+        if USE_OPENPNM_TRAPCHECKER:
+            self.trap_checker = TrapCheckerOpenpnm(network, self.phase)
+        else:
+            self.trap_checker = TrapChecker(network, self.phase)
         self.trap_checker.update_trapped_pores()
 
         self.saturation_calculator = SaturationCalculator(network, phase)
