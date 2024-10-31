@@ -140,6 +140,7 @@ class ImbibitionSimulation(CycleSimulation):
     def __update_oil_layers(self, pc):
         calculate_oil_layer_network(
             self.network.pn_core.pore.corner_oil_layer,
+            self.network.pn_core.pore.trapped,
             self.network.pn_core.pore.corner_half_angle,
             self.network.pn_core.pore.advancing_contact_angle,
             self.network.pn_core.pore.b,
@@ -149,6 +150,7 @@ class ImbibitionSimulation(CycleSimulation):
 
         calculate_oil_layer_network(
             self.network.pn_core.throat.corner_oil_layer,
+            self.network.pn_core.throat.trapped,
             self.network.pn_core.throat.corner_half_angle,
             self.network.pn_core.throat.advancing_contact_angle,
             self.network.pn_core.throat.b,
@@ -159,11 +161,13 @@ class ImbibitionSimulation(CycleSimulation):
     def __update_water_layers(self):
         check_water_layer_network(
             self.network.pn_core.throat.corner_water_layer,
+            self.network.pn_core.throat.trapped,
             self.network.pn_core.throat.corner_oil_layer,
             self.network.pn_core.throat.oil_filled,
         )
         check_water_layer_network(
             self.network.pn_core.pore.corner_water_layer,
+            self.network.pn_core.pore.trapped,
             self.network.pn_core.pore.corner_oil_layer,
             self.network.pn_core.pore.oil_filled,
         )
@@ -264,6 +268,7 @@ class ImbibitionSimulation(CycleSimulation):
     def __update_b(self, pc):
         calculate_imbibition_network_b(
             self.network.pn_core.pore.b,
+            self.network.pn_core.pore.trapped,
             self.network.pn_core.pore.corner_half_angle,
             self.network.pn_core.pore.max_b,
             self.network.pn_core.pore.receding_contact_angle,
@@ -276,6 +281,7 @@ class ImbibitionSimulation(CycleSimulation):
         )
         calculate_imbibition_network_b(
             self.network.pn_core.throat.b,
+            self.network.pn_core.throat.trapped,
             self.network.pn_core.throat.corner_half_angle,
             self.network.pn_core.throat.max_b,
             self.network.pn_core.throat.receding_contact_angle,
@@ -289,6 +295,7 @@ class ImbibitionSimulation(CycleSimulation):
 
         calculate_imbibition_network_bo(
             self.network.pn_core.pore.bo,
+            self.network.pn_core.pore.trapped,
             self.network.pn_core.pore.corner_half_angle,
             self.network.pn_core.pore.max_b,
             self.network.pn_core.pore.advancing_contact_angle,
@@ -298,6 +305,7 @@ class ImbibitionSimulation(CycleSimulation):
         )
         calculate_imbibition_network_bo(
             self.network.pn_core.throat.bo,
+            self.network.pn_core.throat.trapped,
             self.network.pn_core.throat.corner_half_angle,
             self.network.pn_core.throat.max_b,
             self.network.pn_core.throat.advancing_contact_angle,
@@ -368,6 +376,7 @@ class ImbibitionSimulation(CycleSimulation):
             self.network.pn_core.pore.receding_contact_angle,
             self.network.pn_core.pore.advancing_contact_angle,
             self.network.pn_core.pore.hinging_contact_angle,
+            self.network.pn_core.pore.trapped,
         )
         calculate_network_hinging_contact_angle(
             pc,
@@ -377,4 +386,5 @@ class ImbibitionSimulation(CycleSimulation):
             self.network.pn_core.throat.receding_contact_angle,
             self.network.pn_core.throat.advancing_contact_angle,
             self.network.pn_core.throat.hinging_contact_angle,
+            self.network.pn_core.throat.trapped,
         )
