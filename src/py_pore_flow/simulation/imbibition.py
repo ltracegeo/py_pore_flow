@@ -8,6 +8,7 @@ from py_pore_flow.equations.geometry import (
     calculate_imbibition_element_bo,
     calculate_imbibition_network_b,
     calculate_imbibition_network_bo,
+    calculate_network_hinging_contact_angle,
     calculate_oil_layer,
     calculate_oil_layer_network,
     calculate_r,
@@ -316,6 +317,7 @@ class ImbibitionSimulation(CycleSimulation):
         self.__update_b(pc)
         self.__update_oil_layers(pc)
         self.__update_water_layers()
+        self.__update_hinging_contact_angles(pc)
         super()._update_network_geometry(pc)
 
     def __update_element_b(self, type_name, id, pc):
@@ -354,4 +356,24 @@ class ImbibitionSimulation(CycleSimulation):
             self.snap_off_throat_list,
             self.network.pn_core.throat.water_filled[self.snap_off_throat_list]
             | self.network.pn_core.throat.trapped[self.snap_off_throat_list],
+        )
+
+    def __update_hinging_contact_angles(self, pc):
+        calculate_network_hinging_contact_angle(
+            pc,
+            self.network.pn_core.pore.corner_half_angle,
+            self.network.pn_core.pore.b,
+            self.network.pn_core.pore.n_corners,
+            self.network.pn_core.pore.receding_contact_angle,
+            self.network.pn_core.pore.advancing_contact_angle,
+            self.network.pn_core.pore.hinging_contact_angle,
+        )
+        calculate_network_hinging_contact_angle(
+            pc,
+            self.network.pn_core.throat.corner_half_angle,
+            self.network.pn_core.throat.b,
+            self.network.pn_core.throat.n_corners,
+            self.network.pn_core.throat.receding_contact_angle,
+            self.network.pn_core.throat.advancing_contact_angle,
+            self.network.pn_core.throat.hinging_contact_angle,
         )

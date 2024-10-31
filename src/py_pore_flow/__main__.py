@@ -1,9 +1,11 @@
+import argparse
 import cProfile
 import datetime
 import json
 from pathlib import Path
 import re
 import time
+import os
 
 import openpnm
 from PySide2 import QtWidgets
@@ -75,10 +77,20 @@ def automatic_simulation(pn, parameters={}, generate_vtu=False, debug=False, sho
 
 
 if __name__ == "__main__":
-    sample_directory = "tests/resources/a"
-    manual = False
-    generate_vtu = False
-    debug = False
-    enable_profiling = False
+    arg_parser = argparse.ArgumentParser(description="py_pore_flow - Pore network two-phase simulation")
+    arg_parser.add_argument(
+        "--manual", action="store_true", help="Run simulation via user inputs with a user interface"
+    )
+    arg_parser.add_argument("--prof", action="store_true", help="Enable profiling")
+    arg_parser.add_argument("--vtu", action="store_true", help="Generate vtu files for each simulation step")
+    arg_parser.add_argument("--debug", action="store_true", help="Enable debug messages")
+    arg_parser.add_argument("network_path", help="Path to a directory with the network statoil files")
+    args = arg_parser.parse_args()
+
+    sample_directory = args.network_path
+    manual = args.manual
+    generate_vtu = args.vtu
+    debug = args.debug
+    enable_profiling = args.prof
 
     run(sample_directory, manual, generate_vtu, debug, enable_profiling)
