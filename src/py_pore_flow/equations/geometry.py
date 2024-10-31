@@ -271,15 +271,13 @@ def calculate_drainage_b(beta, theta, n_corners, Pc_max):
 
 
 @njit
-def calculate_imbibition_network_b(beta, max_b, theta_r, theta_a, theta_h, has_water_layer, n_corners, pc, Rmin):
+def calculate_imbibition_network_b(b, beta, max_b, theta_r, theta_a, theta_h, has_water_layer, n_corners, pc, Rmin):
     number_of_elements = len(beta)
 
-    b = np.empty((number_of_elements, MAX_NUMBER_OF_CORNERS), np.float64)
     for i in range(number_of_elements):
         b[i] = calculate_imbibition_element_b(
             beta[i], max_b[i], theta_r[i], theta_a[i], theta_h[i], has_water_layer[i], n_corners[i], Rmin, pc
         )
-    return b
 
 
 @njit
@@ -314,12 +312,10 @@ def calculate_corner_bi(beta, theta, R):
 
 
 @njit
-def calculate_imbibition_network_bo(beta, max_b, theta_a, has_oil_layer, n_corners, pc):
+def calculate_imbibition_network_bo(bo, beta, max_b, theta_a, has_oil_layer, n_corners, pc):
     number_of_elements = len(beta)
-    b = np.empty((number_of_elements, MAX_NUMBER_OF_CORNERS), np.float64)
     for i in range(number_of_elements):
-        b[i] = calculate_imbibition_element_bo(beta[i], max_b[i], theta_a[i], has_oil_layer[i], n_corners[i], pc)
-    return b
+        bo[i] = calculate_imbibition_element_bo(beta[i], max_b[i], theta_a[i], has_oil_layer[i], n_corners[i], pc)
 
 
 @njit
@@ -371,12 +367,10 @@ def check_water_layer(has_oil_layer, filled_with_oil):
 
 
 @njit
-def check_water_layer_network(corner_oil_layer, filled_with_oil):
+def check_water_layer_network(corner_water_layer, corner_oil_layer, filled_with_oil):
     number_of_elements = len(filled_with_oil)
-    corner_water_layer = np.full((number_of_elements, MAX_NUMBER_OF_CORNERS), False, np.bool_)
     for i in range(number_of_elements):
         corner_water_layer[i] = check_water_layer(corner_oil_layer[i], filled_with_oil[i])
-    return corner_water_layer
 
 
 @njit
@@ -410,7 +404,6 @@ def calculate_oil_layer_network(corner_oil_layer, beta, theta_a, b, n_corners, p
             n_corners[i],
             pc,
         )
-    return corner_oil_layer
 
 
 @njit
