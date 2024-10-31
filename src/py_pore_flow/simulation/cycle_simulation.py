@@ -188,6 +188,7 @@ class ConductanceCalculator:
 class FlowRateCalculator:
     def __init__(self, network):
         self.network = network
+        self.solver = Solver(self.network.pn)
 
     def calculate_singlephase_flow_rate(self, phase):
         if phase == WATER:
@@ -244,10 +245,7 @@ class FlowRateCalculator:
         return flow_rate
 
     def __pyflowsolver(self):
-        connected_pores, connected_throats = get_connected_spy_network(
-            self.network.pn,
-        )
-        sub_network = get_sub_spy(self.network.pn, connected_pores, connected_throats)
+        sub_network = self.solver.get_sub_network()
         if sub_network is False:
             return 0
 
@@ -277,6 +275,67 @@ class FlowRateCalculator:
         flow_rate = network_manager.get_flow_rate(pressure)
 
         return flow_rate
+
+
+class Solver:
+    def __init__(self, spy_network):
+        self.spy_network = spy_network
+        self.connected_pores, self.connected_throats = self.__get_connected_spy_network(
+            self.spy_network,
+        )
+
+    def get_sub_network(self):
+        return self.__get_sub_spy(self.spy_network, self.connected_pores, self.connected_throats)
+
+    @staticmethod
+    def __get_sub_spy(spy_network, sub_pores, sub_throats):
+        sub_pn = {}
+        for prop in spy_network.keys():
+            if prop.split(".")[0] == "pore":
+                sub_pn[prop] = spy_network[prop][sub_pores]
+            else:
+                sub_pn[prop] = spy_network[prop][sub_throats]
+
+        def _counter():
+            i = -1
+            while True:
+                i += 1
+                yield i
+
+        counter = _counter()
+        f_counter = lambda x: next(counter) if x else 0
+        new_pore_index = np.fromiter(map(f_counter, sub_pores), dtype="int")
+
+        if len(sub_pn["throat.conns"]) == 0:
+            return False
+        for i in np.nditer(sub_pn["throat.conns"], op_flags=["readwrite"]):
+            i[...] = new_pore_index[i]
+        return sub_pn
+
+    @staticmethod
+    def __get_connected_spy_network(network):
+        _, cluster_labels = Solver.__get_clusters(network)
+        in_labels = np.unique(cluster_labels[network[f"pore.inlets"]])
+        out_labels = np.unique(cluster_labels[network[f"pore.outlets"]])
+        common_labels = np.intersect1d(in_labels, out_labels, assume_unique=True)
+
+        connected_pores = network.pores()[np.isin(cluster_labels, common_labels)]
+        # connected_throats = network.throats()[
+        #    np.isin(network["throat.conns"], connected_pores).all(axis=1)
+        # ]
+
+        return np.isin(cluster_labels, common_labels), np.isin(network["throat.conns"], connected_pores).all(axis=1)
+
+    @staticmethod
+    def __get_clusters(network):
+        """
+        clusters are numbered starting at 0
+        """
+        from scipy.sparse import csgraph as csg
+
+        am = network.create_adjacency_matrix(fmt="coo", triu=True, drop_zeros=True)
+        N, Cs = csg.connected_components(am, directed=False)
+        return N, Cs
 
 
 class KrelCalculator:
@@ -1069,38 +1128,6 @@ def get_sub_spy(spy_network, sub_pores, sub_throats):
     for i in np.nditer(sub_pn["throat.conns"], op_flags=["readwrite"]):
         i[...] = new_pore_index[i]
     return sub_pn
-
-
-def get_connected_spy_network(network):
-    _, cluster_labels = get_clusters(network)
-    in_labels = np.unique(cluster_labels[network[f"pore.inlets"]])
-    out_labels = np.unique(cluster_labels[network[f"pore.outlets"]])
-    common_labels = np.intersect1d(in_labels, out_labels, assume_unique=True)
-
-    connected_pores = network.pores()[np.isin(cluster_labels, common_labels)]
-    # connected_throats = network.throats()[
-    #    np.isin(network["throat.conns"], connected_pores).all(axis=1)
-    # ]
-
-    return np.isin(cluster_labels, common_labels), np.isin(network["throat.conns"], connected_pores).all(axis=1)
-
-
-def _counter():
-    i = -1
-    while True:
-        i += 1
-        yield i
-
-
-def get_clusters(network):
-    """
-    clusters are numbered starting at 0
-    """
-    from scipy.sparse import csgraph as csg
-
-    am = network.create_adjacency_matrix(fmt="coo", triu=True, drop_zeros=True)
-    N, Cs = csg.connected_components(am, directed=False)
-    return N, Cs
 
 
 @nb.njit
