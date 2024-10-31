@@ -35,10 +35,10 @@ def initialize_pn(pn):
         pn[f"{element_type}.C_h"] = 0.0
         pn[f"{element_type}.advancing_contact_angle"] = 0.0
         pn[f"{element_type}.receding_contact_angle"] = 0.0
-        pn[f"{element_type}.oil_singlephase_conductance"] = 0.0
-        pn[f"{element_type}.water_singlephase_conductance"] = 0.0
-        pn[f"{element_type}.oil_multiphase_conductance"] = 0.0
-        pn[f"{element_type}.water_multiphase_conductance"] = 0.0
+        pn[f"{element_type}.oil_singlephase_conductivity"] = 0.0
+        pn[f"{element_type}.water_singlephase_conductivity"] = 0.0
+        pn[f"{element_type}.oil_multiphase_conductivity"] = 0.0
+        pn[f"{element_type}.water_multiphase_conductivity"] = 0.0
         pn[f"{element_type}.shape"] = 0
         pn[f"{element_type}.trapped"] = False
         pn[f"{element_type}.n_corners"] = int(0)
@@ -54,6 +54,10 @@ def initialize_pn(pn):
         pn[f"{element_type}.second_receding_ca"] = 0.0
         pn[f"{element_type}.id"] = list(range(len(pn[f"{element_type}.all"])))
 
+    pn["throat.oil_singlephase_conductance"] = 0.0
+    pn["throat.water_singlephase_conductance"] = 0.0
+    pn["throat.oil_multiphase_conductance"] = 0.0
+    pn["throat.water_multiphase_conductance"] = 0.0
     pn["throat.hydraulic_conductance"] = 0.0
 
     # Initialize connection properties
@@ -484,10 +488,10 @@ class PoresNetwork(ElementNetwork):
         self.C_h = pn["pore.C_h"]
         self.advancing_contact_angle = pn["pore.advancing_contact_angle"]
         self.receding_contact_angle = pn["pore.receding_contact_angle"]
-        self.oil_singlephase_conductance = pn["pore.oil_singlephase_conductance"]
-        self.water_singlephase_conductance = pn["pore.water_singlephase_conductance"]
-        self.oil_multiphase_conductance = pn["pore.oil_multiphase_conductance"]
-        self.water_multiphase_conductance = pn["pore.water_multiphase_conductance"]
+        self.oil_singlephase_conductivity = pn["pore.oil_singlephase_conductivity"]
+        self.water_singlephase_conductivity = pn["pore.water_singlephase_conductivity"]
+        self.oil_multiphase_conductivity = pn["pore.oil_multiphase_conductivity"]
+        self.water_multiphase_conductivity = pn["pore.water_multiphase_conductivity"]
         self.shape = pn["pore.shape"]
         self.trapped = pn["pore.trapped"]
         self.n_corners = pn["pore.n_corners"]
@@ -538,6 +542,10 @@ class ThroatsNetwork(ElementNetwork):
         self.water_singlephase_conductance = pn["throat.water_singlephase_conductance"]
         self.oil_multiphase_conductance = pn["throat.oil_multiphase_conductance"]
         self.water_multiphase_conductance = pn["throat.water_multiphase_conductance"]
+        self.oil_singlephase_conductivity = pn["throat.oil_singlephase_conductivity"]
+        self.water_singlephase_conductivity = pn["throat.water_singlephase_conductivity"]
+        self.oil_multiphase_conductivity = pn["throat.oil_multiphase_conductivity"]
+        self.water_multiphase_conductivity = pn["throat.water_multiphase_conductivity"]
         self.shape = pn["throat.shape"]
         self.trapped = pn["throat.trapped"]
         self.n_corners = pn["throat.n_corners"]

@@ -22,7 +22,7 @@ def calculate_element_singlephase_conductance(A, G, shape, mi):
 
 @njit
 def calculate_element_multiphase_oil_conductance(bi, bo, beta, theta_i, theta_o, corner_oil_layer, n_corners):
-    go = 0
+    go = 0.0
     for i in range(n_corners):
         if corner_oil_layer[i]:
             go += calculate_dimensionless_layer_conductance(bi[i], bo[i], beta[i], theta_i[i], theta_o[i])
@@ -90,111 +90,6 @@ def calculate_element_multiphase_water_conductance(theta_h, b, beta, n_corners):
 
 
 @njit
-def calculate_singlephase_conductance(L, A, G, shape, phase=WATER):
-    i = 0  # Pore 1
-    j = 2  # Throat connecting pore 0 and 1
-    k = 1  # Pore 2
-
-    gp = np.empty(3, dtype=np.float64)
-    mi = c.miw if phase == WATER else c.mio
-    for n in [i, j, k]:
-        gp[n] = calculate_element_singlephase_conductance(A[n], G[n], shape[n], mi)
-    Gp = 1 / ((L[i] / gp[i]) + (L[j] / gp[j]) + (L[k] / gp[k]))
-    return Gp
-
-
-@njit
-def calculate_multiphase_network_oil_conductance(
-    L,
-    A,
-    G,
-    shape,
-    So,
-    b,
-    bo,
-    beta,
-    theta_h,
-    theta_a,
-    corner_oil_layer,
-    n_corners,
-    has_oil_in_center,
-    number_of_elements,
-    throat_id_list,
-):
-    multiphase_conductance = np.empty(number_of_elements, np.float64)
-    for i in throat_id_list:
-        multiphase_conductance[i] = calculate_multiphase_oil_conductance(
-            L[i],
-            A[i],
-            G[i],
-            shape[i],
-            So[i],
-            b[i],
-            bo[i],
-            beta[i],
-            theta_h[i],
-            theta_a[i],
-            corner_oil_layer[i],
-            n_corners[i],
-            has_oil_in_center[i],
-        )
-    return multiphase_conductance
-
-
-@njit
-def calculate_multiphase_oil_conductance(
-    L, A, G, shape, So, b, bo, beta, theta_h, theta_a, corner_oil_layer, n_corners, has_oil_in_center
-):
-    if np.any(So == 0):
-        return 0
-
-    i = 0  # Pore 1
-    j = 2  # Throat connecting pore 0 and 1
-    k = 1  # Pore 2
-
-    gp = np.empty(3, dtype=np.float64)
-    for n in [i, j, k]:
-        if has_oil_in_center[n]:
-            gp[n] = So[n] * calculate_element_singlephase_conductance(A[n], G[n], shape[n], c.mio)
-        else:
-            gp[n] = calculate_element_multiphase_oil_conductance(
-                b[n], bo[n], beta[n], theta_h[n], theta_a[n], corner_oil_layer[n], n_corners[n]
-            )
-    Gp = 1 / ((L[i] / gp[i]) + (L[j] / gp[j]) + (L[k] / gp[k]))
-    return Gp
-
-
-@njit
-def calculate_multiphase_network_water_conductance(
-    L, A, G, shape, Sw, theta_h, b, beta, n_corners, has_water_in_center, number_of_elements, throat_id_list
-):
-    multiphase_conductance = np.empty(number_of_elements, np.float64)
-    for i in throat_id_list:
-        multiphase_conductance[i] = calculate_multiphase_water_conductance(
-            L[i], A[i], G[i], shape[i], Sw[i], theta_h[i], b[i], beta[i], n_corners[i], has_water_in_center[i]
-        )
-    return multiphase_conductance
-
-
-@njit
-def calculate_multiphase_water_conductance(L, A, G, shape, Sw, theta_h, b, beta, n_corners, has_water_in_center):
-    if np.any(Sw == 0):
-        return 0
-
-    i = 0  # Pore 1
-    j = 2  # Throat connecting pore 0 and 1
-    k = 1  # Pore 2
-
-    gp = np.empty(3, dtype=np.float64)
-    for n in [i, j, k]:
-        if has_water_in_center[n]:
-            gp[n] = Sw[n] * calculate_element_singlephase_conductance(A[n], G[n], shape[n], c.miw)
-        else:
-            gp[n] = calculate_element_multiphase_water_conductance(theta_h[n], b[n], beta[n], n_corners[n])
-    return calculate_conductance(L, gp)
-
-
-@njit
 def calculate_conductance(L, gp):
     i = 0  # Pore 1
     j = 2  # Throat connecting pore 0 and 1
@@ -212,3 +107,64 @@ def calculate_absolute_permeability(phase, qts, A, L, fi_inlet, fi_outlet):
         mi = c.mio
     K = (mi * qts * L) / (A * (fi_inlet - fi_outlet))
     return K
+
+
+@njit
+def calculate_network_singlephase_conductivity(gp, A, G, shape, phase=WATER):
+    number_of_elements = len(gp)
+
+    mi = c.miw if phase == WATER else c.mio
+    for n in range(number_of_elements):
+        gp[n] = calculate_element_singlephase_conductance(A[n], G[n], shape[n], mi)
+
+
+@njit
+def calculate_network_multiphase_water_conductivity(
+    gp, A, G, shape, Sw, theta_h, b, beta, n_corners, has_water_in_center
+):
+    number_of_elements = len(gp)
+
+    for n in range(number_of_elements):
+        if Sw[n] == 0.0:
+            gp[n] = 0.0
+            continue
+
+        if has_water_in_center[n]:
+            gp[n] = Sw[n] * calculate_element_singlephase_conductance(A[n], G[n], shape[n], c.miw)
+        else:
+            gp[n] = calculate_element_multiphase_water_conductance(theta_h[n], b[n], beta[n], n_corners[n])
+
+
+@njit
+def calculate_network_multiphase_oil_conductivity(
+    gp, A, G, shape, So, b, bo, beta, theta_h, theta_a, corner_oil_layer, n_corners, has_oil_in_center
+):
+    number_of_elements = len(gp)
+
+    for n in range(number_of_elements):
+        if So[n] == 0.0:
+            gp[n] = 0.0
+            continue
+
+        if has_oil_in_center[n]:
+            gp[n] = So[n] * calculate_element_singlephase_conductance(A[n], G[n], shape[n], c.mio)
+        else:
+            gp[n] = calculate_element_multiphase_oil_conductance(
+                b[n], bo[n], beta[n], theta_h[n], theta_a[n], corner_oil_layer[n], n_corners[n]
+            )
+
+
+@njit
+def calculate_network_conductance(Gp, throat_gp, throat_L, throat_conn, pore_gp, pore_L):
+    number_of_elements = len(Gp)
+    for i in range(number_of_elements):
+        throat_id = i
+        pore_0_id = throat_conn[throat_id][0]
+        pore_1_id = throat_conn[throat_id][1]
+        gp = np.array([pore_gp[pore_0_id], throat_gp[throat_id], pore_gp[pore_1_id]])
+        L = np.array([pore_L[pore_0_id], throat_L[throat_id], pore_L[pore_1_id]])
+
+        if np.any(gp == 0.0):
+            Gp[i] = 0
+        else:
+            Gp[i] = calculate_conductance(L, gp)
