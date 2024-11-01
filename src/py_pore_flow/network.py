@@ -43,6 +43,7 @@ def initialize_pn(pn):
         pn[f"{element_type}.trapped"] = False
         pn[f"{element_type}.n_corners"] = int(0)
         pn[f"{element_type}.spontaneous_imbibition"] = True
+        pn[f"{element_type}.snap_off_viability"] = True
         pn[f"{element_type}.entry_pressure"] = 0.0
         pn[f"{element_type}.snap_off_pressure"] = 0.0
         pn[f"{element_type}.initial_advancing_ca"] = 0.0
@@ -228,6 +229,10 @@ class PnElement:
         return self.element.spontaneous_imbibition[self.id]
 
     @property
+    def snap_off_viability(self):
+        return self.element.snap_off_viability[self.id]
+
+    @property
     def beta(self):
         return self.element.corner_half_angle[self.id]
 
@@ -326,6 +331,10 @@ class PnElement:
     @spontaneous_imbibition.setter
     def spontaneous_imbibition(self, spontaneous_imbibition):
         self.element.spontaneous_imbibition[self.id] = spontaneous_imbibition
+
+    @snap_off_viability.setter
+    def snap_off_viability(self, snap_off_viability):
+        self.element.snap_off_viability[self.id] = snap_off_viability
 
     @beta.setter
     def beta(self, beta):
@@ -483,6 +492,7 @@ class PoresNetwork(ElementNetwork):
         self.trapped = pn["pore.trapped"]
         self.n_corners = pn["pore.n_corners"]
         self.spontaneous_imbibition = pn["pore.spontaneous_imbibition"]
+        self.snap_off_viability = pn["pore.snap_off_viability"]
         self.entry_pressure = pn["pore.entry_pressure"]
         self.snap_off_pressure = pn["pore.snap_off_pressure"]
         self.conns = pn["pore.conns"]
@@ -532,6 +542,7 @@ class ThroatsNetwork(ElementNetwork):
         self.trapped = pn["throat.trapped"]
         self.n_corners = pn["throat.n_corners"]
         self.spontaneous_imbibition = pn["throat.spontaneous_imbibition"]
+        self.snap_off_viability = pn["throat.snap_off_viability"]
         self.entry_pressure = pn["throat.entry_pressure"]
         self.snap_off_pressure = pn["throat.snap_off_pressure"]
         self.conns = pn["throat.conns"]

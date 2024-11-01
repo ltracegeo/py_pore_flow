@@ -17,6 +17,7 @@ from py_pore_flow.equations.geometry import (
 )
 from py_pore_flow.equations.entry_pressure import (
     calculate_drainage_pc,
+    calculate_snap_off_viability,
     calculate_spontaneous_imbibition_viability,
     calculate_snap_off_pc_network,
 )
@@ -267,6 +268,12 @@ def calculate_element_imbibition_values(element, max_pc):
         element.r,
         element.G,
         Rmin,
+    )
+
+    element.snap_off_viability = calculate_snap_off_viability(
+        element.receding_contact_angle,
+        element.beta,
+        element.n_corners,
     )
 
 
