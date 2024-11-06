@@ -33,6 +33,8 @@ from scipy.sparse import csr_matrix
 USE_OPENPNM_SOLVER = False
 USE_OPENPNM_TRAPCHECKER = False
 
+ENABLE_TRAPPING_FROM_INLET = True
+
 TRAP_TOLERANCE = 0.0
 
 
@@ -885,10 +887,15 @@ class TrapChecker:
         self.size_array = np.ones((self.nP + self.nT))
         self.network.pn_core.pore.trapped[:] = False
         self.network.pn_core.throat.trapped[:] = False
+        self.network.pn_core.pore.trapped_evacuation[:] = False
+        self.network.pn_core.throat.trapped_evacuation[:] = False
 
     def reset_status(self):
         # self.network.pn_core.pore.trapped[:] = False
         # self.network.pn_core.throat.trapped[:] = False
+        if ENABLE_TRAPPING_FROM_INLET:
+            self.network.pn_core.pore.trapped_evacuation[:] = False
+            self.network.pn_core.throat.trapped_evacuation[:] = False
         self._jit_reset_status(
             self.parent_array,
             self.size_array,
@@ -897,6 +904,13 @@ class TrapChecker:
         )
 
     def update_trapped_pores(self):
+        if self.phase == WATER:
+            invasion_phase = WATER
+            evacuation_phase = OIL
+        elif self.phase == OIL:
+            invasion_phase = OIL
+            evacuation_phase = WATER
+
         self.reset_status()
         self._jit_update_trapped_pores(
             self.parent_array,
@@ -909,8 +923,32 @@ class TrapChecker:
             self.network.pn_core.throat.oil_saturation,
             self.network.pn_core.throat.conns,
             self.network.pn_core.pore.outlets,
-            self.phase,
+            invasion_phase,
         )
+        if ENABLE_TRAPPING_FROM_INLET:
+            self.reset_status()
+            self._jit_update_trapped_pores(
+                self.parent_array,
+                self.size_array,
+                self.nP,
+                self.nT,
+                self.network.pn_core.pore.trapped_evacuation,
+                self.network.pn_core.throat.trapped_evacuation,
+                self.network.pn_core.pore.oil_saturation,
+                self.network.pn_core.throat.oil_saturation,
+                self.network.pn_core.throat.conns,
+                self.network.pn_core.pore.inlets,
+                evacuation_phase,
+            )
+            self.network.pn_core["pore.trapped_evacuation"] = (
+                self.network.pn_core.pore.trapped_evacuation | self.network.pn_core.pore.trapped
+            )
+            self.network.pn_core["throat.trapped_evacuation"] = (
+                self.network.pn_core.throat.trapped_evacuation | self.network.pn_core.throat.trapped
+            )
+        else:
+            self.network.pn_core["pore.trapped_evacuation"] = self.network.pn_core.pore.trapped
+            self.network.pn_core["throat.trapped_evacuation"] = self.network.pn_core.throat.trapped
 
     @staticmethod
     @nb.njit
