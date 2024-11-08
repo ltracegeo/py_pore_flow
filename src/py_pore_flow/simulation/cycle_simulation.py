@@ -657,15 +657,15 @@ class CycleSimulation:
 
         self.krel_calculator = KrelCalculator(self.network, calculate_full_conductance)
 
-        self.border_elements = BorderElements()
-        self.border_elements.set_pores_ids(nb.typed.List(self.network.get_inlets_ids()))
-        self.__find_initial_border_elements(self.border_elements, phase)
-
         if USE_OPENPNM_TRAPCHECKER:
             self.trap_checker = TrapCheckerOpenpnm(network, self.phase)
         else:
             self.trap_checker = TrapChecker(network, self.phase)
         self.trap_checker.update_trapped_pores()
+
+        self.border_elements = BorderElements()
+        self.border_elements.set_pores_ids(nb.typed.List(self.network.get_inlets_ids()))
+        self._find_initial_border_elements(self.network.pn_core, self.border_elements, phase)
 
         self.saturation_calculator = SaturationCalculator(network, phase)
 
@@ -806,51 +806,62 @@ class CycleSimulation:
             element_data.hinging_contact_angle[id],
         )
 
-    def __find_initial_border_elements(self, border_elements, phase):
-        def get_border_id_list(pn_element, pn_neighbor, phase):
-            if phase == WATER:
-                pn_element_phase_filled = pn_element.water_filled
-                pn_neighbor_phase_filled = pn_neighbor.water_filled
-            else:
-                pn_element_phase_filled = pn_element.oil_filled
-                pn_neighbor_phase_filled = pn_neighbor.oil_filled
-            conns = pn_element.conns[pn_element_phase_filled]
-            n_conns = pn_element.n_conns[pn_element_phase_filled]
-            neighbor_id_list = []
-            for i in range(len(conns)):
-                neighbor_id_list.extend(conns[i][: n_conns[i]])
-            neighbor_id_list = np.array(neighbor_id_list, dtype=np.int64, ndmin=1)
-            trapped_mask = ~pn_neighbor.trapped[neighbor_id_list]
-            filled_mask = ~pn_neighbor_phase_filled[neighbor_id_list]
-            neighbor_id_list = neighbor_id_list[trapped_mask & filled_mask]
-            return neighbor_id_list
-
-        border_throats_id_list = get_border_id_list(
-            pn_element=self.network.pn_core.pore,
-            pn_neighbor=self.network.pn_core.throat,
-            phase=phase,
-        )
-        border_pores_id_list = get_border_id_list(
-            pn_element=self.network.pn_core.throat,
-            pn_neighbor=self.network.pn_core.pore,
-            phase=phase,
-        )
-
-        if len(border_throats_id_list) > 0:
-            border_elements.set_throats_ids(nb.typed.List(border_throats_id_list))
-        if len(border_pores_id_list) > 0:
-            border_elements.set_pores_ids(nb.typed.List(border_pores_id_list))
-
+    @staticmethod
+    def _find_initial_border_elements(pn, border_elements, phase):
         if phase == WATER:
-            border_inlets = self.network.pn_core.pore.id[
-                self.network.pn_core.pore.inlets & self.network.pn_core.pore.oil_filled
-            ]
+            pore_phase_filled = pn.pore.water_filled
+            throat_phase_filled = pn.throat.water_filled
         else:
-            border_inlets = self.network.pn_core.pore.id[
-                self.network.pn_core.pore.inlets & self.network.pn_core.pore.water_filled
-            ]
-        for inlet in border_inlets:
-            border_elements.add_pore(inlet)
+            pore_phase_filled = pn.pore.oil_filled
+            throat_phase_filled = pn.throat.oil_filled
+
+        wqupc = Wqupc(len(pn.pore.all), len(pn.throat.all))
+        for throat_id in range(wqupc.nT):
+            if throat_phase_filled[throat_id]:
+                pore_0_id, pore_1_id = pn.throat.conns[throat_id]
+                if pore_phase_filled[pore_0_id]:
+                    wqupc.union(throat_id, pore_0_id)
+                if pore_phase_filled[pore_1_id]:
+                    wqupc.union(throat_id, pore_1_id)
+
+        inlets_clusters = set()
+        pore_cluster = np.empty(wqupc.nP, np.int32)
+        throat_cluster = np.empty(wqupc.nT, np.int32)
+
+        for pore_id in range(wqupc.nP):
+            pore_cluster[pore_id] = wqupc.find_pore(pore_id)
+        for throat_id in range(wqupc.nT):
+            throat_cluster[throat_id] = wqupc.find_throat(throat_id)
+        inlets_clusters.update(pore_cluster[pn.pore.inlets & pore_phase_filled])
+        inlets_clusters = np.array(list(inlets_clusters), dtype=np.int64)
+
+        pore_mask = np.isin(pore_cluster, inlets_clusters)
+        throat_mask = np.isin(throat_cluster, inlets_clusters)
+
+        conns = pn.throat.conns[throat_mask]
+        pore_ids = set()
+        pore_ids.update(np.where(pn.pore.inlets)[0])
+        for i in range(len(conns)):
+            pore_ids.update(conns[i])
+        pore_ids = np.array(list(pore_ids), dtype=np.int64)
+        not_filled_mask = ~pore_phase_filled[pore_ids]
+        not_trapped_mask = ~pn.pore.trapped[pore_ids]
+        pore_ids = pore_ids[not_filled_mask & not_trapped_mask]
+
+        conns = pn.pore.conns[pore_mask]
+        n_conns = pn.pore.n_conns[pore_mask]
+        throat_ids = set()
+        for i in range(len(conns)):
+            throat_ids.update(conns[i][: n_conns[i]])
+        throat_ids = np.array(list(throat_ids), dtype=np.int64)
+        not_filled_mask = ~throat_phase_filled[throat_ids]
+        not_trapped_mask = ~pn.throat.trapped[throat_ids]
+        throat_ids = throat_ids[not_filled_mask & not_trapped_mask]
+
+        if len(throat_ids) > 0:
+            border_elements.set_throats_ids(nb.typed.List(throat_ids))
+        if len(pore_ids) > 0:
+            border_elements.set_pores_ids(nb.typed.List(pore_ids))
 
 
 class TrapCheckerOpenpnm:
@@ -899,10 +910,7 @@ class TrapChecker:
     def __init__(self, network, phase):
         self.network = network
         self.phase = phase
-        self.nP = len(self.network.pn_core.pore.all)
-        self.nT = len(self.network.pn_core.throat.all)
-        self.parent_array = np.arange(self.nP + self.nT, dtype=np.uint32)
-        self.size_array = np.ones((self.nP + self.nT))
+        self.wqupc = Wqupc(len(self.network.pn_core.pore.all), len(self.network.pn_core.throat.all))
         self.network.pn_core.pore.trapped[:] = False
         self.network.pn_core.throat.trapped[:] = False
         self.network.pn_core.pore.trapped_evacuation[:] = False
@@ -914,12 +922,7 @@ class TrapChecker:
         if ENABLE_TRAPPING_FROM_INLET:
             self.network.pn_core.pore.trapped_evacuation[:] = False
             self.network.pn_core.throat.trapped_evacuation[:] = False
-        self._jit_reset_status(
-            self.parent_array,
-            self.size_array,
-            self.nP,
-            self.nT,
-        )
+        self.wqupc.reset()
 
     def update_trapped_pores(self):
         if self.phase == WATER:
@@ -931,10 +934,10 @@ class TrapChecker:
 
         self.reset_status()
         self._jit_update_trapped_pores(
-            self.parent_array,
-            self.size_array,
-            self.nP,
-            self.nT,
+            self.wqupc.parent_array,
+            self.wqupc.size_array,
+            self.wqupc.nP,
+            self.wqupc.nT,
             self.network.pn_core.pore.trapped,
             self.network.pn_core.throat.trapped,
             self.network.pn_core.pore.oil_saturation,
@@ -946,10 +949,10 @@ class TrapChecker:
         if ENABLE_TRAPPING_FROM_INLET:
             self.reset_status()
             self._jit_update_trapped_pores(
-                self.parent_array,
-                self.size_array,
-                self.nP,
-                self.nT,
+                self.wqupc.parent_array,
+                self.wqupc.size_array,
+                self.wqupc.nP,
+                self.wqupc.nT,
                 self.network.pn_core.pore.trapped_evacuation,
                 self.network.pn_core.throat.trapped_evacuation,
                 self.network.pn_core.pore.oil_saturation,
@@ -1018,13 +1021,6 @@ class TrapChecker:
             cluster = find(pore + nT)
             if cluster not in outlets_clusters:
                 pore_trapped[pore] = True
-
-    @staticmethod
-    @nb.njit
-    def _jit_reset_status(parent_array, size_array, nP, nT):
-        for i in range(nP + nT):
-            parent_array[i] = i
-            size_array[i] = 1
 
 
 spec = [
@@ -1131,23 +1127,29 @@ class PcIncrementer:
             self.pc_step = self.pc_step_initial
 
 
-def get_sub_spy(spy_network, sub_pores, sub_throats):
-    sub_pn = {}
-    for prop in spy_network.keys():
-        if prop.split(".")[0] == "pore":
-            sub_pn[prop] = spy_network[prop][sub_pores]
-        else:
-            sub_pn[prop] = spy_network[prop][sub_throats]
+class Wqupc:
+    def __init__(self, nP, nT):
+        self.nP = nP
+        self.nT = nT
+        self.parent_array = np.arange(self.nP + self.nT, dtype=np.uint32)
+        self.size_array = np.ones((self.nP + self.nT))
 
-    counter = _counter()
-    f_counter = lambda x: next(counter) if x else 0
-    new_pore_index = np.fromiter(map(f_counter, sub_pores), dtype="int")
+    def union(self, p, q):
+        wqupc_union(p, q + self.nT, self.parent_array, self.size_array)
 
-    if len(sub_pn["throat.conns"]) == 0:
-        return False
-    for i in np.nditer(sub_pn["throat.conns"], op_flags=["readwrite"]):
-        i[...] = new_pore_index[i]
-    return sub_pn
+    def find_throat(self, p):
+        return wqupc_find(p, self.parent_array)
+
+    def find_pore(self, p):
+        return wqupc_find(p + self.nT, self.parent_array)
+
+    def reset(self):
+        wqupc_reset(
+            self.parent_array,
+            self.size_array,
+            self.nP,
+            self.nT,
+        )
 
 
 @nb.njit
@@ -1180,3 +1182,10 @@ def wqupc_union(p, q, parent_array, size_array):
     else:
         parent_array[rootQ] = rootP
         size_array[rootP] += size_array[rootQ]
+
+
+@nb.njit
+def wqupc_reset(parent_array, size_array, nP, nT):
+    for i in range(nP + nT):
+        parent_array[i] = i
+        size_array[i] = 1
