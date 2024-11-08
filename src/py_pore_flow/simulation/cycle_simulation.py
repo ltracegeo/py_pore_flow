@@ -807,32 +807,50 @@ class CycleSimulation:
         )
 
     def __find_initial_border_elements(self, border_elements, phase):
-        def update_element_in_border(element):
-            if element.is_filled(self.phase):
-                if element.is_pore():
-                    self.border_elements.remove_pore(element.get_id())
-                else:
-                    self.border_elements.remove_throat(element.get_id())
-                neighbor_list = self.network.get_neighbors(element)
-                for neighbor in neighbor_list:
-                    if not neighbor.is_filled(self.phase):
-                        if neighbor.is_pore():
-                            self.border_elements.add_pore(neighbor.get_id())
-                        else:
-                            self.border_elements.add_throat(neighbor.get_id())
-                return True
-            return False
+        def get_border_id_list(pn_element, pn_neighbor, phase):
+            if phase == WATER:
+                pn_element_phase_filled = pn_element.water_filled
+                pn_neighbor_phase_filled = pn_neighbor.water_filled
+            else:
+                pn_element_phase_filled = pn_element.oil_filled
+                pn_neighbor_phase_filled = pn_neighbor.oil_filled
+            conns = pn_element.conns[pn_element_phase_filled]
+            n_conns = pn_element.n_conns[pn_element_phase_filled]
+            neighbor_id_list = []
+            for i in range(len(conns)):
+                neighbor_id_list.extend(conns[i][: n_conns[i]])
+            neighbor_id_list = np.array(neighbor_id_list, dtype=np.int64, ndmin=1)
+            trapped_mask = ~pn_neighbor.trapped[neighbor_id_list]
+            filled_mask = ~pn_neighbor_phase_filled[neighbor_id_list]
+            neighbor_id_list = neighbor_id_list[trapped_mask & filled_mask]
+            return neighbor_id_list
 
-        border_changed = True
-        while border_changed:
-            border_changed = False
-            for pore_id in border_elements.get_pores_ids():
-                element = self.network.get_pore(pore_id)
-                border_changed |= update_element_in_border(element)
+        border_throats_id_list = get_border_id_list(
+            pn_element=self.network.pn_core.pore,
+            pn_neighbor=self.network.pn_core.throat,
+            phase=phase,
+        )
+        border_pores_id_list = get_border_id_list(
+            pn_element=self.network.pn_core.throat,
+            pn_neighbor=self.network.pn_core.pore,
+            phase=phase,
+        )
 
-            for throat_id in border_elements.get_throats_ids():
-                element = self.network.get_throat(throat_id)
-                border_changed |= update_element_in_border(element)
+        if len(border_throats_id_list) > 0:
+            border_elements.set_throats_ids(nb.typed.List(border_throats_id_list))
+        if len(border_pores_id_list) > 0:
+            border_elements.set_pores_ids(nb.typed.List(border_pores_id_list))
+
+        if phase == WATER:
+            border_inlets = self.network.pn_core.pore.id[
+                self.network.pn_core.pore.inlets & self.network.pn_core.pore.oil_filled
+            ]
+        else:
+            border_inlets = self.network.pn_core.pore.id[
+                self.network.pn_core.pore.inlets & self.network.pn_core.pore.water_filled
+            ]
+        for inlet in border_inlets:
+            border_elements.add_pore(inlet)
 
 
 class TrapCheckerOpenpnm:
