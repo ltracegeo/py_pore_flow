@@ -119,6 +119,35 @@ def calculate_network_singlephase_conductivity(gp, A, G, shape, phase=WATER):
 
 
 @njit
+def calculate_network_multiphase_conductivity(
+    gp,
+    A,
+    G,
+    shape,
+    Sw,
+    So,
+    b,
+    bo,
+    beta,
+    theta_h,
+    theta_a,
+    corner_oil_layer,
+    n_corners,
+    has_water_in_center,
+    has_oil_in_center,
+    phase,
+):
+    if phase == WATER:
+        calculate_network_multiphase_water_conductivity(
+            gp, A, G, shape, Sw, theta_h, b, beta, n_corners, has_water_in_center
+        )
+    else:
+        calculate_network_multiphase_oil_conductivity(
+            gp, A, G, shape, So, b, bo, beta, theta_h, theta_a, corner_oil_layer, n_corners, has_oil_in_center
+        )
+
+
+@njit
 def calculate_network_multiphase_water_conductivity(
     gp, A, G, shape, Sw, theta_h, b, beta, n_corners, has_water_in_center
 ):

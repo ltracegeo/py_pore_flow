@@ -22,8 +22,7 @@ from py_pore_flow.equations.geometry import (
 from py_pore_flow.equations.conductance import (
     calculate_absolute_permeability,
     calculate_network_conductance,
-    calculate_network_multiphase_oil_conductivity,
-    calculate_network_multiphase_water_conductivity,
+    calculate_network_multiphase_conductivity,
     calculate_network_singlephase_conductivity,
 )
 from py_pore_flow.network import Network
@@ -95,93 +94,58 @@ class ConductanceCalculator:
             )
 
     def __calculate_singlephase_conductivity(self, phase):
-        if phase == WATER:
+        for element_type in [PORE, THROAT]:
+            if element_type == PORE:
+                pn_element = self.network.pn_core.pore
+                area = self.network.pn_core.pore.area
+            else:  # element_type == THROAT:
+                pn_element = self.network.pn_core.throat
+                area = self.network.pn_core.throat.cross_sectional_area
+
+            if phase == WATER:
+                singlephase_conductivity = pn_element.water_singlephase_conductivity
+            else:  # phase == OIL:
+                singlephase_conductivity = pn_element.oil_singlephase_conductivity
+
             calculate_network_singlephase_conductivity(
-                self.network.pn_core.pore.water_singlephase_conductivity,
-                self.network.pn_core.pore.area,
-                self.network.pn_core.pore.shape_factor,
-                self.network.pn_core.pore.shape,
-                WATER,
-            )
-            calculate_network_singlephase_conductivity(
-                self.network.pn_core.throat.water_singlephase_conductivity,
-                self.network.pn_core.throat.cross_sectional_area,
-                self.network.pn_core.throat.shape_factor,
-                self.network.pn_core.throat.shape,
-                WATER,
-            )
-        else:
-            calculate_network_singlephase_conductivity(
-                self.network.pn_core.pore.oil_singlephase_conductivity,
-                self.network.pn_core.pore.area,
-                self.network.pn_core.pore.shape_factor,
-                self.network.pn_core.pore.shape,
-                OIL,
-            )
-            calculate_network_singlephase_conductivity(
-                self.network.pn_core.throat.oil_singlephase_conductivity,
-                self.network.pn_core.throat.cross_sectional_area,
-                self.network.pn_core.throat.shape_factor,
-                self.network.pn_core.throat.shape,
-                OIL,
+                singlephase_conductivity,
+                area,
+                pn_element.shape_factor,
+                pn_element.shape,
+                phase,
             )
 
     def __calculate_multiphase_conductivity(self, phase):
-        if phase == WATER:
-            calculate_network_multiphase_water_conductivity(
-                self.network.pn_core.pore.water_multiphase_conductivity,
-                self.network.pn_core.pore.area,
-                self.network.pn_core.pore.shape_factor,
-                self.network.pn_core.pore.shape,
-                self.network.pn_core.pore.water_saturation,
-                self.network.pn_core.pore.hinging_contact_angle,
-                self.network.pn_core.pore.b,
-                self.network.pn_core.pore.corner_half_angle,
-                self.network.pn_core.pore.n_corners,
-                self.network.pn_core.pore.water_filled,
-            )
-            calculate_network_multiphase_water_conductivity(
-                self.network.pn_core.throat.water_multiphase_conductivity,
-                self.network.pn_core.throat.cross_sectional_area,
-                self.network.pn_core.throat.shape_factor,
-                self.network.pn_core.throat.shape,
-                self.network.pn_core.throat.water_saturation,
-                self.network.pn_core.throat.hinging_contact_angle,
-                self.network.pn_core.throat.b,
-                self.network.pn_core.throat.corner_half_angle,
-                self.network.pn_core.throat.n_corners,
-                self.network.pn_core.throat.water_filled,
-            )
-        else:
-            calculate_network_multiphase_oil_conductivity(
-                self.network.pn_core.pore.oil_multiphase_conductivity,
-                self.network.pn_core.pore.area,
-                self.network.pn_core.pore.shape_factor,
-                self.network.pn_core.pore.shape,
-                self.network.pn_core.pore.oil_saturation,
-                self.network.pn_core.pore.b,
-                self.network.pn_core.pore.bo,
-                self.network.pn_core.pore.corner_half_angle,
-                self.network.pn_core.pore.hinging_contact_angle,
-                np.tile(self.network.pn_core.pore.advancing_contact_angle[:, np.newaxis], MAX_NUMBER_OF_CORNERS),
-                self.network.pn_core.pore.corner_oil_layer,
-                self.network.pn_core.pore.n_corners,
-                self.network.pn_core.pore.oil_filled,
-            )
-            calculate_network_multiphase_oil_conductivity(
-                self.network.pn_core.throat.oil_multiphase_conductivity,
-                self.network.pn_core.throat.cross_sectional_area,
-                self.network.pn_core.throat.shape_factor,
-                self.network.pn_core.throat.shape,
-                self.network.pn_core.throat.oil_saturation,
-                self.network.pn_core.throat.b,
-                self.network.pn_core.throat.bo,
-                self.network.pn_core.throat.corner_half_angle,
-                self.network.pn_core.throat.hinging_contact_angle,
-                np.tile(self.network.pn_core.throat.advancing_contact_angle[:, np.newaxis], MAX_NUMBER_OF_CORNERS),
-                self.network.pn_core.throat.corner_oil_layer,
-                self.network.pn_core.throat.n_corners,
-                self.network.pn_core.throat.oil_filled,
+        for element_type in [PORE, THROAT]:
+            if element_type == PORE:
+                pn_element = self.network.pn_core.pore
+                area = self.network.pn_core.pore.area
+            else:  # element_type == THROAT:
+                pn_element = self.network.pn_core.throat
+                area = self.network.pn_core.throat.cross_sectional_area
+
+            if phase == WATER:
+                multiphase_conductivity = pn_element.water_multiphase_conductivity
+            else:  # phase == OIL:
+                multiphase_conductivity = pn_element.oil_multiphase_conductivity
+
+            calculate_network_multiphase_conductivity(
+                multiphase_conductivity,
+                area,
+                pn_element.shape_factor,
+                pn_element.shape,
+                pn_element.water_saturation,
+                pn_element.oil_saturation,
+                pn_element.b,
+                pn_element.bo,
+                pn_element.corner_half_angle,
+                pn_element.hinging_contact_angle,
+                np.tile(pn_element.advancing_contact_angle[:, np.newaxis], MAX_NUMBER_OF_CORNERS),
+                pn_element.corner_oil_layer,
+                pn_element.n_corners,
+                pn_element.water_filled,
+                pn_element.oil_filled,
+                phase,
             )
 
 
