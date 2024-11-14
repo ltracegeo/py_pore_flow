@@ -151,15 +151,34 @@ class TestEquations(unittest.TestCase):
     def test_snap_off_pc(self):
         pc = 5000
         radius = 1e-06
-        advancing_ca = 0.3
-        receding_ca = 0.3
         Rmin = c.sigma / pc
         h = 0.0
-
         beta = np.array([0.35483625, 0.52387179, 0.69208829])
         n_corners = len(beta)
+
+        # two moving menisci
+        advancing_ca = 0.3
+        receding_ca = 0.3
         snap_off_pc = calculate_snap_off_pc_element(radius, beta, advancing_ca, receding_ca, n_corners, Rmin, h)
         self.assertEqual(snap_off_pc, 24657.452515046127)
+
+        # single moving menisci
+        advancing_ca = 0.3
+        receding_ca = 0.6
+        snap_off_pc = calculate_snap_off_pc_element(radius, beta, advancing_ca, receding_ca, n_corners, Rmin, h)
+        self.assertEqual(snap_off_pc, 51933.37546591764)
+
+        # oil-wet 1
+        advancing_ca = 1.3
+        receding_ca = 0.6
+        snap_off_pc = calculate_snap_off_pc_element(radius, beta, advancing_ca, receding_ca, n_corners, Rmin, h)
+        self.assertEqual(snap_off_pc, -726.4572419676624)
+
+        # oil-wet 2
+        advancing_ca = 2.9
+        receding_ca = 0.3
+        snap_off_pc = calculate_snap_off_pc_element(radius, beta, advancing_ca, receding_ca, n_corners, Rmin, h)
+        self.assertEqual(snap_off_pc, -6303.996350456403)
 
     def test_b(self):
         max_pc = 40000
