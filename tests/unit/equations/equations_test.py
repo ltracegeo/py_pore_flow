@@ -220,7 +220,7 @@ class TestEquations(unittest.TestCase):
         )
         assert_almost_equal(theta_h, np.array([0.014, 0.014, 0.014, 0.014]))
 
-    def test_conductance(self):
+    def test_singlephase_conductance(self):
         A = np.empty(3, dtype=np.float64)
         A[0] = 3.2616286606601026e-10
         A[1] = 0.85423594305093e-10
@@ -257,10 +257,24 @@ class TestEquations(unittest.TestCase):
         calculate_network_singlephase_conductivity(gp, A, G, shape, OIL)
         assert_equal(calculate_conductance(L, gp), conductance_oil_template)
 
-        So = np.empty(3, dtype=np.float64)
-        So[0] = 0.7246413840327184
-        So[1] = 1
-        So[2] = 0.9267026348700467
+    def test_multiphase_oil_conductance(self):
+        A = np.empty(3, dtype=np.float64)
+        A[0] = 3.2616286606601026e-10
+        A[1] = 0.85423594305093e-10
+        A[2] = 59.5109522864946e-10
+        G = np.empty(3, dtype=np.float64)
+        G[0] = 0.0443548387096774
+        G[1] = 0.07258065
+        G[2] = 0.0354226214781543
+        L = np.empty(3, dtype=np.float64)
+        L[0] = 7.607076e-06
+        L[1] = 2.620349e-05
+        L[2] = 2.903814e-05
+        shape = np.empty(3, dtype=np.float64)
+        shape[0] = 0
+        shape[1] = 2
+        shape[2] = 0
+        So = np.array([1.0, 1.0, 1.0], dtype=np.float64)
         beta = np.array(
             [
                 [0.35483625, 0.52387179, 0.69208829],
@@ -289,19 +303,36 @@ class TestEquations(unittest.TestCase):
         theta_a = np.array(
             [[0.35483625, 0.52387179, 0.1], [0.35483625, 0.52387179, 0.1], [0.35483625, 0.52387179, 0.1]]
         )
-        corner_oil_layer = np.array([[True, False, True], [True, False, True], [True, False, True]])
-        has_oil_in_center = np.array([True, False, True])
+        corner_oil_layer = np.array([[True, True, True], [True, True, True], [True, True, True]])
+        has_oil_in_center = np.array([False, False, False])
 
+        gp = np.empty(3, dtype=np.float64)
         calculate_network_multiphase_oil_conductivity(
             gp, A, G, shape, So, b, bo, beta, theta_h, theta_a, corner_oil_layer, n_corners, has_oil_in_center
         )
         oil_conductance = calculate_conductance(L, gp)
-        assert_equal(oil_conductance, 2.5527799750129157e-18)
+        assert_equal(oil_conductance, 3.350602871904144e-18)
 
+    def test_multiphase_water_conductance(self):
+        A = np.empty(3, dtype=np.float64)
+        A[0] = 3.2616286606601026e-10
+        A[1] = 0.85423594305093e-10
+        A[2] = 59.5109522864946e-10
+        G = np.empty(3, dtype=np.float64)
+        G[0] = 0.0443548387096774
+        G[1] = 0.07258065
+        G[2] = 0.0354226214781543
+        L = np.empty(3, dtype=np.float64)
+        L[0] = 7.607076e-06
+        L[1] = 2.620349e-05
+        L[2] = 2.903814e-05
+        shape = np.empty(3, dtype=np.float64)
+        shape[0] = 0
+        shape[1] = 2
+        shape[2] = 0
+
+        # Water conductance without water in center
         Sw = np.empty(3, dtype=np.float64)
-        Sw[0] = 0.27535861596728156
-        Sw[1] = 1
-        Sw[2] = 0.07329736512995329
         theta_h = [None] * 3
         theta_h[0] = np.array([1.099105, 0.9393731, 0.7834584])
         theta_h[1] = np.array([1.099105, 0.9393731, 0.7834584])
@@ -314,8 +345,12 @@ class TestEquations(unittest.TestCase):
         beta[0] = np.array([0.35483625, 0.52387179, 0.69208829])
         beta[1] = np.array([0.35483625, 0.52387179, 0.69208829])
         beta[2] = np.array([0.78539816, 0.78539816, 0.78539816, 0.78539816])
+        has_water_in_center = np.array([False, False, False])
+        n_corners = [len(beta[i]) for i in range(len(beta))]
+
+        gp = np.empty(3, dtype=np.float64)
         calculate_network_multiphase_water_conductivity(
-            gp, A, G, shape, Sw, theta_h, b, beta, n_corners, has_oil_in_center
+            gp, A, G, shape, Sw, theta_h, b, beta, n_corners, has_water_in_center
         )
         water_conductance = calculate_conductance(L, gp)
-        assert_equal(water_conductance, 2.362188685299792e-18)
+        assert_equal(water_conductance, 2.0648208672078985e-19)
