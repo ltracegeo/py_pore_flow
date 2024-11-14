@@ -41,6 +41,7 @@ def initialize_pn(pn):
         pn[f"{element_type}.water_multiphase_conductivity"] = 0.0
         pn[f"{element_type}.shape"] = 0
         pn[f"{element_type}.trapped"] = False
+        pn[f"{element_type}.trapped_evacuation"] = False
         pn[f"{element_type}.n_corners"] = int(0)
         pn[f"{element_type}.spontaneous_imbibition"] = True
         pn[f"{element_type}.snap_off_viability"] = True
@@ -494,6 +495,7 @@ class PoresNetwork(ElementNetwork):
         self.water_multiphase_conductivity = pn["pore.water_multiphase_conductivity"]
         self.shape = pn["pore.shape"]
         self.trapped = pn["pore.trapped"]
+        self.trapped_evacuation = pn["pore.trapped_evacuation"]
         self.n_corners = pn["pore.n_corners"]
         self.spontaneous_imbibition = pn["pore.spontaneous_imbibition"]
         self.snap_off_viability = pn["pore.snap_off_viability"]
@@ -548,6 +550,7 @@ class ThroatsNetwork(ElementNetwork):
         self.water_multiphase_conductivity = pn["throat.water_multiphase_conductivity"]
         self.shape = pn["throat.shape"]
         self.trapped = pn["throat.trapped"]
+        self.trapped_evacuation = pn["throat.trapped_evacuation"]
         self.n_corners = pn["throat.n_corners"]
         self.spontaneous_imbibition = pn["throat.spontaneous_imbibition"]
         self.snap_off_viability = pn["throat.snap_off_viability"]

@@ -162,6 +162,8 @@ def calculate_drainage_values(network, max_pc):
 
     network.pn_core["pore.trapped"] = False
     network.pn_core["throat.trapped"] = False
+    network.pn_core["pore.trapped_evacuation"] = False
+    network.pn_core["throat.trapped_evacuation"] = False
 
     network.pn_core.pore.hinging_contact_angle[:, :] = network.pn_core.pore.receding_contact_angle[:, np.newaxis]
     network.pn_core.throat.hinging_contact_angle[:, :] = network.pn_core.throat.receding_contact_angle[:, np.newaxis]
@@ -182,6 +184,8 @@ def calculate_imbibition_values(network, max_pc):
 
     network.pn_core["pore.trapped"] = False
     network.pn_core["throat.trapped"] = False
+    network.pn_core["pore.trapped_evacuation"] = False
+    network.pn_core["throat.trapped_evacuation"] = False
 
     calculate_snap_off_values(network, max_pc)
 
