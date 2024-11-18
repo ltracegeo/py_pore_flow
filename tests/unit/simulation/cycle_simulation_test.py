@@ -218,5 +218,5 @@ class TestCycleSimulation(unittest.TestCase):
         border_elements = BorderElements()
         CycleSimulation._find_initial_border_elements(network.pn_core, border_elements, WATER)
 
-        np.testing.assert_equal(border_elements.get_pores_ids(), [3, 6, 7, 9, 13])
+        np.testing.assert_equal(border_elements.get_pores_ids(), [3, 6, 7, 9, 13, 14, 16])
         np.testing.assert_equal(border_elements.get_throats_ids(), [])
