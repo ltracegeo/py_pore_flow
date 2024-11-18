@@ -811,17 +811,21 @@ class CycleSimulation:
         if phase == WATER:
             pore_phase_filled = pn.pore.water_filled
             throat_phase_filled = pn.throat.water_filled
+            pore_phase_saturation = pn.pore.water_saturation > 0
+            throat_phase_saturation = pn.throat.water_saturation > 0
         else:
             pore_phase_filled = pn.pore.oil_filled
             throat_phase_filled = pn.throat.oil_filled
+            pore_phase_saturation = pn.pore.oil_saturation > 0
+            throat_phase_saturation = pn.throat.oil_saturation > 0
 
         wqupc = Wqupc(len(pn.pore.all), len(pn.throat.all))
         for throat_id in range(wqupc.nT):
-            if throat_phase_filled[throat_id]:
+            if throat_phase_saturation[throat_id]:
                 pore_0_id, pore_1_id = pn.throat.conns[throat_id]
-                if pore_phase_filled[pore_0_id]:
+                if pore_phase_saturation[pore_0_id]:
                     wqupc.union(throat_id, pore_0_id)
-                if pore_phase_filled[pore_1_id]:
+                if pore_phase_saturation[pore_1_id]:
                     wqupc.union(throat_id, pore_1_id)
 
         inlets_clusters = set()
@@ -835,8 +839,8 @@ class CycleSimulation:
         inlets_clusters.update(pore_cluster[pn.pore.inlets & pore_phase_filled])
         inlets_clusters = np.array(list(inlets_clusters), dtype=np.int64)
 
-        pore_mask = np.isin(pore_cluster, inlets_clusters)
-        throat_mask = np.isin(throat_cluster, inlets_clusters)
+        pore_mask = np.isin(pore_cluster, inlets_clusters) & pore_phase_filled
+        throat_mask = np.isin(throat_cluster, inlets_clusters) & throat_phase_filled
 
         conns = pn.throat.conns[throat_mask]
         pore_ids = set()
