@@ -87,6 +87,7 @@ def calculate_imbibition_piston_like_displacement_pc_network(
 def calculate_imbibition_piston_like_displacement_pc_element(
     shape_factor, radius, b, advancing_contact_angle, receding_contact_angle, shape, beta, n_corners, Rmin
 ):
+    arc_meniscus = [i for i in range(n_corners) if beta[i] < pi / 2 - receding_contact_angle]
     a = 0
     for i in range(n_corners):
         b[i] = Rmin * cos(receding_contact_angle + beta[i]) / sin(beta[i])
@@ -103,11 +104,11 @@ def calculate_imbibition_piston_like_displacement_pc_element(
         Aeff = A - R**2 * sum(
             [
                 cos(theta_h[i]) * cos(theta_h[i] + beta[i]) / sin(beta[i]) + theta_h[i] + beta[i] - pi / 2.0
-                for i in range(n_corners)
+                for i in arc_meniscus
             ]
         )
-        Los = radius / (2 * shape_factor) - 2 * sum([b[i] for i in range(n_corners)])
-        Low = 2 * R * sum([asin(b[i] * sin(beta[i]) / R) for i in range(n_corners)])
+        Los = radius / (2 * shape_factor) - 2 * sum([b[i] for i in arc_meniscus])
+        Low = 2 * R * sum([asin(b[i] * sin(beta[i]) / R) for i in arc_meniscus])
         Rold = R
         R = Aeff / (Low + Los * cos(advancing_contact_angle))
         a += 1
