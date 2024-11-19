@@ -78,7 +78,7 @@ def calculate_imbibition_piston_like_displacement_pc_network(
                 Rmin,
             )
         else:
-            Pc[i] = -c.sigma / Rmin
+            Pc[i] = calculate_drainage_pc(shape_factor[i], r[i], theta_r[i], shape[i], beta[i], n_corners[i])
 
     return Pc
 
