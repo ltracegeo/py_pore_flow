@@ -16,7 +16,6 @@ from py_pore_flow.equations.geometry import (
 )
 from py_pore_flow.equations.entry_pressure import (
     calculate_imbibition_pc,
-    calculate_imbibition_piston_like_displacement_pc,
 )
 from py_pore_flow.simulation.cycle_simulation import PORE, THROAT, CycleSimulation
 from py_pore_flow import log
@@ -188,29 +187,19 @@ class ImbibitionSimulation(CycleSimulation):
             self.network.get_neighbor_throats_ids(pore_id)
         ].sum()
         element_pc = calculate_imbibition_pc(
-            self.network.pn_core.pore.shape_factor[pore_id],
+            self.network.pn_core.pore.piston_like_pressure[pore_id],
             self.network.pn_core.pore.radius[pore_id],
             self.network.pn_core.pore.advancing_contact_angle[pore_id],
-            self.network.pn_core.pore.shape[pore_id],
             pc,
-            self.network.pn_core.pore.corner_half_angle[pore_id],
-            self.network.pn_core.pore.n_corners[pore_id],
             number_of_oil_filled_neighbors,
             K,
         )
         self.network.pn_core.pore.entry_pressure[pore_id] = element_pc
 
     def _update_throat_entry_pc(self, throat_id, pc):
-        element_pc = calculate_imbibition_piston_like_displacement_pc(
-            self.network.pn_core.throat.shape_factor[throat_id],
-            self.network.pn_core.throat.radius[throat_id],
-            self.network.pn_core.throat.advancing_contact_angle[throat_id],
-            self.network.pn_core.throat.shape[throat_id],
-            pc,
-            self.network.pn_core.throat.corner_half_angle[throat_id],
-            self.network.pn_core.throat.n_corners[throat_id],
-        )
-        self.network.pn_core.throat.entry_pressure[throat_id] = element_pc
+        self.network.pn_core.throat.entry_pressure[throat_id] = self.network.pn_core.throat.piston_like_pressure[
+            throat_id
+        ]
 
     def _get_element_to_fill(self, pc, border_elements):
         self.__clear_snapoff_lists()

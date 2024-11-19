@@ -1,4 +1,4 @@
-from math import acos, cos, pi, sin, sqrt, tan
+from math import acos, cos, pi, asin, sin, sqrt, tan
 
 from numba import njit
 import numpy as np
@@ -44,26 +44,75 @@ def calculate_drainage_pc(shape_factor, radius, receding_contact_angle, shape, b
 
 @njit
 def calculate_imbibition_pc(
-    shape_factor, radius, advancing_contact_angle, shape, pc, beta, n_corners, number_of_oil_filled_neighbors, K
+    piston_like_displacement_pc,
+    radius,
+    advancing_contact_angle,
+    pc,
+    number_of_oil_filled_neighbors,
+    K,
 ):
     if number_of_oil_filled_neighbors > 1 and pc > 0:
         return calculate_pore_body_filling_pc(radius, advancing_contact_angle, K, number_of_oil_filled_neighbors, 0)
     else:
-        return calculate_imbibition_piston_like_displacement_pc(
-            shape_factor, radius, advancing_contact_angle, shape, pc, beta, n_corners
-        )
+        return piston_like_displacement_pc
 
 
 @njit
-def calculate_imbibition_piston_like_displacement_pc(
-    shape_factor, radius, advancing_contact_angle, shape, pc, beta, n_corners
+def calculate_imbibition_piston_like_displacement_pc_network(
+    shape_factor, r, b, theta_a, theta_r, shape, beta, n_corners, Rmin
 ):
-    if pc < 0:
-        theta = pi - advancing_contact_angle
-        return -calculate_pc(shape_factor, radius, theta, shape, beta, n_corners)
-    else:
-        theta = advancing_contact_angle
-        return calculate_pc(shape_factor, radius, theta, shape, beta, n_corners)
+    number_of_elements = len(r)
+
+    Pc = np.empty(number_of_elements, np.float64)
+    for i in range(number_of_elements):
+        if n_corners[i] != 0:
+            Pc[i] = calculate_imbibition_piston_like_displacement_pc_element(
+                shape_factor[i],
+                r[i],
+                b[i],
+                theta_a[i],
+                theta_r[i],
+                shape[i],
+                beta[i],
+                n_corners[i],
+                Rmin,
+            )
+        else:
+            Pc[i] = -c.sigma / Rmin
+
+    return Pc
+
+
+@njit
+def calculate_imbibition_piston_like_displacement_pc_element(
+    shape_factor, radius, b, advancing_contact_angle, receding_contact_angle, shape, beta, n_corners, Rmin
+):
+    a = 0
+    for i in range(n_corners):
+        b[i] = Rmin * cos(receding_contact_angle + beta[i]) / sin(beta[i])
+    A = radius**2 / (4 * shape_factor)
+    R = Rmin
+    Rold = R + 1000
+    while abs(R - Rold) > 1e-3 and a < 100:
+        theta_h = np.arccos(b * np.sin(beta) / R) - beta
+        if np.any(theta_h[:n_corners] > advancing_contact_angle):
+            for i in np.where(theta_h[:n_corners] > advancing_contact_angle)[0]:
+                b[i] = R * cos(advancing_contact_angle + beta[i]) / sin(beta[i])
+        if np.all(theta_h[:n_corners] > advancing_contact_angle):
+            return calculate_pc(shape_factor, radius, advancing_contact_angle, shape, beta, n_corners)
+        Aeff = A - R**2 * sum(
+            [
+                cos(theta_h[i]) * cos(theta_h[i] + beta[i]) / sin(beta[i]) + theta_h[i] + beta[i] - pi / 2.0
+                for i in range(n_corners)
+            ]
+        )
+        Los = radius / (2 * shape_factor) - 2 * sum([b[i] for i in range(n_corners)])
+        Low = 2 * R * sum([asin(b[i] * sin(beta[i]) / R) for i in range(n_corners)])
+        Rold = R
+        R = Aeff / (Low + Los * cos(advancing_contact_angle))
+        a += 1
+
+    return c.sigma / R
 
 
 @njit
