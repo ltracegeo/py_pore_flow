@@ -512,6 +512,7 @@ class PoresNetwork(ElementNetwork):
         self.equilibrium_receding_ca = pn["pore.equilibrium_receding_ca"]
         self.second_advancing_ca = pn["pore.second_advancing_ca"]
         self.second_receding_ca = pn["pore.second_receding_ca"]
+        self.id = pn["pore.id"]
 
 
 class ThroatsNetwork(ElementNetwork):
@@ -567,6 +568,7 @@ class ThroatsNetwork(ElementNetwork):
         self.equilibrium_receding_ca = pn["throat.equilibrium_receding_ca"]
         self.second_advancing_ca = pn["throat.second_advancing_ca"]
         self.second_receding_ca = pn["throat.second_receding_ca"]
+        self.id = pn["throat.id"]
 
 
 class NetworkCore:
