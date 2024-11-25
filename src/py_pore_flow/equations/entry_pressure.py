@@ -49,10 +49,14 @@ def calculate_imbibition_pc(
     advancing_contact_angle,
     pc,
     number_of_oil_filled_neighbors,
+    throats_radii,
+    G,
     K,
 ):
     if number_of_oil_filled_neighbors > 1 and pc > 0:
-        return calculate_pore_body_filling_pc(radius, advancing_contact_angle, K, number_of_oil_filled_neighbors, 0)
+        return calculate_pore_body_filling_pc(
+            radius, advancing_contact_angle, K, number_of_oil_filled_neighbors, throats_radii, G, 0
+        )
     else:
         return piston_like_displacement_pc
 
@@ -117,22 +121,50 @@ def calculate_imbibition_piston_like_displacement_pc_element(
 
 
 @njit
-def calculate_pore_body_filling_pc(r, theta_a, K, oil_filled_throats_n, h):
+def calculate_pore_body_filling_pc(r, theta_a, K, oil_filled_throats_n, throats_radii, G, h):
     x = [0] * oil_filled_throats_n
     for i in range(oil_filled_throats_n):
         x[i] = np.random.uniform(0, 1)
 
-    lamb = [0] * oil_filled_throats_n
-    for i in range(oil_filled_throats_n):
-        if i == 0:
-            lamb[i] = 0
-        else:
-            lamb[i] = 0.03 / sqrt(K / (1.01325 * 10**15))
+    algorithm = c.pore_fill_alg
+    lamb = [c.pore_fill_weights[i] for i in range(6)]
 
-    for i in range(oil_filled_throats_n):
-        lambda_sum = lamb[i] * x[i] - (c.pw - c.po) * c.g * h
+    if algorithm == "blunt1":
+        lambda_sum = 0
+        for i in range(oil_filled_throats_n):
+            if i < 6:
+                lambda_sum += lamb[i] * x[i]
+            else:
+                lambda_sum += lamb[-1] * x[i]
 
-    Pc = 2 * c.sigma * cos(theta_a) / r - c.sigma * lambda_sum
+        Pc = 2 * c.sigma * cos(theta_a) / (r + lambda_sum)
+    elif algorithm == "blunt2":
+        lambda_sum = 0
+        for i in range(oil_filled_throats_n):
+            if i < 6:
+                lambda_sum += lamb[i] * x[i]
+            else:
+                lambda_sum += lamb[-1] * x[i]
+
+        Pc = 2 * c.sigma * cos(theta_a) / r - c.sigma * lambda_sum
+    elif algorithm == "oren1":
+        lambda_sum = 0
+        for i in range(oil_filled_throats_n):
+            if i < 6:
+                lambda_sum += lamb[i] * x[i] * throats_radii[i]
+            else:
+                lambda_sum += lamb[-1] * x[i] * throats_radii[i]
+
+        Pc = 2 * c.sigma * cos(theta_a) / (r + lambda_sum)
+    elif algorithm == "oren2":
+        lambda_sum = 0
+        for i in range(oil_filled_throats_n):
+            if i < 6:
+                lambda_sum += lamb[i] * x[i] * throats_radii[i]
+            else:
+                lambda_sum += lamb[-1] * x[i] * throats_radii[i]
+
+        Pc = c.sigma * cos(theta_a) * (1 + 2 * np.sqrt(pi * G)) / (r + lambda_sum)
 
     return Pc
 

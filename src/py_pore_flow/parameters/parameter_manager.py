@@ -45,6 +45,13 @@ DEFAULT_PARAMETERS = {
     "pc_step_max": 1000,
     "drainage_sw_step": 0.005,
     "imbibition_sw_step": 0.005,
+    "pore_fill_algorithm": "oren2",
+    "pore_fill_weight_a1": 0.0,
+    "pore_fill_weight_a2": 0.5,
+    "pore_fill_weight_a3": 1.0,
+    "pore_fill_weight_a4": 2.0,
+    "pore_fill_weight_a5": 5.0,
+    "pore_fill_weight_a6": 10.0,
     "end_at_sor": True,
     "control_by_pc": False,
 }
@@ -66,6 +73,14 @@ class ParameterManager:
         constants.sigma = self.parameters_dict["interfacial_tension"]
         constants.miw = self.parameters_dict["water_viscosity"]
         constants.mio = self.parameters_dict["oil_viscosity"]
+
+        constants.pore_fill_alg = self.parameters_dict["pore_fill_algorithm"]
+        constants.pore_fill_weights[0] = self.parameters_dict["pore_fill_weight_a1"]
+        constants.pore_fill_weights[1] = self.parameters_dict["pore_fill_weight_a2"]
+        constants.pore_fill_weights[2] = self.parameters_dict["pore_fill_weight_a3"]
+        constants.pore_fill_weights[3] = self.parameters_dict["pore_fill_weight_a4"]
+        constants.pore_fill_weights[4] = self.parameters_dict["pore_fill_weight_a5"]
+        constants.pore_fill_weights[5] = self.parameters_dict["pore_fill_weight_a6"]
 
     @property
     def pc_maximum(self):

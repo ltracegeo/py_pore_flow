@@ -183,15 +183,20 @@ class ImbibitionSimulation(CycleSimulation):
 
     def _update_pore_entry_pc(self, pore_id, pc):
         K = self.krel_calculator.get_absolute_permeability()
-        number_of_oil_filled_neighbors = self.network.pn_core.throat.oil_filled[
-            self.network.get_neighbor_throats_ids(pore_id)
-        ].sum()
+        neighbors = self.network.get_neighbor_throats_ids(pore_id)
+        oil_filled_neighbors = self.network.pn_core.throat.oil_filled[neighbors]
+        number_of_oil_filled_neighbors = oil_filled_neighbors.sum()
+        throats_radii = np.array(
+            [self.network.pn_core.throat.radius[throat_id] for throat_id in neighbors[oil_filled_neighbors]]
+        )
         element_pc = calculate_imbibition_pc(
             self.network.pn_core.pore.piston_like_pressure[pore_id],
             self.network.pn_core.pore.radius[pore_id],
             self.network.pn_core.pore.advancing_contact_angle[pore_id],
             pc,
             number_of_oil_filled_neighbors,
+            throats_radii,
+            self.network.pn_core.pore.shape_factor[pore_id],
             K,
         )
         self.network.pn_core.pore.entry_pressure[pore_id] = element_pc
