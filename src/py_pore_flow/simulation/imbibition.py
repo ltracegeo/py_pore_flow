@@ -14,9 +14,8 @@ from py_pore_flow.equations.geometry import (
     calculate_r,
     check_water_layer_network,
 )
-from py_pore_flow.equations.entry_pressure import (
-    calculate_imbibition_pc,
-)
+import py_pore_flow.constants as c
+from py_pore_flow.equations.entry_pressure import calculate_imbibition_pc, PORE_BODY_FILLING_STRATEGY
 from py_pore_flow.simulation.cycle_simulation import PORE, THROAT, CycleSimulation
 from py_pore_flow import log
 
@@ -25,6 +24,8 @@ class ImbibitionSimulation(CycleSimulation):
     def __init__(self, network, pc_max, calculate_full_conductance=False):
         super().__init__(network, WATER, calculate_full_conductance)
         self.Rmin = calculate_r(pc_max, 100000)
+
+        self.calculate_pore_body_filling_pc = PORE_BODY_FILLING_STRATEGY[c.pore_fill_alg]
 
         self.snap_off_throat_list = []
         self.snap_off_pore_list = []
@@ -35,6 +36,9 @@ class ImbibitionSimulation(CycleSimulation):
     def _update_invasions(self, pc, target_sw=None):
         invaded_pc = super()._update_invasions(pc, target_sw)
         return invaded_pc
+
+    def calculate_pore_body_filling_pc(self, r, theta_a, K, oil_filled_throats_n, throats_radii, G, h):
+        pass
 
     @staticmethod
     @nb.njit
@@ -186,10 +190,9 @@ class ImbibitionSimulation(CycleSimulation):
         neighbors = self.network.get_neighbor_throats_ids(pore_id)
         oil_filled_neighbors = self.network.pn_core.throat.oil_filled[neighbors]
         number_of_oil_filled_neighbors = oil_filled_neighbors.sum()
-        throats_radii = np.array(
-            [self.network.pn_core.throat.radius[throat_id] for throat_id in neighbors[oil_filled_neighbors]]
-        )
+        throats_radii = self.network.pn_core.throat.radius[neighbors[oil_filled_neighbors]]
         element_pc = calculate_imbibition_pc(
+            self.calculate_pore_body_filling_pc,
             self.network.pn_core.pore.piston_like_pressure[pore_id],
             self.network.pn_core.pore.radius[pore_id],
             self.network.pn_core.pore.advancing_contact_angle[pore_id],

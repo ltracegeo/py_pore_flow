@@ -44,6 +44,7 @@ def calculate_drainage_pc(shape_factor, radius, receding_contact_angle, shape, b
 
 @njit
 def calculate_imbibition_pc(
+    calculate_pore_body_filling_pc,
     piston_like_displacement_pc,
     radius,
     advancing_contact_angle,
@@ -121,52 +122,91 @@ def calculate_imbibition_piston_like_displacement_pc_element(
 
 
 @njit
-def calculate_pore_body_filling_pc(r, theta_a, K, oil_filled_throats_n, throats_radii, G, h):
+def calculate_pore_body_filling_blunt1_pc(r, theta_a, K, oil_filled_throats_n, throats_radii, G, h):
     x = [0] * oil_filled_throats_n
     for i in range(oil_filled_throats_n):
         x[i] = np.random.uniform(0, 1)
 
-    algorithm = c.pore_fill_alg
     lamb = [c.pore_fill_weights[i] for i in range(6)]
 
-    if algorithm == "blunt1":
-        lambda_sum = 0
-        for i in range(oil_filled_throats_n):
-            if i < 6:
-                lambda_sum += lamb[i] * x[i]
-            else:
-                lambda_sum += lamb[-1] * x[i]
+    lambda_sum = 0
+    for i in range(oil_filled_throats_n):
+        if i < 6:
+            lambda_sum += lamb[i] * x[i]
+        else:
+            lambda_sum += lamb[-1] * x[i]
 
-        Pc = 2 * c.sigma * cos(theta_a) / (r + lambda_sum)
-    elif algorithm == "blunt2":
-        lambda_sum = 0
-        for i in range(oil_filled_throats_n):
-            if i < 6:
-                lambda_sum += lamb[i] * x[i]
-            else:
-                lambda_sum += lamb[-1] * x[i]
-
-        Pc = 2 * c.sigma * cos(theta_a) / r - c.sigma * lambda_sum
-    elif algorithm == "oren1":
-        lambda_sum = 0
-        for i in range(oil_filled_throats_n):
-            if i < 6:
-                lambda_sum += lamb[i] * x[i] * throats_radii[i]
-            else:
-                lambda_sum += lamb[-1] * x[i] * throats_radii[i]
-
-        Pc = 2 * c.sigma * cos(theta_a) / (r + lambda_sum)
-    elif algorithm == "oren2":
-        lambda_sum = 0
-        for i in range(oil_filled_throats_n):
-            if i < 6:
-                lambda_sum += lamb[i] * x[i] * throats_radii[i]
-            else:
-                lambda_sum += lamb[-1] * x[i] * throats_radii[i]
-
-        Pc = c.sigma * cos(theta_a) * (1 + 2 * np.sqrt(pi * G)) / (r + lambda_sum)
+    Pc = 2 * c.sigma * cos(theta_a) / (r + lambda_sum)
 
     return Pc
+
+
+@njit
+def calculate_pore_body_filling_blunt2_pc(r, theta_a, K, oil_filled_throats_n, throats_radii, G, h):
+    x = [0] * oil_filled_throats_n
+    for i in range(oil_filled_throats_n):
+        x[i] = np.random.uniform(0, 1)
+
+    lamb = [c.pore_fill_weights[i] for i in range(6)]
+
+    lambda_sum = 0
+    for i in range(oil_filled_throats_n):
+        if i < 6:
+            lambda_sum += lamb[i] * x[i]
+        else:
+            lambda_sum += lamb[-1] * x[i]
+
+    Pc = 2 * c.sigma * cos(theta_a) / r - c.sigma * lambda_sum
+
+    return Pc
+
+
+@njit
+def calculate_pore_body_filling_oren1_pc(r, theta_a, K, oil_filled_throats_n, throats_radii, G, h):
+    x = [0] * oil_filled_throats_n
+    for i in range(oil_filled_throats_n):
+        x[i] = np.random.uniform(0, 1)
+
+    lamb = [c.pore_fill_weights[i] for i in range(6)]
+
+    lambda_sum = 0
+    for i in range(oil_filled_throats_n):
+        if i < 6:
+            lambda_sum += lamb[i] * x[i] * throats_radii[i]
+        else:
+            lambda_sum += lamb[-1] * x[i] * throats_radii[i]
+
+    Pc = 2 * c.sigma * cos(theta_a) / (r + lambda_sum)
+
+    return Pc
+
+
+@njit
+def calculate_pore_body_filling_oren2_pc(r, theta_a, K, oil_filled_throats_n, throats_radii, G, h):
+    x = [0] * oil_filled_throats_n
+    for i in range(oil_filled_throats_n):
+        x[i] = np.random.uniform(0, 1)
+
+    lamb = [c.pore_fill_weights[i] for i in range(6)]
+
+    lambda_sum = 0
+    for i in range(oil_filled_throats_n):
+        if i < 6:
+            lambda_sum += lamb[i] * x[i] * throats_radii[i]
+        else:
+            lambda_sum += lamb[-1] * x[i] * throats_radii[i]
+
+    Pc = c.sigma * cos(theta_a) * (1 + 2 * np.sqrt(pi * G)) / (r + lambda_sum)
+
+    return Pc
+
+
+PORE_BODY_FILLING_STRATEGY = {
+    "blunt1": calculate_pore_body_filling_blunt1_pc,
+    "blunt2": calculate_pore_body_filling_blunt2_pc,
+    "oren1": calculate_pore_body_filling_oren1_pc,
+    "oren2": calculate_pore_body_filling_oren2_pc,
+}
 
 
 @njit
