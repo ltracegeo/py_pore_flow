@@ -123,10 +123,10 @@ class ParameterManager:
         self.__update_cas(network, "equilibrium")
 
     def update_initial_cas(self, network):
-        network.pn_core["pore.advancing_contact_angle"] = network.pn_core.pore.initial_advancing_ca
-        network.pn_core["pore.receding_contact_angle"] = network.pn_core.pore.initial_receding_ca
-        network.pn_core["throat.advancing_contact_angle"] = network.pn_core.throat.initial_advancing_ca
-        network.pn_core["throat.receding_contact_angle"] = network.pn_core.throat.initial_receding_ca
+        network.pn_core.pore.advancing_contact_angle[:] = network.pn_core.pore.initial_advancing_ca
+        network.pn_core.pore.receding_contact_angle[:] = network.pn_core.pore.initial_receding_ca
+        network.pn_core.throat.advancing_contact_angle[:] = network.pn_core.throat.initial_advancing_ca
+        network.pn_core.throat.receding_contact_angle[:] = network.pn_core.throat.initial_receding_ca
 
     def update_equilibrium_cas(self, network):
         network.pn_core.pore.advancing_contact_angle[
