@@ -268,26 +268,22 @@ class ImbibitionSimulation(CycleSimulation):
             self.network.pn_core.pore.trapped_evacuation,
             self.network.pn_core.pore.corner_half_angle,
             self.network.pn_core.pore.max_b,
-            self.network.pn_core.pore.receding_contact_angle,
             self.network.pn_core.pore.advancing_contact_angle,
             self.network.pn_core.pore.hinging_contact_angle,
             self.network.pn_core.pore.corner_water_layer,
             self.network.pn_core.pore.n_corners,
             pc,
-            self.Rmin,
         )
         calculate_imbibition_network_b(
             self.network.pn_core.throat.b,
             self.network.pn_core.throat.trapped_evacuation,
             self.network.pn_core.throat.corner_half_angle,
             self.network.pn_core.throat.max_b,
-            self.network.pn_core.throat.receding_contact_angle,
             self.network.pn_core.throat.advancing_contact_angle,
             self.network.pn_core.throat.hinging_contact_angle,
             self.network.pn_core.throat.corner_water_layer,
             self.network.pn_core.throat.n_corners,
             pc,
-            self.Rmin,
         )
 
         calculate_imbibition_network_bo(
@@ -335,13 +331,12 @@ class ImbibitionSimulation(CycleSimulation):
         element.b[id] = calculate_imbibition_element_b(
             element.corner_half_angle[id],
             element.max_b[id],
-            element.receding_contact_angle[id],
             element.advancing_contact_angle[id],
             element.hinging_contact_angle[id],
             element.corner_water_layer[id],
             element.n_corners[id],
+            element.b[id],
             pc,
-            self.Rmin,
         )
         element.bo[id] = calculate_imbibition_element_bo(
             element.corner_half_angle[id],
