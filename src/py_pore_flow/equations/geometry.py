@@ -273,31 +273,34 @@ def calculate_drainage_b(beta, theta, n_corners, Pc_max):
 
 
 @njit
-def calculate_imbibition_network_b(b, trapped, beta, max_b, theta_a, theta_h, has_water_layer, n_corners, pc):
+def calculate_imbibition_network_b(
+    b, trapped, beta, max_b, theta_r, theta_a, theta_h, has_water_layer, n_corners, pc, Rmin
+):
     number_of_elements = len(beta)
 
     for i in range(number_of_elements):
         if not trapped[i]:
             b[i] = calculate_imbibition_element_b(
-                beta[i], max_b[i], theta_a[i], theta_h[i], has_water_layer[i], n_corners[i], b[i], pc
+                beta[i], max_b[i], theta_r[i], theta_a[i], theta_h[i], has_water_layer[i], n_corners[i], Rmin, pc
             )
 
 
 @njit
-def calculate_imbibition_element_b(beta, max_b, theta_a, theta_h, has_water_layer, n_corners, b, pc):
+def calculate_imbibition_element_b(beta, max_b, theta_r, theta_a, theta_h, has_water_layer, n_corners, Rmin, pc):
+    b = np.full(MAX_NUMBER_OF_CORNERS, 0, dtype=np.float64)
     R = calculate_r(pc, max_b)
     for i in range(int(n_corners)):
         if has_water_layer[i]:
-            b[i] = calculate_imbibition_corner_b(beta[i], theta_a, theta_h[i], R, b[i])
+            b[i] = calculate_imbibition_corner_b(beta[i], theta_r, theta_a, theta_h[i], R, Rmin)
     return b
 
 
 @njit
-def calculate_imbibition_corner_b(beta, theta_a, theta_h, R, b):
+def calculate_imbibition_corner_b(beta, theta_r, theta_a, theta_h, R, Rmin):
     if theta_h - theta_a > -1e-10:
         return calculate_corner_bi(beta, theta_a, R)
     else:
-        return b
+        return calculate_corner_bi(beta, theta_r, Rmin)
 
 
 @njit
