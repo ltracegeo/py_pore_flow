@@ -333,6 +333,7 @@ class ImbibitionSimulation(CycleSimulation):
             element = self.network.pn_core.throat
 
         element.b[id] = calculate_imbibition_element_b(
+            element.b[id],
             element.corner_half_angle[id],
             element.max_b[id],
             element.receding_contact_angle[id],
