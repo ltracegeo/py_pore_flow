@@ -185,11 +185,14 @@ class Simulation:
             if self.parameter_manager.control_by_pc:
                 self.pc_incrementer.update_pc(Sw)
 
+        self.__check_snapshot_final(cycle_name, current_pc)
+
         return Pc_array, Sw_array, Krw_array, Kro_array
 
     def __check_snapshot(self, cycle_name, current_pc):
         if (
-            self.drainage_snapshot_pc is not None
+            isinstance(self.drainage_snapshot_pc, int)
+            or isinstance(self.drainage_snapshot_pc, float)
             and self.snapshot_not_taken
             and cycle_name == "drainage"
             and current_pc >= self.drainage_snapshot_pc
@@ -201,7 +204,18 @@ class Simulation:
         ):
             self.step_simulation.save_snapshot("snapshot.bin", current_pc)
             self.snapshot_not_taken = False
-            log.info(f"Snapshot created")
+            log.info("Snapshot created")
+
+    def __check_snapshot_final(self, cycle_name, current_pc):
+        if (
+            isinstance(self.drainage_snapshot_pc, str)
+            and self.drainage_snapshot_pc == "final"
+            and self.snapshot_not_taken
+            and cycle_name == "drainage"
+        ):
+            self.step_simulation.save_snapshot("snapshot.bin", current_pc)
+            self.snapshot_not_taken = False
+            log.info("Snapshot created")
 
 
 def calculate_initial_values(network):
