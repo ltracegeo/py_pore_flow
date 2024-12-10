@@ -20,6 +20,7 @@ from py_pore_flow.equations.entry_pressure import (
     calculate_snap_off_viability,
     calculate_spontaneous_imbibition_viability,
     calculate_snap_off_pc_network,
+    calculate_imbibition_piston_like_displacement_pc_network,
 )
 from py_pore_flow.network import initialize_pn, Network
 from py_pore_flow.output import pn_to_vtu
@@ -188,8 +189,37 @@ def calculate_imbibition_values(network, max_pc):
     network.pn_core["throat.trapped_evacuation"] = False
 
     calculate_snap_off_values(network, max_pc)
+    calculate_piston_like_values(network, max_pc)
 
     return network
+
+
+def calculate_piston_like_values(network, max_pc):
+    Rmin = calculate_r(max_pc, 100000)
+
+    network.pn_core["throat.piston_like_pressure"] = calculate_imbibition_piston_like_displacement_pc_network(
+        network.pn_core.throat.shape_factor,
+        network.pn_core.throat.radius,
+        network.pn_core.throat.b,
+        network.pn_core.throat.advancing_contact_angle,
+        network.pn_core.throat.receding_contact_angle,
+        network.pn_core.throat.shape,
+        network.pn_core.throat.corner_half_angle,
+        network.pn_core.throat.n_corners,
+        Rmin,
+    )
+
+    network.pn_core["pore.piston_like_pressure"] = calculate_imbibition_piston_like_displacement_pc_network(
+        network.pn_core.pore.shape_factor,
+        network.pn_core.pore.radius,
+        network.pn_core.pore.b,
+        network.pn_core.pore.advancing_contact_angle,
+        network.pn_core.pore.receding_contact_angle,
+        network.pn_core.pore.shape,
+        network.pn_core.pore.corner_half_angle,
+        network.pn_core.pore.n_corners,
+        Rmin,
+    )
 
 
 def calculate_snap_off_values(network, max_pc):

@@ -1,4 +1,4 @@
-from math import acos, cos, pi, sin, sqrt, tan
+from math import acos, cos, pi, asin, sin, sqrt, tan
 
 from numba import njit
 import numpy as np
@@ -44,47 +44,169 @@ def calculate_drainage_pc(shape_factor, radius, receding_contact_angle, shape, b
 
 @njit
 def calculate_imbibition_pc(
-    shape_factor, radius, advancing_contact_angle, shape, pc, beta, n_corners, number_of_oil_filled_neighbors, K
+    calculate_pore_body_filling_pc,
+    piston_like_displacement_pc,
+    radius,
+    advancing_contact_angle,
+    pc,
+    number_of_oil_filled_neighbors,
+    throats_radii,
+    G,
+    K,
 ):
     if number_of_oil_filled_neighbors > 1 and pc > 0:
-        return calculate_pore_body_filling_pc(radius, advancing_contact_angle, K, number_of_oil_filled_neighbors, 0)
-    else:
-        return calculate_imbibition_piston_like_displacement_pc(
-            shape_factor, radius, advancing_contact_angle, shape, pc, beta, n_corners
+        return calculate_pore_body_filling_pc(
+            radius, advancing_contact_angle, K, number_of_oil_filled_neighbors, throats_radii, G, 0
         )
-
-
-@njit
-def calculate_imbibition_piston_like_displacement_pc(
-    shape_factor, radius, advancing_contact_angle, shape, pc, beta, n_corners
-):
-    if pc < 0:
-        theta = pi - advancing_contact_angle
-        return -calculate_pc(shape_factor, radius, theta, shape, beta, n_corners)
     else:
-        theta = advancing_contact_angle
-        return calculate_pc(shape_factor, radius, theta, shape, beta, n_corners)
+        return piston_like_displacement_pc
 
 
 @njit
-def calculate_pore_body_filling_pc(r, theta_a, K, oil_filled_throats_n, h):
+def calculate_imbibition_piston_like_displacement_pc_network(
+    shape_factor, r, b, theta_a, theta_r, shape, beta, n_corners, Rmin
+):
+    number_of_elements = len(r)
+
+    Pc = np.empty(number_of_elements, np.float64)
+    for i in range(number_of_elements):
+        if n_corners[i] != 0:
+            Pc[i] = calculate_imbibition_piston_like_displacement_pc_element(
+                shape_factor[i],
+                r[i],
+                b[i],
+                theta_a[i],
+                theta_r[i],
+                shape[i],
+                beta[i],
+                n_corners[i],
+                Rmin,
+            )
+        else:
+            Pc[i] = calculate_pc(shape_factor[i], r[i], theta_a[i], shape[i], beta[i], n_corners[i])
+
+    return Pc
+
+
+@njit
+def calculate_imbibition_piston_like_displacement_pc_element(
+    shape_factor, radius, b, advancing_contact_angle, receding_contact_angle, shape, beta, n_corners, Rmin
+):
+    arc_meniscus = [i for i in range(n_corners) if beta[i] < pi / 2 - receding_contact_angle]
+    a = 0
+    for i in range(n_corners):
+        b[i] = Rmin * cos(receding_contact_angle + beta[i]) / sin(beta[i])
+    A = radius**2 / (4 * shape_factor)
+    R = Rmin
+    Rold = R + 1000
+    while abs(R - Rold) > 1e-3 and a < 100:
+        theta_h = np.arccos(b * np.sin(beta) / R) - beta
+        if np.any(theta_h[:n_corners] > advancing_contact_angle):
+            for i in np.where(theta_h[:n_corners] > advancing_contact_angle)[0]:
+                b[i] = R * cos(advancing_contact_angle + beta[i]) / sin(beta[i])
+        if np.all(theta_h[:n_corners] > advancing_contact_angle):
+            return calculate_pc(shape_factor, radius, advancing_contact_angle, shape, beta, n_corners)
+        Aeff = A - R**2 * sum(
+            [
+                cos(theta_h[i]) * cos(theta_h[i] + beta[i]) / sin(beta[i]) + theta_h[i] + beta[i] - pi / 2.0
+                for i in arc_meniscus
+            ]
+        )
+        Los = radius / (2 * shape_factor) - 2 * sum([b[i] for i in arc_meniscus])
+        Low = 2 * R * sum([asin(b[i] * sin(beta[i]) / R) for i in arc_meniscus])
+        Rold = R
+        R = Aeff / (Low + Los * cos(advancing_contact_angle))
+        a += 1
+
+    return c.sigma / R
+
+
+@njit
+def calculate_pore_body_filling_blunt1_pc(r, theta_a, K, oil_filled_throats_n, throats_radii, G, h):
     x = [0] * oil_filled_throats_n
     for i in range(oil_filled_throats_n):
         x[i] = np.random.uniform(0, 1)
 
-    lamb = [0] * oil_filled_throats_n
-    for i in range(oil_filled_throats_n):
-        if i == 0:
-            lamb[i] = 0
-        else:
-            lamb[i] = 0.03 / sqrt(K / (1.01325 * 10**15))
+    lamb = [c.pore_fill_weights[i] for i in range(6)]
 
+    lambda_sum = 0
     for i in range(oil_filled_throats_n):
-        lambda_sum = lamb[i] * x[i] - (c.pw - c.po) * c.g * h
+        if i < 6:
+            lambda_sum += lamb[i] * x[i]
+        else:
+            lambda_sum += lamb[-1] * x[i]
+
+    Pc = 2 * c.sigma * cos(theta_a) / (r + lambda_sum)
+
+    return Pc
+
+
+@njit
+def calculate_pore_body_filling_blunt2_pc(r, theta_a, K, oil_filled_throats_n, throats_radii, G, h):
+    x = [0] * oil_filled_throats_n
+    for i in range(oil_filled_throats_n):
+        x[i] = np.random.uniform(0, 1)
+
+    lamb = [c.pore_fill_weights[i] for i in range(6)]
+
+    lambda_sum = 0
+    for i in range(oil_filled_throats_n):
+        if i < 6:
+            lambda_sum += lamb[i] * x[i]
+        else:
+            lambda_sum += lamb[-1] * x[i]
 
     Pc = 2 * c.sigma * cos(theta_a) / r - c.sigma * lambda_sum
 
     return Pc
+
+
+@njit
+def calculate_pore_body_filling_oren1_pc(r, theta_a, K, oil_filled_throats_n, throats_radii, G, h):
+    x = [0] * oil_filled_throats_n
+    for i in range(oil_filled_throats_n):
+        x[i] = np.random.uniform(0, 1)
+
+    lamb = [c.pore_fill_weights[i] for i in range(6)]
+
+    lambda_sum = 0
+    for i in range(oil_filled_throats_n):
+        if i < 6:
+            lambda_sum += lamb[i] * x[i] * throats_radii[i]
+        else:
+            lambda_sum += lamb[-1] * x[i] * throats_radii[i]
+
+    Pc = 2 * c.sigma * cos(theta_a) / (r + lambda_sum)
+
+    return Pc
+
+
+@njit
+def calculate_pore_body_filling_oren2_pc(r, theta_a, K, oil_filled_throats_n, throats_radii, G, h):
+    x = [0] * oil_filled_throats_n
+    for i in range(oil_filled_throats_n):
+        x[i] = np.random.uniform(0, 1)
+
+    lamb = [c.pore_fill_weights[i] for i in range(6)]
+
+    lambda_sum = 0
+    for i in range(oil_filled_throats_n):
+        if i < 6:
+            lambda_sum += lamb[i] * x[i] * throats_radii[i]
+        else:
+            lambda_sum += lamb[-1] * x[i] * throats_radii[i]
+
+    Pc = c.sigma * cos(theta_a) * (1 + 2 * np.sqrt(pi * G)) / (r + lambda_sum)
+
+    return Pc
+
+
+PORE_BODY_FILLING_STRATEGY = {
+    "blunt1": calculate_pore_body_filling_blunt1_pc,
+    "blunt2": calculate_pore_body_filling_blunt2_pc,
+    "oren1": calculate_pore_body_filling_oren1_pc,
+    "oren2": calculate_pore_body_filling_oren2_pc,
+}
 
 
 @njit
@@ -96,7 +218,7 @@ def calculate_snap_off_pc_network(r, beta, theta_a, theta_r, n_corners, Rmin, h)
         if n_corners[i] != 0:
             Pc[i] = calculate_snap_off_pc_element(r[i], beta[i], theta_a[i], theta_r[i], n_corners[i], Rmin, h[i])
         else:
-            Pc[i] = 0.0
+            Pc[i] = -c.sigma / Rmin
     return Pc
 
 

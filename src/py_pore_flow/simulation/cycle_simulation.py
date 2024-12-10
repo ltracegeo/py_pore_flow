@@ -674,6 +674,9 @@ class CycleSimulation:
     def update_pc(self, pc, target_sw=None):
         invasion_pc = pc
         total_sw_delta = 0.0
+
+        self._update_network_geometry(pc)
+
         while True:
             if target_sw is not None:
                 invasion_target_sw = target_sw - total_sw_delta
