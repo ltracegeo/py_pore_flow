@@ -19,7 +19,7 @@ from equations.geometry import (
 from equations.entry_pressure import (
     calculate_drainage_pc,
     calculate_snap_off_pc_element,
-    calculate_imbibition_piston_like_displacement_pc,
+    calculate_imbibition_piston_like_displacement_pc_element,
 )
 from equations.conductance import (
     calculate_network_singlephase_conductivity,
@@ -104,49 +104,46 @@ class TestEquations(unittest.TestCase):
         self.assertEqual(pc, 2 * c.sigma * np.cos(receding_contact_angle) / radius)
 
     def test_imbibition_entry_pc(self):
-        pc = -5000
-
-        shape_factor = 0.0443548387096774
-        radius = 7.607076e-06
-        advancing_contact_angle = 0.300665613626673
-        beta = np.array([0.35483625, 0.52387179, 0.69208829])
-        shape = 0
-        entry_pc = calculate_imbibition_piston_like_displacement_pc(
-            shape_factor, radius, advancing_contact_angle, shape, pc, beta, len(beta)
-        )
-        self.assertEqual(entry_pc, 7533.561451759691)
-
         pc = 5000
 
         shape_factor = 0.0443548387096774
         radius = 7.607076e-06
+        b = np.array([0.1, 0.1, 0.1])
         advancing_contact_angle = 0.300665613626673
+        receding_contact_angle = 0.300665613626673
         beta = np.array([0.35483625, 0.52387179, 0.69208829])
         shape = 0
-        entry_pc = calculate_imbibition_piston_like_displacement_pc(
-            shape_factor, radius, advancing_contact_angle, shape, pc, beta, len(beta)
+        Rmin = c.sigma / pc
+        entry_pc = calculate_imbibition_piston_like_displacement_pc_element(
+            shape_factor, radius, b, advancing_contact_angle, receding_contact_angle, shape, beta, len(beta), Rmin
         )
-        self.assertEqual(entry_pc, 6685.935953889113)
+        self.assertEqual(entry_pc, 6810.556807178534)
 
         shape_factor = 0.0490196078431372
         radius = 9.092194e-06
+        b = np.array([0.1, 0.1, 0.1, 0.1])
         advancing_contact_angle = 0.2883398466808009
+        receding_contact_angle = 0.300665613626673
         beta = np.array([0.35483625, 0.52387179, 0.69208829, 0.4])
         shape = 1
-        entry_pc = calculate_imbibition_piston_like_displacement_pc(
-            shape_factor, radius, advancing_contact_angle, shape, pc, beta, len(beta)
+        Rmin = c.sigma / pc
+        entry_pc = calculate_imbibition_piston_like_displacement_pc_element(
+            shape_factor, radius, b, advancing_contact_angle, receding_contact_angle, shape, beta, len(beta), Rmin
         )
         self.assertEqual(entry_pc, 5001.326568915203)
 
         shape_factor = 0.0677922077922077
         radius = 5.985215e-06
+        b = np.array([0.1])
         advancing_contact_angle = 0.3379879648141799
-        shape = 2
+        receding_contact_angle = 0.300665613626673
         beta = np.array([0.35483625])
-        entry_pc = calculate_imbibition_piston_like_displacement_pc(
-            shape_factor, radius, advancing_contact_angle, shape, pc, beta, len(beta)
+        shape = 2
+        Rmin = c.sigma / pc
+        entry_pc = calculate_imbibition_piston_like_displacement_pc_element(
+            shape_factor, radius, b, advancing_contact_angle, receding_contact_angle, shape, beta, len(beta), Rmin
         )
-        self.assertEqual(entry_pc, 9093.357879396488)
+        self.assertEqual(entry_pc, 9283.62521689095)
 
     def test_snap_off_pc(self):
         pc = 5000
@@ -282,7 +279,7 @@ class TestEquations(unittest.TestCase):
                 [0.35483625, 0.52387179, 0.69208829],
             ]
         )
-        n_corners = [3, 3, 3]
+        n_corners = np.array([3, 3, 3])
         b = np.array(
             [
                 [2.0134182e-06, 1.2875214e-06, 8.9420597e-07],
@@ -333,20 +330,30 @@ class TestEquations(unittest.TestCase):
 
         # Water conductance without water in center
         Sw = np.empty(3, dtype=np.float64)
-        theta_h = [None] * 3
-        theta_h[0] = np.array([1.099105, 0.9393731, 0.7834584])
-        theta_h[1] = np.array([1.099105, 0.9393731, 0.7834584])
-        theta_h[2] = np.array([0.6980902, 0.6980902, 0.6980902, 0.6980902])
-        b = [None] * 3
-        b[0] = np.array([2.0134182e-06, 1.2875214e-06, 8.9420597e-07])
-        b[1] = np.array([2.0134182e-06, 1.2875214e-06, 8.9420597e-07])
-        b[2] = np.array([7.398922e-07, 7.398922e-07, 7.398922e-07, 7.398922e-07])
-        beta = [None] * 3
-        beta[0] = np.array([0.35483625, 0.52387179, 0.69208829])
-        beta[1] = np.array([0.35483625, 0.52387179, 0.69208829])
-        beta[2] = np.array([0.78539816, 0.78539816, 0.78539816, 0.78539816])
+        theta_h = np.array(
+            [
+                [1.099105, 0.9393731, 0.7834584, 0.0],
+                [1.099105, 0.9393731, 0.7834584, 0.0],
+                [0.6980902, 0.6980902, 0.6980902, 0.6980902],
+            ]
+        )
+        b = np.array(
+            [
+                [2.0134182e-06, 1.2875214e-06, 8.9420597e-07, 0.0],
+                [2.0134182e-06, 1.2875214e-06, 8.9420597e-07, 0.0],
+                [7.398922e-07, 7.398922e-07, 7.398922e-07, 7.398922e-07],
+            ]
+        )
+        beta = np.array(
+            [
+                [0.35483625, 0.52387179, 0.69208829, 0.0],
+                [0.35483625, 0.52387179, 0.69208829, 0.0],
+                [0.78539816, 0.78539816, 0.78539816, 0.78539816],
+            ],
+        )
+
         has_water_in_center = np.array([False, False, False])
-        n_corners = [len(beta[i]) for i in range(len(beta))]
+        n_corners = np.array([len(beta[i]) for i in range(len(beta))])
 
         gp = np.empty(3, dtype=np.float64)
         calculate_network_multiphase_water_conductivity(
