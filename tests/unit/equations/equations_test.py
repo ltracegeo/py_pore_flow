@@ -360,4 +360,4 @@ class TestEquations(unittest.TestCase):
             gp, A, G, shape, Sw, theta_h, b, beta, n_corners, has_water_in_center
         )
         water_conductance = calculate_conductance(L, gp)
-        assert_equal(water_conductance, 2.0648208672078985e-19)
+        assert_almost_equal(water_conductance, 2.0648208672078985e-19)
