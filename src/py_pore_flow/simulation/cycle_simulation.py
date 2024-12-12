@@ -116,6 +116,7 @@ class ConductanceCalculator:
                 pn_element.shape,
                 phase,
             )
+            singlephase_conductivity *= pn_element.N
 
     def __calculate_multiphase_conductivity(self, phase):
         for element_type in [PORE, THROAT]:
@@ -149,6 +150,7 @@ class ConductanceCalculator:
                 pn_element.oil_filled,
                 phase,
             )
+            multiphase_conductivity *= pn_element.N
 
 
 class FlowRateCalculator:
@@ -467,7 +469,9 @@ class SaturationCalculator:
     def __init__(self, network, phase):
         self.network = network
         self.phase = phase
-        self.total_volume = self.network.pn_core.pore.volume.sum() + self.network.pn_core.throat.volume.sum()
+        self.total_volume = (self.network.pn_core.pore.volume * self.network.pn_core.pore.N).sum() + (
+            self.network.pn_core.throat.volume * self.network.pn_core.throat.N
+        ).sum()
 
     def update_saturations(self, pc):
         if self.phase == OIL:
@@ -594,6 +598,12 @@ class SaturationCalculator:
                 (
                     self.network.pn_core.throat.clay_volume,
                     self.network.pn_core.pore.clay_volume,
+                )
+            ),
+            np.concatenate(
+                (
+                    self.network.pn_core.throat.N,
+                    self.network.pn_core.pore.N,
                 )
             ),
             self.total_volume,

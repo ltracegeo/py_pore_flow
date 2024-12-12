@@ -55,6 +55,8 @@ def initialize_pn(pn):
         pn[f"{element_type}.second_advancing_ca"] = 0.0
         pn[f"{element_type}.second_receding_ca"] = 0.0
         pn[f"{element_type}.id"] = list(range(len(pn[f"{element_type}.all"])))
+        if f"{element_type}.N" not in pn:
+            pn[f"{element_type}.N"] = 1
 
     pn["throat.oil_singlephase_conductance"] = 0.0
     pn["throat.water_singlephase_conductance"] = 0.0
@@ -515,6 +517,7 @@ class PoresNetwork(ElementNetwork):
         self.second_advancing_ca = pn["pore.second_advancing_ca"]
         self.second_receding_ca = pn["pore.second_receding_ca"]
         self.id = pn["pore.id"]
+        self.N = pn["pore.N"]
 
 
 class ThroatsNetwork(ElementNetwork):
@@ -572,6 +575,7 @@ class ThroatsNetwork(ElementNetwork):
         self.second_advancing_ca = pn["throat.second_advancing_ca"]
         self.second_receding_ca = pn["throat.second_receding_ca"]
         self.id = pn["throat.id"]
+        self.N = pn["throat.N"]
 
 
 class NetworkCore:
