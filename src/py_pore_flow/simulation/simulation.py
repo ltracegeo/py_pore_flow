@@ -202,9 +202,8 @@ class Simulation:
             and cycle_name == "imbibition"
             and current_pc <= self.imbibition_snapshot_pc
         ):
-            self.step_simulation.save_snapshot("snapshot.bin", current_pc)
-            self.snapshot_not_taken = False
-            log.info("Snapshot created")
+            snapshot_dict = self.step_simulation.get_snapshot(current_pc)
+            self.__save_snapshot(snapshot_dict)
 
     def __check_snapshot_final(self, cycle_name, current_pc):
         if (
@@ -213,9 +212,15 @@ class Simulation:
             and self.snapshot_not_taken
             and cycle_name == "drainage"
         ):
-            self.step_simulation.save_snapshot("snapshot.bin", current_pc)
-            self.snapshot_not_taken = False
-            log.info("Snapshot created")
+            snapshot_dict = self.step_simulation.get_snapshot(current_pc)
+            snapshot_dict["cycle"] = "imbibition"
+            self.__save_snapshot(snapshot_dict)
+
+    def __save_snapshot(self, snapshot_dict):
+        with open("snapshot.bin", "wb") as fp:
+            pickle.dump(snapshot_dict, fp)
+        self.snapshot_not_taken = False
+        log.info("Snapshot created")
 
 
 def calculate_initial_values(network):
@@ -446,16 +451,14 @@ class StepSimulation:
     def get_parameter_manager(self):
         return self.parameter_manager
 
-    def save_snapshot(self, filename, current_pc):
+    def get_snapshot(self, current_pc):
         snapshot_dict = {}
         snapshot_dict["parameters"] = self.parameter_manager.parameters_dict
         snapshot_dict["pc"] = current_pc
         snapshot_dict["max_pc"] = self.max_pc
         snapshot_dict["cycle"] = self.cycle
         snapshot_dict["network"] = self.network.pn.copy()
-
-        with open(filename, "wb") as fp:
-            pickle.dump(snapshot_dict, fp)
+        return snapshot_dict
 
     @staticmethod
     def load_snapshot(snapshot_file):
