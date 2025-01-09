@@ -128,10 +128,10 @@ def calculate_water_layer_area(b, beta, theta, n_corners):
 
 
 @njit
-def calculate_sw_total(Sw, V, Vclay, total_volume):
+def calculate_sw_total(Sw, V, Vclay, N, total_volume):
     sum = 0
     for i in range(len(Sw)):
-        sum += Sw[i] * V[i] + Vclay[i]
+        sum += (Sw[i] * V[i] + Vclay[i]) * N[i]
     Sw_total = sum / total_volume
     return Sw_total
 

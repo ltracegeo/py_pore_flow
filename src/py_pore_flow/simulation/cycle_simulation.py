@@ -116,6 +116,7 @@ class ConductanceCalculator:
                 pn_element.shape,
                 phase,
             )
+            singlephase_conductivity *= pn_element.N
 
     def __calculate_multiphase_conductivity(self, phase):
         for element_type in [PORE, THROAT]:
@@ -149,6 +150,7 @@ class ConductanceCalculator:
                 pn_element.oil_filled,
                 phase,
             )
+            multiphase_conductivity *= pn_element.N
 
 
 class FlowRateCalculator:
@@ -219,6 +221,12 @@ class FlowRateCalculator:
         cond = sub_network["throat.hydraulic_conductance"].astype(np.float64)
         inlets = sub_network["pore.inlets"]
         outlets = sub_network["pore.outlets"]
+
+        factor = 10 ** (
+            (np.log10(cond.min()) + np.log10(cond.max())) / 2
+        )  # Prevent pypardiso from breaking with values too close to 0
+        cond = cond / factor
+
         network_manager = NetworkManager(
             conn=conn,
             cond=cond,
@@ -240,7 +248,7 @@ class FlowRateCalculator:
         pressure = network_manager.get_pressure_list(x)
         flow_rate = network_manager.get_flow_rate(pressure)
 
-        return flow_rate
+        return flow_rate * factor
 
 
 class Solver:
@@ -461,7 +469,9 @@ class SaturationCalculator:
     def __init__(self, network, phase):
         self.network = network
         self.phase = phase
-        self.total_volume = self.network.pn_core.pore.volume.sum() + self.network.pn_core.throat.volume.sum()
+        self.total_volume = (self.network.pn_core.pore.volume * self.network.pn_core.pore.N).sum() + (
+            self.network.pn_core.throat.volume * self.network.pn_core.throat.N
+        ).sum()
 
     def update_saturations(self, pc):
         if self.phase == OIL:
@@ -588,6 +598,12 @@ class SaturationCalculator:
                 (
                     self.network.pn_core.throat.clay_volume,
                     self.network.pn_core.pore.clay_volume,
+                )
+            ),
+            np.concatenate(
+                (
+                    self.network.pn_core.throat.N,
+                    self.network.pn_core.pore.N,
                 )
             ),
             self.total_volume,

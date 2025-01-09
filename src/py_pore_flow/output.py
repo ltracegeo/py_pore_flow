@@ -74,6 +74,12 @@ def pn_to_vtk(pn, pc, sw, cycle):
     pore_sw_data = numpy_to_vtk(pn["pore.water_saturation"])
     pore_sw_data.SetName("Sw")
 
+    pore_inlets_data = numpy_to_vtk(pn["pore.inlets"].astype(int))
+    pore_inlets_data.SetName("inlets")
+
+    pore_outlets_data = numpy_to_vtk(pn["pore.outlets"].astype(int))
+    pore_outlets_data.SetName("outlets")
+
     throat_radius_data = numpy_to_vtk(pn["throat.radius"][throat_id_list])
     throat_radius_data.SetName("RRR")
 
@@ -85,6 +91,8 @@ def pn_to_vtk(pn, pc, sw, cycle):
     unstructured_grid.SetPoints(vtk_points)
     unstructured_grid.GetPointData().AddArray(pore_radius_data)
     unstructured_grid.GetPointData().AddArray(pore_sw_data)
+    unstructured_grid.GetPointData().AddArray(pore_inlets_data)
+    unstructured_grid.GetPointData().AddArray(pore_outlets_data)
     unstructured_grid.SetCells(vtk.VTK_ID_TYPE, vtk_cell_array)
     unstructured_grid.GetCellData().AddArray(throat_radius_data)
     unstructured_grid.GetCellData().AddArray(throat_sw_data)
