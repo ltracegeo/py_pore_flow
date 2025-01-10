@@ -86,6 +86,12 @@ def pn_to_vtk(pn, pc, sw, cycle):
     throat_sw_data = numpy_to_vtk(pn["throat.water_saturation"][throat_id_list])
     throat_sw_data.SetName("Sw")
 
+    throat_condW_data = numpy_to_vtk(1e18 * pn["throat.water_multiphase_conductance"][throat_id_list])
+    throat_condW_data.SetName("condW")
+
+    throat_condO_data = numpy_to_vtk(1e18 * pn["throat.oil_multiphase_conductance"][throat_id_list])
+    throat_condO_data.SetName("condO")
+
     unstructured_grid = vtk.vtkUnstructuredGrid()
     unstructured_grid.SetFieldData(field_data)
     unstructured_grid.SetPoints(vtk_points)
@@ -96,6 +102,8 @@ def pn_to_vtk(pn, pc, sw, cycle):
     unstructured_grid.SetCells(vtk.VTK_ID_TYPE, vtk_cell_array)
     unstructured_grid.GetCellData().AddArray(throat_radius_data)
     unstructured_grid.GetCellData().AddArray(throat_sw_data)
+    unstructured_grid.GetCellData().AddArray(throat_condW_data)
+    unstructured_grid.GetCellData().AddArray(throat_condO_data)
 
     pc_data = numpy_to_vtk(np.full(n_throats, pc))
     pc_data.SetName("Pc")

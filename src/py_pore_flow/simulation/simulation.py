@@ -105,7 +105,12 @@ class Simulation:
         set_initial_values = setup_network
 
         self.step_simulation = MultiStepSimulation(
-            self.pn, parameters_dict, config, generate_cas=generate_cas, set_initial_values=set_initial_values
+            self.pn,
+            parameters_dict,
+            config,
+            generate_cas=generate_cas,
+            calculate_full_conductance=generate_vtu,
+            set_initial_values=set_initial_values,
         )
         self.parameter_manager = self.step_simulation.get_parameter_manager()
 
