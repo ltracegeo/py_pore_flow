@@ -1066,7 +1066,9 @@ spec = [
 
 @jitclass(spec)
 class PcIncrementer:
-    def __init__(self, pc_step, pc_step_min, pc_step_max, sw_step, pc_maximum, pc_minimum, enable_control=True):
+    def __init__(
+        self, pc_step, pc_step_min, pc_step_max, sw_step, pc_maximum, pc_minimum, pc_initial=0, enable_control=True
+    ):
         self.DRAINAGE_CYCLE = 0
         self.IMBIBITION_CYCLE = 1
 
@@ -1080,7 +1082,7 @@ class PcIncrementer:
 
         self.cycle = self.DRAINAGE_CYCLE
 
-        self.pc = 0
+        self.pc = pc_initial
         self.pc_step = self.pc_step_initial
 
         self.first_step = True

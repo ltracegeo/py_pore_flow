@@ -1,6 +1,8 @@
+import pickle
 import sys
 
 import numpy as np
+import openpnm
 
 from py_pore_flow import log
 from py_pore_flow.equations.geometry import (
@@ -30,24 +32,44 @@ from py_pore_flow.simulation.imbibition import ImbibitionSimulation
 from py_pore_flow.simulation.cycle_simulation import ConductanceCalculator, PcIncrementer
 
 
-def run_two_phase_simulation(pn, parameters_dict={}, generate_vtu=False):
+def run_two_phase_simulation(
+    pn,
+    parameters_dict={},
+    generate_vtu=False,
+    generate_cas=True,
+    setup_network=True,
+    drainage_snapshot_pc=None,
+    imbibition_snapshot_pc=None,
+    config=None,
+):
     previous_limit = sys.getrecursionlimit()
 
     number_of_elements = len(pn["pore.all"]) + len(pn["throat.all"])
     sys.setrecursionlimit(previous_limit + number_of_elements)
 
-    cycle = [None] * 2
-    Pc = [None] * 2
-    Sw = [None] * 2
-    Krw = [None] * 2
-    Kro = [None] * 2
+    cycle = [[], []]
+    Pc = [[], []]
+    Sw = [[], []]
+    Krw = [[], []]
+    Kro = [[], []]
 
-    simulation = Simulation(pn, parameters_dict, generate_vtu)
-    Pc[0], Sw[0], Krw[0], Kro[0] = simulation.run_drainage()
-    Pc[1], Sw[1], Krw[1], Kro[1] = simulation.run_imbibition()
+    simulation = Simulation(
+        pn,
+        parameters_dict,
+        generate_vtu,
+        generate_cas,
+        setup_network,
+        drainage_snapshot_pc,
+        imbibition_snapshot_pc,
+        config,
+    )
 
-    cycle[0] = [1] * len(Pc[0])
-    cycle[1] = [2] * len(Pc[1])
+    if not config or not config["skip_drainage"]:
+        Pc[0], Sw[0], Krw[0], Kro[0] = simulation.run_drainage()
+        cycle[0] = [1] * len(Pc[0])
+    if not simulation.parameter_manager.skip_imbibition:
+        Pc[1], Sw[1], Krw[1], Kro[1] = simulation.run_imbibition()
+        cycle[1] = [2] * len(Pc[1])
 
     sys.setrecursionlimit(previous_limit)
 
@@ -60,10 +82,31 @@ def run_two_phase_simulation(pn, parameters_dict={}, generate_vtu=False):
     )
 
 
+def load_snapshot(snapshot_file):
+    return StepSimulation.load_snapshot(snapshot_file)
+
+
 class Simulation:
-    def __init__(self, pn, parameters_dict={}, generate_vtu=False):
+    def __init__(
+        self,
+        pn,
+        parameters_dict={},
+        generate_vtu=False,
+        generate_cas=True,
+        setup_network=True,
+        drainage_snapshot_pc=None,
+        imbibition_snapshot_pc=None,
+        config=None,
+    ):
         self.pn = pn
-        self.step_simulation = MultiStepSimulation(self.pn, parameters_dict, generate_cas=True)
+        self.drainage_snapshot_pc = drainage_snapshot_pc
+        self.imbibition_snapshot_pc = imbibition_snapshot_pc
+        generate_cas = generate_cas
+        set_initial_values = setup_network
+
+        self.step_simulation = MultiStepSimulation(
+            self.pn, parameters_dict, config, generate_cas=generate_cas, set_initial_values=set_initial_values
+        )
         self.parameter_manager = self.step_simulation.get_parameter_manager()
 
         self.generate_vtu = generate_vtu
@@ -75,9 +118,12 @@ class Simulation:
             self.parameter_manager.drainage_sw_step,
             self.parameter_manager.pc_maximum,
             self.parameter_manager.pc_minimum,
+            config["pc"] if config else self.parameter_manager.pc_initial,
             enable_control=self.parameter_manager.control_by_pc,
         )
         self.step_simulation.set_pc_incrementer(self.pc_incrementer)
+
+        self.snapshot_not_taken = True
 
         if generate_vtu:
             pn_to_vtu(self.pn, self.pc_incrementer.get_pc(), 1, 0)
@@ -111,6 +157,8 @@ class Simulation:
 
             while current_pc != last_pc:
                 last_pc = current_pc
+                self.__check_snapshot(cycle_name, current_pc)
+
                 current_pc, Sw, Krw, Kro, pores_filled, total_pores, percentage = self.step_simulation.update(
                     current_pc
                 )
@@ -137,7 +185,42 @@ class Simulation:
             if self.parameter_manager.control_by_pc:
                 self.pc_incrementer.update_pc(Sw)
 
+        self.__check_snapshot_final(cycle_name, current_pc)
+
         return Pc_array, Sw_array, Krw_array, Kro_array
+
+    def __check_snapshot(self, cycle_name, current_pc):
+        if (
+            isinstance(self.drainage_snapshot_pc, int)
+            or isinstance(self.drainage_snapshot_pc, float)
+            and self.snapshot_not_taken
+            and cycle_name == "drainage"
+            and current_pc >= self.drainage_snapshot_pc
+        ) or (
+            self.imbibition_snapshot_pc is not None
+            and self.snapshot_not_taken
+            and cycle_name == "imbibition"
+            and current_pc <= self.imbibition_snapshot_pc
+        ):
+            snapshot_dict = self.step_simulation.get_snapshot(current_pc)
+            self.__save_snapshot(snapshot_dict)
+
+    def __check_snapshot_final(self, cycle_name, current_pc):
+        if (
+            isinstance(self.drainage_snapshot_pc, str)
+            and self.drainage_snapshot_pc == "final"
+            and self.snapshot_not_taken
+            and cycle_name == "drainage"
+        ):
+            snapshot_dict = self.step_simulation.get_snapshot(current_pc)
+            snapshot_dict["cycle"] = "imbibition"
+            self.__save_snapshot(snapshot_dict)
+
+    def __save_snapshot(self, snapshot_dict):
+        with open("snapshot.bin", "wb") as fp:
+            pickle.dump(snapshot_dict, fp)
+        self.snapshot_not_taken = False
+        log.info("Snapshot created")
 
 
 def calculate_initial_values(network):
@@ -308,22 +391,34 @@ def calculate_element_imbibition_values(element, max_pc):
 
 
 class StepSimulation:
-    def __init__(self, pn, parameters_dict={}, generate_cas=True, calculate_full_conductance=False):
+    def __init__(
+        self,
+        pn,
+        parameters_dict={},
+        config={},
+        generate_cas=True,
+        calculate_full_conductance=False,
+        set_initial_values=True,
+    ):
         self.simulation = None
-        self.max_pc = None
+        self.max_pc = config["max_pc"] if config else None
         self.calculate_full_conductance = calculate_full_conductance
         self.is_first_step = True
+        self.current_pc = 0
         self.cycle = "drainage"
 
         self.parameter_manager = ParameterManager(parameters_dict)
 
-        initialize_pn(pn)
+        if set_initial_values:
+            initialize_pn(pn)
+
         self.network = Network(pn)
 
         if generate_cas:
             self.parameter_manager.generate_contact_angles(self.network)
 
-        calculate_initial_values(self.network)
+        if set_initial_values:
+            calculate_initial_values(self.network)
 
     def set_max_pc(self, max_pc):
         self.max_pc = max_pc
@@ -341,20 +436,49 @@ class StepSimulation:
             self.simulation = ImbibitionSimulation(self.network, self.max_pc, self.calculate_full_conductance)
 
     def update(self, pc):
-        current_pc = self._perform_step(pc)
+        self.current_pc = self._perform_step(pc)
 
         Sw = self.simulation.calculate_sw_total()
         Krw, Kro = self.simulation.calculate_krel()
 
         pores_filled, total_pores, percentage = self.simulation.get_oil_filled_percentage()
 
-        return current_pc, Sw, Krw, Kro, pores_filled, total_pores, percentage
+        return self.current_pc, Sw, Krw, Kro, pores_filled, total_pores, percentage
 
     def get_pores_left(self):
         return self.simulation.get_pores_left()
 
     def get_parameter_manager(self):
         return self.parameter_manager
+
+    def get_snapshot(self, current_pc):
+        snapshot_dict = {}
+        snapshot_dict["parameters"] = self.parameter_manager.parameters_dict
+        snapshot_dict["pc"] = current_pc
+        snapshot_dict["max_pc"] = self.max_pc
+        snapshot_dict["cycle"] = self.cycle
+        snapshot_dict["network"] = self.network.pn.copy()
+        return snapshot_dict
+
+    @staticmethod
+    def load_snapshot(snapshot_file):
+        with open(snapshot_file, "rb") as fp:
+            snapshot_dict = pickle.load(fp)
+
+        pn = openpnm.network.Network()
+        pn.update(snapshot_dict["network"])
+        parameters = snapshot_dict["parameters"]
+        parameters["pc_initial"] = snapshot_dict["pc"]
+
+        config = {}
+        if snapshot_dict["cycle"] == "imbibition":
+            config["skip_drainage"] = True
+        else:
+            config["skip_drainage"] = False
+        config["pc"] = snapshot_dict["pc"]
+        config["max_pc"] = snapshot_dict["max_pc"]
+
+        return pn, parameters, config
 
     def _perform_step(self, pc):
         return self.__step_by_pc(pc)
@@ -366,8 +490,16 @@ class StepSimulation:
 
 
 class MultiStepSimulation(StepSimulation):
-    def __init__(self, pn, parameters_dict={}, generate_cas=True, calculate_full_conductance=False):
-        super().__init__(pn, parameters_dict, generate_cas, calculate_full_conductance)
+    def __init__(
+        self,
+        pn,
+        parameters_dict={},
+        config={},
+        generate_cas=True,
+        calculate_full_conductance=False,
+        set_initial_values=True,
+    ):
+        super().__init__(pn, parameters_dict, config, generate_cas, calculate_full_conductance, set_initial_values)
         self.pc_incrementer = None
         self.sw_step = None
 
