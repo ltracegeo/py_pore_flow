@@ -80,6 +80,9 @@ def pn_to_vtk(pn, pc, sw, cycle):
     pore_outlets_data = numpy_to_vtk(pn["pore.outlets"].astype(int))
     pore_outlets_data.SetName("outlets")
 
+    pore_is_subres_data = numpy_to_vtk(pn["pore.N"])
+    pore_is_subres_data.SetName("is_subres")
+
     throat_radius_data = numpy_to_vtk(pn["throat.radius"][throat_id_list])
     throat_radius_data.SetName("RRR")
 
@@ -92,6 +95,9 @@ def pn_to_vtk(pn, pc, sw, cycle):
     throat_condO_data = numpy_to_vtk(1e18 * pn["throat.oil_multiphase_conductance"][throat_id_list])
     throat_condO_data.SetName("condO")
 
+    throat_is_subres_data = numpy_to_vtk(pn["throat.N"])
+    throat_is_subres_data.SetName("is_subres")
+
     unstructured_grid = vtk.vtkUnstructuredGrid()
     unstructured_grid.SetFieldData(field_data)
     unstructured_grid.SetPoints(vtk_points)
@@ -99,11 +105,13 @@ def pn_to_vtk(pn, pc, sw, cycle):
     unstructured_grid.GetPointData().AddArray(pore_sw_data)
     unstructured_grid.GetPointData().AddArray(pore_inlets_data)
     unstructured_grid.GetPointData().AddArray(pore_outlets_data)
+    unstructured_grid.GetPointData().AddArray(pore_is_subres_data)
     unstructured_grid.SetCells(vtk.VTK_ID_TYPE, vtk_cell_array)
     unstructured_grid.GetCellData().AddArray(throat_radius_data)
     unstructured_grid.GetCellData().AddArray(throat_sw_data)
     unstructured_grid.GetCellData().AddArray(throat_condW_data)
     unstructured_grid.GetCellData().AddArray(throat_condO_data)
+    unstructured_grid.GetCellData().AddArray(throat_is_subres_data)
 
     pc_data = numpy_to_vtk(np.full(n_throats, pc))
     pc_data.SetName("Pc")
