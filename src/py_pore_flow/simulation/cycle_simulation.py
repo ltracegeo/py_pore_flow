@@ -1051,6 +1051,7 @@ spec = [
     ("cycle", nb.types.int32),
     ("DRAINAGE_CYCLE", nb.types.int32),
     ("IMBIBITION_CYCLE", nb.types.int32),
+    ("SECOND_DRAINAGE_CYCLE", nb.types.int32),
     ("pc", nb.types.float64),
     ("pc_step_initial", nb.types.float64),
     ("pc_step", nb.types.float64),
@@ -1071,6 +1072,7 @@ class PcIncrementer:
     ):
         self.DRAINAGE_CYCLE = 0
         self.IMBIBITION_CYCLE = 1
+        self.SECOND_DRAINAGE_CYCLE = 2
 
         self.enable_control = enable_control
         self.pc_step_initial = pc_step
@@ -1124,13 +1126,13 @@ class PcIncrementer:
         return self.pc
 
     def update_pc(self, sw_current=0.0):
-        if self.cycle == self.DRAINAGE_CYCLE:
+        if self.cycle == self.DRAINAGE_CYCLE or self.cycle == self.SECOND_DRAINAGE_CYCLE:
             return self.increment(sw_current)
         else:
             return self.decrement(sw_current)
 
     def cycle_should_end(self):
-        if self.cycle == self.DRAINAGE_CYCLE:
+        if self.cycle == self.DRAINAGE_CYCLE or self.cycle == self.SECOND_DRAINAGE_CYCLE:
             return self.pc >= self.get_pc_max()
         else:
             return self.pc <= self.get_pc_min()
