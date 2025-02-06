@@ -259,3 +259,104 @@ def calculate_snap_off_viability(theta_r, beta, n_corners):
         return theta_r + beta_min < pi / 2
     else:
         return False
+
+
+@njit
+def calculate_2nd_drainage_piston_like_displacement_pc_network(
+    shape_factor, r, theta_r, theta_a, corner_oil_layer, n_corners, bo, shape, beta, Rmax
+):
+    number_of_elements = len(r)
+
+    Pc = np.empty(number_of_elements, np.float64)
+    for i in range(number_of_elements):
+        Pc[i] = calculate_2nd_drainage_piston_like_displacement_pc_element(
+            shape_factor[i],
+            r[i],
+            theta_r[i],
+            theta_a[i],
+            corner_oil_layer[i],
+            bo[i],
+            shape[i],
+            beta[i],
+            n_corners[i],
+            Rmax,
+        )
+
+    return Pc
+
+
+@njit
+def calculate_2nd_drainage_piston_like_displacement_pc_element(
+    G, r, theta_r, theta_a, corner_oil_layer, bo, shape, beta, n_corners, Rmax
+):
+    corner_has_oil_layer = corner_oil_layer[:n_corners]
+    if len(corner_has_oil_layer) > 0 and corner_has_oil_layer.any():
+        calculate_2nd_drainage_piston_like_displacement_pc_element2(
+            G, r, bo, theta_a, theta_r, shape, beta, n_corners, -Rmax
+        )
+    else:
+        Fd = 1
+        theta = theta_r
+        Pc = c.sigma * cos(theta) / r * (1 + 2 * sqrt(pi * G)) * Fd
+    return Pc
+
+
+@njit
+def calculate_2nd_drainage_piston_like_displacement_pc_element2(
+    shape_factor, radius, b, theta_a, theta_r, shape, beta, n_corners, Rmax
+):
+    return calculate_pc(shape_factor, radius, theta_r, shape, beta, n_corners)
+
+
+@njit
+def calculate_2nd_drainage_snap_off_pc_network(r, beta, theta_a, theta_r, n_corners, Rmax, h):
+    number_of_elements = len(r)
+
+    Pc = np.empty(number_of_elements, np.float64)
+    for i in range(number_of_elements):
+        if n_corners[i] != 0:
+            Pc[i] = calculate_2nd_drainage_snap_off_pc_element(
+                r[i], beta[i], theta_a[i], theta_r[i], n_corners[i], Rmax, h[i]
+            )
+        else:
+            Pc[i] = c.sigma / Rmax
+    return Pc
+
+
+@njit
+def calculate_2nd_drainage_snap_off_pc_element(r, beta, theta_a, theta_r, n_corners, Rmax, h):
+    if pi - theta_r < (pi / 2 - np.min(beta[:n_corners])):
+        Pc = calculate_2nd_drainage_waterwet_snapoff_pc(r, beta, theta_a, theta_r, n_corners, Rmax)
+    else:
+        Pc = calculate_2nd_drainage_oilwet_snapoff_pc(beta, theta_a, theta_r, n_corners, Rmax)
+    return Pc
+
+
+@njit
+def calculate_2nd_drainage_waterwet_snapoff_pc(r, beta, theta_a, theta_r, n_corners, Rmax):
+    i0 = np.argmin(beta[:n_corners])
+    i1 = (i0 + 1) % n_corners
+    i2 = (i0 - 1) % n_corners
+    if beta[i1] > beta[i2]:
+        i1, i2 = i2, i1
+    Pc_0 = c.sigma / (
+        (sin(beta[i0]) / cos(theta_r - beta[i0]))
+        * (cot(beta[i0]) + cot(beta[i1]) - (Rmax * (cos(theta_a - beta[i1]) / beta[i1])))
+    )
+    Pc_1 = (
+        (c.sigma / r)
+        * ((cos(theta_r - beta[i0]) / sin(beta[i0])) + (cos(theta_r - beta[i1]) / sin(beta[i1])))
+        / (cot(beta[i0]) + cot(beta[i1]))
+    )
+    Pc = min(Pc_0, Pc_1)
+    return Pc
+
+
+@njit
+def calculate_2nd_drainage_oilwet_snapoff_pc(beta, theta_a, theta_r, n_corners, Rmax):
+    i = np.argmin(beta[:n_corners])
+    if theta_r > beta[i]:
+        Pc = c.sigma * cos(theta_r - beta[i]) / (Rmax * cos(theta_a - beta[i]))
+    else:
+        Pc = c.sigma / (Rmax * cos(theta_a - beta[i]))
+    return Pc

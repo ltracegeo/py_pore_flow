@@ -10,7 +10,7 @@ def plot_krel(cycle, Sw, Krw, Kro):
     win = pg.GraphicsLayoutWidget()
     plot_item = win.addPlot(left="Krel", bottom="Sw")
 
-    for i, green in enumerate([0, 100]):
+    for i, green in enumerate([0, 100, 255]):
         indexes = cycle == (i + 1)
         krw_curve_item = pg.PlotCurveItem(Sw[indexes], Krw[indexes], pen=pg.mkPen(QtGui.QColor(0, green, 255), width=2))
         kro_curve_item = pg.PlotCurveItem(Sw[indexes], Kro[indexes], pen=pg.mkPen(QtGui.QColor(255, green, 0), width=2))

@@ -56,6 +56,7 @@ DEFAULT_PARAMETERS = {
     "end_at_sor": True,
     "control_by_pc": False,
     "skip_imbibition": False,
+    "skip_2nd_drainage": False,
     "enforced_swi_1": 0.0,
     "enforced_swi_2": 1.0,
 }
@@ -129,6 +130,10 @@ class ParameterManager:
     @property
     def skip_imbibition(self):
         return self.parameters_dict["skip_imbibition"]
+
+    @property
+    def skip_2nd_drainage(self):
+        return self.parameters_dict["skip_2nd_drainage"]
 
     @property
     def enforced_swi_1(self):
