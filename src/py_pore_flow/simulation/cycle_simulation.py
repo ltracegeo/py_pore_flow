@@ -650,7 +650,7 @@ class CycleSimulation:
                 element = self.network.get_throat(element_id)
 
             log.debug(
-                f"Invasion {element.type_name:6} ID: {element.id:6} Pc: {element.pc:.5f} Radius: {element.r:.2e} G: {element.G:.4f} n_corners: {element.n_corners} area: {element.A}"
+                f"Invasion {element.type_name:6} ID: {element.id:6} Pc: {element.pc:.5f} Radius: {element.r:.2e} G: {element.G:.4f} n_corners: {element.n_corners} area: {element.A} invasion: {element.invasion_method}"
             )
 
             self.__fill_element(element, invasion_pc)

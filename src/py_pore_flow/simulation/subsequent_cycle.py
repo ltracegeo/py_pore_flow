@@ -21,6 +21,7 @@ from py_pore_flow.equations.geometry import (
 )
 import py_pore_flow.constants as c
 from py_pore_flow.equations.entry_pressure import calculate_imbibition_pc, PORE_BODY_FILLING_STRATEGY
+from py_pore_flow.network import PISTON_LIKE, SNAP_OFF
 from py_pore_flow.simulation.cycle_simulation import PORE, THROAT, CycleSimulation, SaturationCalculator
 from py_pore_flow import log
 
@@ -61,6 +62,7 @@ class SubsequentCycleSimulation(CycleSimulation):
         element_snap_off_viability,
         entry_pressure,
         element_snap_off_pc,
+        invasion_method,
         element_trapped,
         neighbor_filled,
         Rmin,
@@ -89,6 +91,7 @@ class SubsequentCycleSimulation(CycleSimulation):
                             continue
 
                 entry_pressure[element_id] = element_snap_off_pc[element_id]
+                invasion_method[element_id] = SNAP_OFF
                 snap_off_elements.append(element_id)
 
         return np.array(snap_off_elements, dtype=np.int64)
@@ -171,11 +174,13 @@ class SubsequentCycleSimulation(CycleSimulation):
             K,
         )
         self.network.pn_core.pore.entry_pressure[pore_id] = element_pc
+        self.network.pn_core.pore.invasion_method[pore_id] = PISTON_LIKE
 
     def _update_throat_entry_pc(self, throat_id, pc):
         self.network.pn_core.throat.entry_pressure[throat_id] = self.network.pn_core.throat.piston_like_pressure[
             throat_id
         ]
+        self.network.pn_core.throat.invasion_method[throat_id] = PISTON_LIKE
 
     def _get_element_to_fill(self, pc, border_elements):
         self.__clear_snapoff_lists()

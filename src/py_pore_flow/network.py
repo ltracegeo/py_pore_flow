@@ -13,6 +13,9 @@ from py_pore_flow.equations.geometry import (
     WATER,
 )
 
+PISTON_LIKE = 0
+SNAP_OFF = 1
+
 
 def initialize_pn(pn):
     for element_type in ["pore", "throat"]:
@@ -70,6 +73,7 @@ def initialize_pn(pn):
         pn[f"{element_type}.oil_connected_to_outlet"] = False
         pn[f"{element_type}.water_connected_to_inlet"] = True
         pn[f"{element_type}.water_connected_to_outlet"] = True
+        pn[f"{element_type}.invasion_method"] = PISTON_LIKE
         pn[f"{element_type}.id"] = list(range(len(pn[f"{element_type}.all"])))
         if f"{element_type}.N" not in pn:
             pn[f"{element_type}.N"] = 1
@@ -291,6 +295,14 @@ class PnElement:
     @property
     def sides(self):
         return self.element.sides[self.id]
+
+    @property
+    def invasion_method(self):
+        return self.element.invasion_method[self.id]
+
+    @property
+    def snap_off_pressure(self):
+        return self.element.snap_off_pressure[self.id]
 
     @sides.setter
     def sides(self, value):
@@ -538,6 +550,7 @@ class PoresNetwork(ElementNetwork):
         self.oil_connected_to_outlet = pn["pore.oil_connected_to_outlet"]
         self.water_connected_to_inlet = pn["pore.water_connected_to_inlet"]
         self.water_connected_to_outlet = pn["pore.water_connected_to_outlet"]
+        self.invasion_method = pn["pore.invasion_method"]
         self.id = pn["pore.id"]
         self.N = pn["pore.N"]
 
@@ -602,6 +615,7 @@ class ThroatsNetwork(ElementNetwork):
         self.oil_connected_to_outlet = pn["throat.oil_connected_to_outlet"]
         self.water_connected_to_inlet = pn["throat.water_connected_to_inlet"]
         self.water_connected_to_outlet = pn["throat.water_connected_to_outlet"]
+        self.invasion_method = pn["throat.invasion_method"]
         self.id = pn["throat.id"]
         self.N = pn["throat.N"]
 
