@@ -1,3 +1,5 @@
+from abc import abstractmethod
+
 import numba as nb
 import numpy as np
 
@@ -90,52 +92,9 @@ class SubsequentCycleSimulation(CycleSimulation):
 
         return np.array(snap_off_elements, dtype=np.int64)
 
+    @abstractmethod
     def _update_snap_offs_pcs(self, pc):
-        self.snap_off_throat_list = self._snap_off(
-            self.network.pn.throats(),
-            self.network.pn_core.throat.n_corners,
-            self.network.pn_core.throat.conns,
-            self.network.pn_core.throat.n_conns,
-            self.network.pn_core.throat.water_filled,
-            self.network.pn_core.throat.shape,
-            self.network.pn_core.throat.radius,
-            self.network.pn_core.throat.corner_half_angle,
-            self.network.pn_core.throat.advancing_contact_angle,
-            self.network.pn_core.throat.receding_contact_angle,
-            self.network.pn_core.throat.hinging_contact_angle,
-            self.network.pn_core.throat.snap_off_viability,
-            self.network.pn_core.throat.entry_pressure,
-            self.network.pn_core.throat.snap_off_pressure,
-            self.network.pn_core.throat.trapped_evacuation,
-            self.network.pn_core.pore.water_filled,
-            self.Rmin,
-            pc,
-            self.border_elements,
-            is_throats=True,
-        )
-
-        self.snap_off_pore_list = self._snap_off(
-            self.network.pn.pores(),
-            self.network.pn_core.pore.n_corners,
-            self.network.pn_core.pore.conns,
-            self.network.pn_core.pore.n_conns,
-            self.network.pn_core.pore.water_filled,
-            self.network.pn_core.pore.shape,
-            self.network.pn_core.pore.radius,
-            self.network.pn_core.pore.corner_half_angle,
-            self.network.pn_core.pore.advancing_contact_angle,
-            self.network.pn_core.pore.receding_contact_angle,
-            self.network.pn_core.pore.hinging_contact_angle,
-            self.network.pn_core.pore.snap_off_viability,
-            self.network.pn_core.pore.entry_pressure,
-            self.network.pn_core.pore.snap_off_pressure,
-            self.network.pn_core.pore.trapped_evacuation,
-            self.network.pn_core.throat.water_filled,
-            self.Rmin,
-            pc,
-            self.border_elements,
-            is_throats=False,
-        )
+        pass
 
     def __update_oil_layers(self, pc):
         calculate_oil_layer_network(
@@ -280,8 +239,9 @@ class SubsequentCycleSimulation(CycleSimulation):
         else:
             return (max_type, max_id, max(max_pressure, pc))
 
+    @abstractmethod
     def _can_be_filled(self, current_pc, invasion_pc):
-        return current_pc <= invasion_pc
+        pass
 
     def __update_b(self, pc):
         calculate_imbibition_network_b(
