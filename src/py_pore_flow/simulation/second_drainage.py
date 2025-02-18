@@ -4,6 +4,7 @@ import numpy as np
 from py_pore_flow.equations.geometry import (
     CIRCLE,
     OIL,
+    check_water_layer,
     calculate_imbibition_element_b,
     calculate_imbibition_element_bo,
     calculate_imbibition_network_b,
@@ -87,3 +88,9 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
             self.border_elements,
             is_throats=False,
         )
+
+    def _update_element_filled_geometry(self, pc, element):
+        element.corner_water_layer = check_water_layer(element.corner_oil_layer, element.oil_filled)
+        self._update_element_b(element.type_name, element.id, pc)
+        element.corner_oil_layer = False
+        return super()._update_element_filled_geometry(pc, element)

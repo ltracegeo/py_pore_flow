@@ -5,11 +5,14 @@ import numpy as np
 
 from py_pore_flow.equations.geometry import (
     CIRCLE,
+    OIL,
     WATER,
     calculate_imbibition_element_b,
     calculate_imbibition_element_bo,
+    calculate_imbibition_element_saturation,
     calculate_imbibition_network_b,
     calculate_imbibition_network_bo,
+    calculate_imbibition_network_saturation,
     calculate_network_hinging_contact_angle,
     calculate_oil_layer,
     calculate_oil_layer_network,
@@ -18,22 +21,21 @@ from py_pore_flow.equations.geometry import (
 )
 import py_pore_flow.constants as c
 from py_pore_flow.equations.entry_pressure import calculate_imbibition_pc, PORE_BODY_FILLING_STRATEGY
-from py_pore_flow.simulation.cycle_simulation import PORE, THROAT, CycleSimulation
+from py_pore_flow.simulation.cycle_simulation import PORE, THROAT, CycleSimulation, SaturationCalculator
 from py_pore_flow import log
 
 
 class SubsequentCycleSimulation(CycleSimulation):
     def __init__(self, network, pc_max, phase, calculate_full_conductance=False):
         super().__init__(network, phase, calculate_full_conductance)
+        self.saturation_calculator = SubsequentSaturation(network, self.phase)
+
         self.Rmin = calculate_r(pc_max, 100000)
 
         self.calculate_pore_body_filling_pc = PORE_BODY_FILLING_STRATEGY[c.pore_fill_alg]
 
         self.snap_off_throat_list = []
         self.snap_off_pore_list = []
-
-    def get_pores_left(self):
-        return np.logical_not(self.network.pn_core.pore.water_filled | self.network.pn_core.pore.trapped).sum()
 
     def _update_invasions(self, pc, target_sw=None):
         invaded_pc = super()._update_invasions(pc, target_sw)
@@ -166,19 +168,30 @@ class SubsequentCycleSimulation(CycleSimulation):
 
     def _update_pore_entry_pc(self, pore_id, pc):
         K = self.krel_calculator.get_absolute_permeability()
+
+        contact_angle = (
+            self.network.pn_core.pore.advancing_contact_angle[pore_id]
+            if self.phase == WATER
+            else self.network.pn_core.pore.receding_contact_angle[pore_id]
+        )
+
         neighbors = self.network.get_neighbor_throats_ids(pore_id)
-        oil_filled_neighbors = self.network.pn_core.throat.oil_filled[neighbors]
-        number_of_oil_filled_neighbors = oil_filled_neighbors.sum()
-        throats_radii = self.network.pn_core.throat.radius[neighbors[oil_filled_neighbors]]
+        filled_neighbors = (
+            self.network.pn_core.throat.oil_filled[neighbors]
+            if self.phase == WATER
+            else self.network.pn_core.throat.water_filled[neighbors]
+        )
+        number_of_filled_neighbors = filled_neighbors.sum()
+
+        throats_radii = self.network.pn_core.throat.radius[neighbors[filled_neighbors]]
+
         element_pc = calculate_imbibition_pc(
             self.calculate_pore_body_filling_pc,
             self.network.pn_core.pore.piston_like_pressure[pore_id],
             self.network.pn_core.pore.radius[pore_id],
-            self.network.pn_core.pore.advancing_contact_angle[pore_id]
-            if self.phase == WATER
-            else self.network.pn_core.pore.receding_contact_angle[pore_id],
+            contact_angle,
             pc,
-            number_of_oil_filled_neighbors,
+            number_of_filled_neighbors,
             throats_radii,
             self.network.pn_core.pore.shape_factor[pore_id],
             K,
@@ -315,14 +328,6 @@ class SubsequentCycleSimulation(CycleSimulation):
             pc,
         )
 
-    def _update_element_filled_geometry(self, pc, element):
-        element.corner_oil_layer = calculate_oil_layer(
-            element.advancing_contact_angle, element.beta, element.n_corners, pc
-        )
-        self.__update_element_b(element.type_name, element.id, pc)
-
-        return super()._update_element_filled_geometry(pc, element)
-
     def _update_network_geometry(self, pc):
         self.__update_b(pc)
         self.__update_oil_layers(pc)
@@ -330,7 +335,7 @@ class SubsequentCycleSimulation(CycleSimulation):
         self.__update_hinging_contact_angles(pc)
         super()._update_network_geometry(pc)
 
-    def __update_element_b(self, type_name, id, pc):
+    def _update_element_b(self, type_name, id, pc):
         if type_name == "pore":
             element = self.network.pn_core.pore
         else:
@@ -397,4 +402,75 @@ class SubsequentCycleSimulation(CycleSimulation):
             self.network.pn_core.throat.advancing_contact_angle,
             self.network.pn_core.throat.hinging_contact_angle,
             self.network.pn_core.throat.trapped_evacuation,
+        )
+
+
+class SubsequentSaturation(SaturationCalculator):
+    def __init__(self, network, phase):
+        super().__init__(network)
+        self.phase = phase
+
+    def update_saturations(self, pc):
+        self.__update_imbibition_saturations()
+
+    def update_element_saturations(self, type_name, id, pc):
+        if type_name == "pore":
+            element_data = self.network.pn_core.pore
+        else:
+            element_data = self.network.pn_core.throat
+
+        self.__update_imbibition_element_saturations(type_name, id)
+        if self.phase == OIL:
+            return element_data.oil_saturation[id] * element_data.volume[id] / self.total_volume
+        else:
+            return element_data.water_saturation[id] * element_data.volume[id] / self.total_volume
+
+    def __update_imbibition_saturations(self):
+        (
+            self.network.pn_core["pore.water_saturation"],
+            self.network.pn_core["pore.oil_saturation"],
+        ) = calculate_imbibition_network_saturation(
+            self.network.pn_core.pore.area,
+            self.network.pn_core.pore.oil_filled,
+            self.network.pn_core.pore.advancing_contact_angle,
+            self.network.pn_core.pore.hinging_contact_angle,
+            self.network.pn_core.pore.corner_half_angle,
+            self.network.pn_core.pore.b,
+            self.network.pn_core.pore.bo,
+            self.network.pn_core.pore.n_corners,
+            self.network.pn_core.pore.corner_oil_layer,
+        )
+        (
+            self.network.pn_core["throat.water_saturation"],
+            self.network.pn_core["throat.oil_saturation"],
+        ) = calculate_imbibition_network_saturation(
+            self.network.pn_core.throat.cross_sectional_area,
+            self.network.pn_core.throat.oil_filled,
+            self.network.pn_core.throat.advancing_contact_angle,
+            self.network.pn_core.throat.hinging_contact_angle,
+            self.network.pn_core.throat.corner_half_angle,
+            self.network.pn_core.throat.b,
+            self.network.pn_core.throat.bo,
+            self.network.pn_core.throat.n_corners,
+            self.network.pn_core.throat.corner_oil_layer,
+        )
+
+    def __update_imbibition_element_saturations(self, type_name, id):
+        if type_name == "pore":
+            element_data = self.network.pn_core.pore
+            area = self.network.pn_core.pore.area[id]
+        else:
+            element_data = self.network.pn_core.throat
+            area = self.network.pn_core.throat.cross_sectional_area[id]
+
+        (element_data.water_saturation[id], element_data.oil_saturation[id],) = calculate_imbibition_element_saturation(
+            area,
+            element_data.oil_filled[id],
+            element_data.advancing_contact_angle[id],
+            element_data.hinging_contact_angle[id],
+            element_data.corner_half_angle[id],
+            element_data.b[id],
+            element_data.bo[id],
+            element_data.n_corners[id],
+            element_data.corner_oil_layer[id],
         )
