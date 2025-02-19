@@ -5,9 +5,9 @@ from py_pore_flow.equations.geometry import (
     CIRCLE,
     OIL,
     check_water_layer,
-    calculate_imbibition_element_b,
+    calculate_2nd_drainage_element_b,
     calculate_imbibition_element_bo,
-    calculate_imbibition_network_b,
+    calculate_2nd_drainage_network_b,
     calculate_imbibition_network_bo,
     calculate_network_hinging_contact_angle,
     calculate_oil_layer,
@@ -90,7 +90,76 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
         )
 
     def _update_element_filled_geometry(self, pc, element):
+        element.corner_oil_layer = False
+        element.bo = 0.0
         element.corner_water_layer = check_water_layer(element.corner_oil_layer, element.oil_filled)
         self._update_element_b(element.type_name, element.id, pc)
-        element.corner_oil_layer = False
         return super()._update_element_filled_geometry(pc, element)
+
+    def _update_b(self, pc):
+        calculate_2nd_drainage_network_b(
+            self.network.pn_core.pore.b,
+            self.network.pn_core.pore.trapped_evacuation,
+            self.network.pn_core.pore.corner_half_angle,
+            self.network.pn_core.pore.max_b,
+            self.network.pn_core.pore.receding_contact_angle,
+            self.network.pn_core.pore.advancing_contact_angle,
+            self.network.pn_core.pore.hinging_contact_angle,
+            self.network.pn_core.pore.corner_water_layer,
+            self.network.pn_core.pore.n_corners,
+            pc,
+            self.Rmin,
+        )
+        calculate_2nd_drainage_network_b(
+            self.network.pn_core.throat.b,
+            self.network.pn_core.throat.trapped_evacuation,
+            self.network.pn_core.throat.corner_half_angle,
+            self.network.pn_core.throat.max_b,
+            self.network.pn_core.throat.receding_contact_angle,
+            self.network.pn_core.throat.advancing_contact_angle,
+            self.network.pn_core.throat.hinging_contact_angle,
+            self.network.pn_core.throat.corner_water_layer,
+            self.network.pn_core.throat.n_corners,
+            pc,
+            self.Rmin,
+        )
+
+        calculate_imbibition_network_bo(
+            self.network.pn_core.pore.bo,
+            self.network.pn_core.pore.trapped_evacuation,
+            self.network.pn_core.pore.corner_half_angle,
+            self.network.pn_core.pore.max_b,
+            self.network.pn_core.pore.advancing_contact_angle,
+            self.network.pn_core.pore.corner_oil_layer,
+            self.network.pn_core.pore.n_corners,
+            pc,
+        )
+        calculate_imbibition_network_bo(
+            self.network.pn_core.throat.bo,
+            self.network.pn_core.throat.trapped_evacuation,
+            self.network.pn_core.throat.corner_half_angle,
+            self.network.pn_core.throat.max_b,
+            self.network.pn_core.throat.advancing_contact_angle,
+            self.network.pn_core.throat.corner_oil_layer,
+            self.network.pn_core.throat.n_corners,
+            pc,
+        )
+
+    def _update_element_b(self, type_name, id, pc):
+        if type_name == "pore":
+            element = self.network.pn_core.pore
+        else:
+            element = self.network.pn_core.throat
+
+        element.b[id] = calculate_2nd_drainage_element_b(
+            element.b[id],
+            element.corner_half_angle[id],
+            element.max_b[id],
+            element.receding_contact_angle[id],
+            element.advancing_contact_angle[id],
+            element.hinging_contact_angle[id],
+            element.corner_water_layer[id],
+            element.n_corners[id],
+            self.Rmin,
+            pc,
+        )

@@ -279,7 +279,7 @@ class SubsequentCycleSimulation(CycleSimulation):
     def _can_be_filled(self, current_pc, invasion_pc):
         pass
 
-    def __update_b(self, pc):
+    def _update_b(self, pc):
         calculate_imbibition_network_b(
             self.network.pn_core.pore.b,
             self.network.pn_core.pore.trapped_evacuation,
@@ -329,7 +329,7 @@ class SubsequentCycleSimulation(CycleSimulation):
         )
 
     def _update_network_geometry(self, pc):
-        self.__update_b(pc)
+        self._update_b(pc)
         self.__update_oil_layers(pc)
         self.__update_water_layers()
         self.__update_hinging_contact_angles(pc)
