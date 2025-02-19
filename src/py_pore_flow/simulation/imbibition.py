@@ -274,7 +274,10 @@ class ImbibitionSimulation(CycleSimulation):
                         max_id = id
                         max_type = THROAT
 
-        return (max_type, max_id, min(max_pressure, pc))
+        if max_id != -1:
+            return (max_type, max_id, min(max_pressure, pc))
+        else:
+            return None
 
     def _can_be_filled(self, current_pc, invasion_pc):
         return current_pc <= invasion_pc

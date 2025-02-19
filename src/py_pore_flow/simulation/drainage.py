@@ -54,7 +54,10 @@ class DrainageSimulation(CycleSimulation):
                 min_id = id
                 min_type = THROAT
 
-        return (min_type, min_id, max(min_pressure, pc))
+        if min_id != -1:
+            return (min_type, min_id, max(min_pressure, pc))
+        else:
+            return None
 
     def _can_be_filled(self, current_pc, invasion_pc):
         return current_pc >= invasion_pc
