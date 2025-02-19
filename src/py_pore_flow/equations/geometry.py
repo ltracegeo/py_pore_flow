@@ -303,6 +303,38 @@ def calculate_imbibition_corner_b(b, beta, theta_r, theta_a, theta_h, R, Rmin):
 
 
 @njit
+def calculate_2nd_drainage_network_b(
+    b, trapped, beta, max_b, theta_r, theta_a, theta_h, has_water_layer, n_corners, pc, Rmin
+):
+    number_of_elements = len(beta)
+
+    for i in range(number_of_elements):
+        if not trapped[i]:
+            b[i] = calculate_2nd_drainage_element_b(
+                b[i], beta[i], max_b[i], theta_r[i], theta_a[i], theta_h[i], has_water_layer[i], n_corners[i], Rmin, pc
+            )
+
+
+@njit
+def calculate_2nd_drainage_element_b(b, beta, max_b, theta_r, theta_a, theta_h, has_water_layer, n_corners, Rmin, pc):
+    R = calculate_r(pc, max_b)
+    for i in range(int(n_corners)):
+        if has_water_layer[i]:
+            b[i] = calculate_2nd_drainage_corner_b(b[i], beta[i], theta_r, theta_a, theta_h[i], R, Rmin)
+    return b
+
+
+@njit
+def calculate_2nd_drainage_corner_b(b, beta, theta_r, theta_a, theta_h, R, Rmin):
+    if theta_r + beta > pi / 2:
+        return 0.0
+    if theta_r - theta_h > -1e-10:
+        return calculate_corner_bi(beta, theta_r, R)
+    else:
+        return b
+
+
+@njit
 def calculate_drainage_corner_b(beta, theta_r, Rmin):
     return calculate_corner_bi(beta, theta_r, Rmin)
 
