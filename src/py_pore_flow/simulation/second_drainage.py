@@ -89,6 +89,43 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
             is_throats=False,
         )
 
+    @staticmethod
+    @nb.njit
+    def _jit_pore_throats_element_to_fill(
+        pc,
+        pore_id_list,
+        pore_entry_pressure,
+        pore_spontaneous_imbibition,
+        throat_id_list,
+        throat_entry_pressure,
+        throat_spontaneous_imbibition,
+    ):
+        min_pressure = np.inf
+        min_id = -1
+        min_type = -1
+
+        if len(pore_id_list) == 0 and len(throat_id_list) == 0:
+            return None
+
+        for id in pore_id_list:
+            pressure = pore_entry_pressure[id]
+            if pressure < min_pressure:
+                min_pressure = pressure
+                min_id = id
+                min_type = PORE
+
+        for id in throat_id_list:
+            pressure = throat_entry_pressure[id]
+            if pressure < min_pressure:
+                min_pressure = pressure
+                min_id = id
+                min_type = THROAT
+
+        if min_id != -1:
+            return (min_type, min_id, max(min_pressure, pc))
+        else:
+            return None
+
     def _update_element_filled_geometry(self, pc, element):
         element.corner_oil_layer = False
         element.bo = 0.0

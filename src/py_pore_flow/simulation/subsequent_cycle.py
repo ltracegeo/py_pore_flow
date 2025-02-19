@@ -192,65 +192,9 @@ class SubsequentCycleSimulation(CycleSimulation):
             throat_id_list,
             self.network.pn_core.throat.entry_pressure,
             self.network.pn_core.throat.spontaneous_imbibition,
-            self.phase == WATER,
         )
 
         return element_to_fill
-
-    @staticmethod
-    @nb.njit
-    def _jit_pore_throats_element_to_fill(
-        pc,
-        pore_id_list,
-        pore_entry_pressure,
-        pore_spontaneous_imbibition,
-        throat_id_list,
-        throat_entry_pressure,
-        throat_spontaneous_imbibition,
-        descreasing_pc=True,
-    ):
-        max_pressure = -np.inf
-        max_id = -1
-        max_type = -1
-
-        if len(pore_id_list) == 0 and len(throat_id_list) == 0:
-            return None
-
-        if pc < 0:
-            for id in pore_id_list:
-                pressure = pore_entry_pressure[id]
-                if pressure > max_pressure:
-                    max_pressure = pressure
-                    max_id = id
-                    max_type = PORE
-
-            for id in throat_id_list:
-                pressure = throat_entry_pressure[id]
-                if pressure > max_pressure:
-                    max_pressure = pressure
-                    max_id = id
-                    max_type = THROAT
-        else:
-            for id in pore_id_list:
-                if pore_spontaneous_imbibition[id]:
-                    pressure = pore_entry_pressure[id]
-                    if pressure > max_pressure:
-                        max_pressure = pressure
-                        max_id = id
-                        max_type = PORE
-
-            for id in throat_id_list:
-                if throat_spontaneous_imbibition[id]:
-                    pressure = throat_entry_pressure[id]
-                    if pressure > max_pressure:
-                        max_pressure = pressure
-                        max_id = id
-                        max_type = THROAT
-
-        if descreasing_pc:
-            return (max_type, max_id, min(max_pressure, pc))
-        else:
-            return (max_type, max_id, max(max_pressure, pc))
 
     @abstractmethod
     def _can_be_filled(self, current_pc, invasion_pc):
