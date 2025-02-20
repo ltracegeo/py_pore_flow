@@ -213,7 +213,7 @@ class ImbibitionSimulation(CycleSimulation):
         self.__clear_snapoff_lists()
         pore_id_list = np.concatenate((border_elements.get_pores_ids(), self.snap_off_pore_list))
         throat_id_list = np.concatenate((border_elements.get_throats_ids(), self.snap_off_throat_list))
-        elements_to_fill = self._jit_pore_throats_element_to_fill(
+        element_to_fill = self._jit_pore_throats_element_to_fill(
             pc,
             pore_id_list,
             self.network.pn_core.pore.entry_pressure,
@@ -223,11 +223,7 @@ class ImbibitionSimulation(CycleSimulation):
             self.network.pn_core.throat.spontaneous_imbibition,
         )
 
-        if len(elements_to_fill) > 0:
-            element_to_fill = elements_to_fill[0]
-            return (element_to_fill[0], element_to_fill[1], min(element_to_fill[2], pc))
-        else:
-            return None
+        return element_to_fill
 
     @staticmethod
     @nb.njit
@@ -240,24 +236,48 @@ class ImbibitionSimulation(CycleSimulation):
         throat_entry_pressure,
         throat_spontaneous_imbibition,
     ):
+        max_pressure = -np.inf
+        max_id = -1
+        max_type = -1
+
+        if len(pore_id_list) == 0 and len(throat_id_list) == 0:
+            return None
+
         if pc < 0:
-            tuple_list = []
             for id in pore_id_list:
-                tuple_list.append((PORE, id, pore_entry_pressure[id]))
+                pressure = pore_entry_pressure[id]
+                if pressure > max_pressure:
+                    max_pressure = pressure
+                    max_id = id
+                    max_type = PORE
+
             for id in throat_id_list:
-                tuple_list.append((THROAT, id, throat_entry_pressure[id]))
-            tuple_list.sort(key=lambda element: element[2], reverse=True)
+                pressure = throat_entry_pressure[id]
+                if pressure > max_pressure:
+                    max_pressure = pressure
+                    max_id = id
+                    max_type = THROAT
         else:
-            tuple_list = []
             for id in pore_id_list:
                 if pore_spontaneous_imbibition[id]:
-                    tuple_list.append((PORE, id, pore_entry_pressure[id]))
+                    pressure = pore_entry_pressure[id]
+                    if pressure > max_pressure:
+                        max_pressure = pressure
+                        max_id = id
+                        max_type = PORE
+
             for id in throat_id_list:
                 if throat_spontaneous_imbibition[id]:
-                    tuple_list.append((THROAT, id, throat_entry_pressure[id]))
-            tuple_list.sort(key=lambda element: element[2], reverse=True)
+                    pressure = throat_entry_pressure[id]
+                    if pressure > max_pressure:
+                        max_pressure = pressure
+                        max_id = id
+                        max_type = THROAT
 
-        return tuple_list
+        if max_id != -1:
+            return (max_type, max_id, min(max_pressure, pc))
+        else:
+            return None
 
     def _can_be_filled(self, current_pc, invasion_pc):
         return current_pc <= invasion_pc

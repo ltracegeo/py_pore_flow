@@ -1,3 +1,4 @@
+import numba as nb
 import numpy as np
 
 from py_pore_flow import log
@@ -14,18 +15,47 @@ class DrainageSimulation(CycleSimulation):
         return np.logical_not(self.network.pn_core.pore.oil_filled | self.network.pn_core.pore.trapped).sum()
 
     def _get_element_to_fill(self, pc, border_elements):
-        pore_entry_pressure = self.network.pn_core.pore.entry_pressure
-        throat_entry_pressure = self.network.pn_core.throat.entry_pressure
-        tuple_list = []
-        for id in border_elements.get_pores_ids():
-            tuple_list.append((PORE, id, pore_entry_pressure[id]))
-        for id in border_elements.get_throats_ids():
-            tuple_list.append((THROAT, id, throat_entry_pressure[id]))
+        element_to_fill = self._jit_pore_throats_element_to_fill(
+            pc,
+            border_elements.get_pores_ids(),
+            self.network.pn_core.pore.entry_pressure,
+            border_elements.get_throats_ids(),
+            self.network.pn_core.throat.entry_pressure,
+        )
+        return element_to_fill
 
-        if len(tuple_list) > 0:
-            tuple_list.sort(key=lambda element: element[2], reverse=False)
-            element_to_fill = tuple_list[0]
-            return (element_to_fill[0], element_to_fill[1], max(element_to_fill[2], pc))
+    @staticmethod
+    @nb.njit
+    def _jit_pore_throats_element_to_fill(
+        pc,
+        pore_id_list,
+        pore_entry_pressure,
+        throat_id_list,
+        throat_entry_pressure,
+    ):
+        min_pressure = np.inf
+        min_id = -1
+        min_type = -1
+
+        if len(pore_id_list) == 0 and len(throat_id_list) == 0:
+            return None
+
+        for id in pore_id_list:
+            pressure = pore_entry_pressure[id]
+            if pressure < min_pressure:
+                min_pressure = pressure
+                min_id = id
+                min_type = PORE
+
+        for id in throat_id_list:
+            pressure = throat_entry_pressure[id]
+            if pressure < min_pressure:
+                min_pressure = pressure
+                min_id = id
+                min_type = THROAT
+
+        if min_id != -1:
+            return (min_type, min_id, max(min_pressure, pc))
         else:
             return None
 
