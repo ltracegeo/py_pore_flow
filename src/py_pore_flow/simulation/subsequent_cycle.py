@@ -215,7 +215,6 @@ class SubsequentCycleSimulation(CycleSimulation):
             throat_id_list,
             self.network.pn_core.throat.entry_pressure,
             self.network.pn_core.throat.spontaneous_imbibition,
-            self.phase == WATER,
         )
 
         return element_to_fill
