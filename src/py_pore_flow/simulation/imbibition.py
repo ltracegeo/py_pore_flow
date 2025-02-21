@@ -361,8 +361,8 @@ class ImbibitionSimulation(CycleSimulation):
             element.hinging_contact_angle[id],
             element.corner_water_layer[id],
             element.n_corners[id],
-            pc,
             self.Rmin,
+            pc,
         )
         element.bo[id] = calculate_imbibition_element_bo(
             element.corner_half_angle[id],
