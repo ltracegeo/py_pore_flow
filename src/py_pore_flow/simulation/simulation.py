@@ -555,6 +555,7 @@ class StepSimulation:
             self.simulation = ImbibitionSimulation(self.network, self.max_pc, self.calculate_full_conductance)
             self.min_pc = self.max_pc
         elif cycle == "2nd_drainage":
+            self.parameter_manager.update_2nd_drainage_ca(self.network)
             calculate_2nd_drainage_values(self.network, self.min_pc)
             self.simulation = SecondDrainageSimulation(self.network, self.max_pc, self.calculate_full_conductance)
 
