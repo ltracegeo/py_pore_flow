@@ -650,16 +650,17 @@ class CycleSimulation:
             self.__fill_element(element, invasion_pc)
             sw_delta += self._update_element_filled_geometry(invasion_pc, element)
             self.trap_checker.update_trapped_pores()
-            self._find_initial_border_elements(self.network.pn_core, self.border_elements, self.phase)
+            new_pores, new_throats = self._find_initial_border_elements(
+                self.network.pn_core, self.border_elements, self.phase
+            )
+            for pore_id in new_pores:
+                self._update_element_entry_pc(self.network.get_pore(pore_id), pc)
+            for throat_id in new_throats:
+                self._update_element_entry_pc(self.network.get_throat(throat_id), pc)
         return sw_delta, invasion_pc
 
     def __fill_element(self, element, pc):
         element.set_filled(self.phase, True)
-
-        neighbor_list = self.network.get_neighbors(element)
-        for neighbor in neighbor_list:
-            if not neighbor.is_filled(self.phase) and not neighbor.trapped:
-                self._update_element_entry_pc(neighbor, pc)
 
     def __update_element_hinging_contact_angles(self, type_name, id, pc):
         if type_name == "pore":
@@ -698,13 +699,18 @@ class CycleSimulation:
         )
 
         if len(border_throat_ids) > 0:
+            new_throats = np.setdiff1d(border_throat_ids, border_elements.get_throats_ids())
             border_elements.set_throats_ids(border_throat_ids)
         else:
+            new_throats = np.array([])
             border_elements.set_throats_ids(np.array([], np.int64))
         if len(border_pore_ids) > 0:
+            new_pores = np.setdiff1d(border_pore_ids, border_elements.get_pores_ids())
             border_elements.set_pores_ids(border_pore_ids)
         else:
+            new_pores = np.array([])
             border_elements.set_pores_ids(np.array([], np.int64))
+        return new_pores, new_throats
 
     @staticmethod
     @nb.njit
