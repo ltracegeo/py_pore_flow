@@ -576,7 +576,6 @@ class CycleSimulation:
         self.trap_checker.update_trapped_pores()
 
         self.border_elements = BorderElements()
-        self.border_elements.set_pores_ids(nb.typed.List(self.network.get_inlets_ids()))
         self._find_initial_border_elements(self.network.pn_core, self.border_elements, phase)
 
         self.saturation_calculator = None
@@ -729,64 +728,86 @@ class CycleSimulation:
 
     @staticmethod
     def _find_initial_border_elements(pn, border_elements, phase):
-        if phase == WATER:
-            pore_phase_filled = pn.pore.water_filled
-            throat_phase_filled = pn.throat.water_filled
-            pore_phase_saturation = pn.pore.water_saturation > 0
-            throat_phase_saturation = pn.throat.water_saturation > 0
+        border_pore_ids, border_throat_ids = CycleSimulation.__find_initial_border_elements(
+            phase,
+            pn.pore.water_filled,
+            pn.pore.oil_filled,
+            pn.pore.water_connected_to_inlet,
+            pn.pore.oil_connected_to_inlet,
+            pn.pore.trapped,
+            pn.pore.inlets,
+            pn.pore.conns,
+            pn.pore.n_conns,
+            pn.throat.water_filled,
+            pn.throat.oil_filled,
+            pn.throat.water_connected_to_inlet,
+            pn.throat.oil_connected_to_inlet,
+            pn.throat.trapped,
+            pn.throat.conns,
+            pn.throat.n_conns,
+        )
+
+        if len(border_throat_ids) > 0:
+            border_elements.set_throats_ids(nb.typed.List(border_throat_ids))
         else:
-            pore_phase_filled = pn.pore.oil_filled
-            throat_phase_filled = pn.throat.oil_filled
-            pore_phase_saturation = pn.pore.oil_saturation > 0
-            throat_phase_saturation = pn.throat.oil_saturation > 0
+            border_elements.set_throats_ids(nb.typed.List.empty_list(nb.types.int64))
+        if len(border_pore_ids) > 0:
+            border_elements.set_pores_ids(nb.typed.List(border_pore_ids))
+        else:
+            border_elements.set_pores_ids(nb.typed.List.empty_list(nb.types.int64))
 
-        wqupc = Wqupc(len(pn.pore.all), len(pn.throat.all))
-        for throat_id in range(wqupc.nT):
-            if throat_phase_saturation[throat_id]:
-                pore_0_id, pore_1_id = pn.throat.conns[throat_id]
-                if pore_phase_saturation[pore_0_id]:
-                    wqupc.union(throat_id, pore_0_id)
-                if pore_phase_saturation[pore_1_id]:
-                    wqupc.union(throat_id, pore_1_id)
+    @staticmethod
+    @nb.njit
+    def __find_initial_border_elements(
+        phase,
+        pore_water_filled,
+        pore_oil_filled,
+        pore_water_connected_to_inlet,
+        pore_oil_connected_to_inlet,
+        pore_trapped,
+        pore_inlets,
+        pore_conns,
+        pore_n_conns,
+        throat_water_filled,
+        throat_oil_filled,
+        throat_water_connected_to_inlet,
+        throat_oil_connected_to_inlet,
+        throat_trapped,
+        throat_conns,
+        throat_n_conns,
+    ):
+        if phase == WATER:
+            pore_phase_filled = pore_water_filled
+            throat_phase_filled = throat_water_filled
+            pore_phase_connected_to_inlet = pore_water_connected_to_inlet
+            throat_phase_connected_to_inlet = throat_water_connected_to_inlet
+        else:
+            pore_phase_filled = pore_oil_filled
+            throat_phase_filled = throat_oil_filled
+            pore_phase_connected_to_inlet = pore_oil_connected_to_inlet
+            throat_phase_connected_to_inlet = throat_oil_connected_to_inlet
 
-        inlets_clusters = set()
-        pore_cluster = np.empty(wqupc.nP, np.int32)
-        throat_cluster = np.empty(wqupc.nT, np.int32)
+        border_pore_ids = list()
+        inlets_id = np.where(pore_inlets & ~pore_phase_filled & ~pore_trapped)[0]
+        border_pore_ids.extend(inlets_id)
+        for pore_id in range(len(pore_phase_filled)):
+            if (not pore_phase_filled[pore_id]) and not pore_trapped[pore_id]:
+                for throat_id in pore_conns[pore_id][: pore_n_conns[pore_id]]:
+                    if throat_phase_connected_to_inlet[throat_id] and throat_phase_filled[throat_id]:
+                        border_pore_ids.append(pore_id)
+                        break
+        border_throat_ids = list()
+        for throat_id in range(len(throat_phase_filled)):
+            if (not throat_phase_filled[throat_id]) and not throat_trapped[throat_id]:
+                for pore_id in throat_conns[throat_id][: throat_n_conns[throat_id]]:
+                    if pore_phase_connected_to_inlet[pore_id] and pore_phase_filled[pore_id]:
+                        border_throat_ids.append(throat_id)
+                        break
 
-        for pore_id in range(wqupc.nP):
-            pore_cluster[pore_id] = wqupc.find_pore(pore_id)
-        for throat_id in range(wqupc.nT):
-            throat_cluster[throat_id] = wqupc.find_throat(throat_id)
-        inlets_clusters.update(pore_cluster[pn.pore.inlets & pore_phase_filled])
-        inlets_clusters = np.array(list(inlets_clusters), dtype=np.int64)
+        border_pore_ids = np.unique(np.array(border_pore_ids, dtype=np.int64))
+        border_throat_ids = np.unique(np.array(border_throat_ids, dtype=np.int64))
 
-        pore_mask = np.isin(pore_cluster, inlets_clusters) & pore_phase_filled
-        throat_mask = np.isin(throat_cluster, inlets_clusters) & throat_phase_filled
-
-        conns = pn.throat.conns[throat_mask]
-        pore_ids = set()
-        pore_ids.update(np.where(pn.pore.inlets)[0])
-        for i in range(len(conns)):
-            pore_ids.update(conns[i])
-        pore_ids = np.array(list(pore_ids), dtype=np.int64)
-        not_filled_mask = ~pore_phase_filled[pore_ids]
-        not_trapped_mask = ~pn.pore.trapped[pore_ids]
-        pore_ids = pore_ids[not_filled_mask & not_trapped_mask]
-
-        conns = pn.pore.conns[pore_mask]
-        n_conns = pn.pore.n_conns[pore_mask]
-        throat_ids = set()
-        for i in range(len(conns)):
-            throat_ids.update(conns[i][: n_conns[i]])
-        throat_ids = np.array(list(throat_ids), dtype=np.int64)
-        not_filled_mask = ~throat_phase_filled[throat_ids]
-        not_trapped_mask = ~pn.throat.trapped[throat_ids]
-        throat_ids = throat_ids[not_filled_mask & not_trapped_mask]
-
-        if len(throat_ids) > 0:
-            border_elements.set_throats_ids(nb.typed.List(throat_ids))
-        if len(pore_ids) > 0:
-            border_elements.set_pores_ids(nb.typed.List(pore_ids))
+        return border_pore_ids, border_throat_ids
 
 
 class TrapCheckerOpenpnm:
