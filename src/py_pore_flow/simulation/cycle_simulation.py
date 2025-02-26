@@ -841,60 +841,82 @@ class TrapChecker:
         self.network.pn_core.pore.trapped_evacuation[:] = False
         self.network.pn_core.throat.trapped_evacuation[:] = False
 
-    def reset_status(self):
-        # self.network.pn_core.pore.trapped[:] = False
-        # self.network.pn_core.throat.trapped[:] = False
-        if ENABLE_TRAPPING_FROM_INLET:
-            self.network.pn_core.pore.trapped_evacuation[:] = False
-            self.network.pn_core.throat.trapped_evacuation[:] = False
-        self.wqupc.reset()
-
     def update_trapped_pores(self):
-        if self.phase == WATER:
-            invasion_phase = WATER
-            evacuation_phase = OIL
-        elif self.phase == OIL:
-            invasion_phase = OIL
-            evacuation_phase = WATER
+        self.__calculate_trapping(
+            self.network.pn_core.pore.oil_connected_to_inlet,
+            self.network.pn_core.pore.oil_connected_to_outlet,
+            self.network.pn_core.throat.oil_connected_to_inlet,
+            self.network.pn_core.throat.oil_connected_to_outlet,
+            self.network.pn_core.pore.oil_saturation > 0.0 + TRAP_TOLERANCE,
+            self.network.pn_core.throat.oil_saturation > 0.0 + TRAP_TOLERANCE,
+            self.network.pn_core.pore.inlets,
+            self.network.pn_core.pore.outlets,
+        )
+        self.__calculate_trapping(
+            self.network.pn_core.pore.water_connected_to_inlet,
+            self.network.pn_core.pore.water_connected_to_outlet,
+            self.network.pn_core.throat.water_connected_to_inlet,
+            self.network.pn_core.throat.water_connected_to_outlet,
+            self.network.pn_core.pore.water_saturation > 0.0 + TRAP_TOLERANCE,
+            self.network.pn_core.throat.water_saturation > 0.0 + TRAP_TOLERANCE,
+            self.network.pn_core.pore.inlets,
+            self.network.pn_core.pore.outlets,
+        )
 
-        self.reset_status()
+        if self.phase == WATER:
+            self.network.pn_core["pore.trapped"] = self.network.pn_core.pore.trapped | (
+                self.network.pn_core.pore.oil_filled & ~self.network.pn_core.pore.oil_connected_to_outlet
+            )
+            self.network.pn_core["throat.trapped"] = self.network.pn_core.throat.trapped | (
+                self.network.pn_core.throat.oil_filled & ~self.network.pn_core.throat.oil_connected_to_outlet
+            )
+            self.network.pn_core["pore.trapped_evacuation"] = (
+                self.network.pn_core.pore.trapped | ~self.network.pn_core.pore.water_connected_to_inlet
+            )
+            self.network.pn_core["throat.trapped_evacuation"] = (
+                self.network.pn_core.throat.trapped | ~self.network.pn_core.throat.water_connected_to_inlet
+            )
+        else:
+            self.network.pn_core["pore.trapped"] = self.network.pn_core.pore.trapped | (
+                self.network.pn_core.pore.water_filled & ~self.network.pn_core.pore.water_connected_to_outlet
+            )
+            self.network.pn_core["throat.trapped"] = self.network.pn_core.throat.trapped | (
+                self.network.pn_core.throat.water_filled & ~self.network.pn_core.throat.water_connected_to_outlet
+            )
+            self.network.pn_core["pore.trapped_evacuation"] = (
+                self.network.pn_core.pore.trapped | ~self.network.pn_core.pore.oil_connected_to_inlet
+            )
+            self.network.pn_core["throat.trapped_evacuation"] = (
+                self.network.pn_core.throat.trapped | ~self.network.pn_core.throat.oil_connected_to_inlet
+            )
+
+    def __calculate_trapping(
+        self,
+        pore_connected_to_inlet,
+        pore_connected_to_outlet,
+        throat_connected_to_inlet,
+        throat_connected_to_outlet,
+        pore_has_phase,
+        throat_has_phase,
+        pore_inlets,
+        pore_outlets,
+    ):
+        self.wqupc.reset()
         self._jit_update_trapped_pores(
             self.wqupc.parent_array,
             self.wqupc.size_array,
             self.wqupc.nP,
             self.wqupc.nT,
-            self.network.pn_core.pore.trapped,
-            self.network.pn_core.throat.trapped,
-            self.network.pn_core.pore.oil_saturation,
-            self.network.pn_core.throat.oil_saturation,
+            pore_connected_to_inlet,
+            pore_connected_to_outlet,
+            throat_connected_to_inlet,
+            throat_connected_to_outlet,
+            pore_has_phase,
+            throat_has_phase,
             self.network.pn_core.throat.conns,
-            self.network.pn_core.pore.outlets,
-            invasion_phase,
+            pore_inlets,
+            pore_outlets,
         )
-        if ENABLE_TRAPPING_FROM_INLET:
-            self.reset_status()
-            self._jit_update_trapped_pores(
-                self.wqupc.parent_array,
-                self.wqupc.size_array,
-                self.wqupc.nP,
-                self.wqupc.nT,
-                self.network.pn_core.pore.trapped_evacuation,
-                self.network.pn_core.throat.trapped_evacuation,
-                self.network.pn_core.pore.oil_saturation,
-                self.network.pn_core.throat.oil_saturation,
-                self.network.pn_core.throat.conns,
-                self.network.pn_core.pore.inlets,
-                evacuation_phase,
-            )
-            self.network.pn_core["pore.trapped_evacuation"] = (
-                self.network.pn_core.pore.trapped_evacuation | self.network.pn_core.pore.trapped
-            )
-            self.network.pn_core["throat.trapped_evacuation"] = (
-                self.network.pn_core.throat.trapped_evacuation | self.network.pn_core.throat.trapped
-            )
-        else:
-            self.network.pn_core["pore.trapped_evacuation"] = self.network.pn_core.pore.trapped
-            self.network.pn_core["throat.trapped_evacuation"] = self.network.pn_core.throat.trapped
 
     @staticmethod
     @nb.njit
@@ -903,49 +925,47 @@ class TrapChecker:
         size_array,
         nP,
         nT,
-        pore_trapped,
-        throat_trapped,
-        pore_oil_saturation,
-        throat_oil_saturation,
+        pore_connected_to_inlet,
+        pore_connected_to_outlet,
+        throat_connected_to_inlet,
+        throat_connected_to_outlet,
+        pore_has_phase,
+        throat_has_phase,
         throat_conns,
+        pore_inlets,
         pore_outlets,
-        phase,
     ):
         union = lambda p, q: wqupc_union(p, q, parent_array, size_array)
         find = lambda p: wqupc_find(p, parent_array)
 
-        if phase == OIL:
-            is_trapped = lambda x: x >= (1.0 - TRAP_TOLERANCE)
-        elif phase == WATER:
-            is_trapped = lambda x: x <= (TRAP_TOLERANCE)
         for throat in range(nT):
-            t_saturation = throat_oil_saturation[throat]
-            if is_trapped(t_saturation):
-                continue
-            pore_0, pore_1 = throat_conns[throat]
-            p0_saturation = pore_oil_saturation[pore_0]
-            p1_saturation = pore_oil_saturation[pore_1]
-            if not is_trapped(p0_saturation):
-                union(throat, (pore_0 + nT))
-            if not is_trapped(p1_saturation):
-                union(throat, (pore_1 + nT))
+            if throat_has_phase[throat]:
+                pore_0, pore_1 = throat_conns[throat]
+                if pore_has_phase[pore_0]:
+                    union(throat, (pore_0 + nT))
+                if pore_has_phase[pore_1]:
+                    union(throat, (pore_1 + nT))
 
+        inlets_clusters = set()
         outlets_clusters = set()
 
         for pore in range(nP):
-            if pore_outlets[pore] == True:
+            if pore_inlets[pore] | pore_outlets[pore]:
                 cluster = find(pore + nT)
-                outlets_clusters.add(cluster)
+                if pore_inlets[pore]:
+                    inlets_clusters.add(cluster)
+                if pore_outlets[pore]:
+                    outlets_clusters.add(cluster)
 
         for throat in range(nT):
             cluster = find(throat)
-            if cluster not in outlets_clusters:
-                throat_trapped[throat] = True
+            throat_connected_to_inlet[throat] = cluster in inlets_clusters
+            throat_connected_to_outlet[throat] = cluster in outlets_clusters
 
         for pore in range(nP):
             cluster = find(pore + nT)
-            if cluster not in outlets_clusters:
-                pore_trapped[pore] = True
+            pore_connected_to_inlet[pore] = cluster in inlets_clusters
+            pore_connected_to_outlet[pore] = cluster in outlets_clusters
 
 
 spec = [

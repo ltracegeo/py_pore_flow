@@ -54,6 +54,10 @@ def initialize_pn(pn):
         pn[f"{element_type}.equilibrium_receding_ca"] = 0.0
         pn[f"{element_type}.second_advancing_ca"] = 0.0
         pn[f"{element_type}.second_receding_ca"] = 0.0
+        pn[f"{element_type}.oil_connected_to_inlet"] = False
+        pn[f"{element_type}.oil_connected_to_outlet"] = False
+        pn[f"{element_type}.water_connected_to_inlet"] = True
+        pn[f"{element_type}.water_connected_to_outlet"] = True
         pn[f"{element_type}.id"] = list(range(len(pn[f"{element_type}.all"])))
         if f"{element_type}.N" not in pn:
             pn[f"{element_type}.N"] = 1
@@ -516,6 +520,10 @@ class PoresNetwork(ElementNetwork):
         self.equilibrium_receding_ca = pn["pore.equilibrium_receding_ca"]
         self.second_advancing_ca = pn["pore.second_advancing_ca"]
         self.second_receding_ca = pn["pore.second_receding_ca"]
+        self.oil_connected_to_inlet = pn["pore.oil_connected_to_inlet"]
+        self.oil_connected_to_outlet = pn["pore.oil_connected_to_outlet"]
+        self.water_connected_to_inlet = pn["pore.water_connected_to_inlet"]
+        self.water_connected_to_outlet = pn["pore.water_connected_to_outlet"]
         self.id = pn["pore.id"]
         self.N = pn["pore.N"]
 
@@ -574,6 +582,10 @@ class ThroatsNetwork(ElementNetwork):
         self.equilibrium_receding_ca = pn["throat.equilibrium_receding_ca"]
         self.second_advancing_ca = pn["throat.second_advancing_ca"]
         self.second_receding_ca = pn["throat.second_receding_ca"]
+        self.oil_connected_to_inlet = pn["throat.oil_connected_to_inlet"]
+        self.oil_connected_to_outlet = pn["throat.oil_connected_to_outlet"]
+        self.water_connected_to_inlet = pn["throat.water_connected_to_inlet"]
+        self.water_connected_to_outlet = pn["throat.water_connected_to_outlet"]
         self.id = pn["throat.id"]
         self.N = pn["throat.N"]
 
