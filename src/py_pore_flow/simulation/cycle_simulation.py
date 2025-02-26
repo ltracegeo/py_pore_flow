@@ -681,34 +681,15 @@ class CycleSimulation:
             self.__fill_element(element, invasion_pc)
             sw_delta += self._update_element_filled_geometry(invasion_pc, element)
             self.trap_checker.update_trapped_pores()
-            self.__remove_trapped_from_border()
-
             self._find_initial_border_elements(self.network.pn_core, self.border_elements, self.phase)
         return sw_delta, invasion_pc
 
-    def __remove_trapped_from_border(self):
-        throat_id_list = self.border_elements.get_throats_ids()
-        trapped_throat_list = np.where(self.network.pn_core.throat.trapped[throat_id_list] == True)[0]
-        self.border_elements.remove_throat_list(throat_id_list[trapped_throat_list])
-
-        pore_id_list = self.border_elements.get_pores_ids()
-        trapped_pore_list = np.where(self.network.pn_core.pore.trapped[pore_id_list] == True)[0]
-        self.border_elements.remove_pore_list(pore_id_list[trapped_pore_list])
-
     def __fill_element(self, element, pc):
         element.set_filled(self.phase, True)
-        if element.is_pore():
-            self.border_elements.remove_pore(element.get_id())
-        else:
-            self.border_elements.remove_throat(element.get_id())
 
         neighbor_list = self.network.get_neighbors(element)
         for neighbor in neighbor_list:
             if not neighbor.is_filled(self.phase) and not neighbor.trapped:
-                if neighbor.is_pore():
-                    self.border_elements.add_pore(neighbor.get_id())
-                else:
-                    self.border_elements.add_throat(neighbor.get_id())
                 self._update_element_entry_pc(neighbor, pc)
 
     def __update_element_hinging_contact_angles(self, type_name, id, pc):
