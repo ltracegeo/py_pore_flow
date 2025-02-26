@@ -57,7 +57,6 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
             self.network.pn_core.pore.oil_filled,
             self.Rmin,
             pc,
-            self.border_elements,
             is_throats=True,
         )
 
@@ -85,7 +84,6 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
             self.network.pn_core.throat.oil_filled,
             self.Rmin,
             pc,
-            self.border_elements,
             is_throats=False,
         )
 

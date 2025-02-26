@@ -48,7 +48,6 @@ class ImbibitionSimulation(SubsequentCycleSimulation):
             self.network.pn_core.pore.water_filled,
             self.Rmin,
             pc,
-            self.border_elements,
             is_throats=True,
         )
 
@@ -71,7 +70,6 @@ class ImbibitionSimulation(SubsequentCycleSimulation):
             self.network.pn_core.throat.water_filled,
             self.Rmin,
             pc,
-            self.border_elements,
             is_throats=False,
         )
 

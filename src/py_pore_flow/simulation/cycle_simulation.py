@@ -506,21 +506,14 @@ class SaturationCalculator:
         )
 
 
-spec = [
-    ("throats_ids", nb.types.ListType(nb.types.int64)),
-    ("pores_ids", nb.types.ListType(nb.types.int64)),
-]
-
-
-@jitclass(spec)
 class BorderElements:
     """
     Class to keep track of empty elements that are in contact with filled elements
     """
 
     def __init__(self):
-        self.throats_ids = nb.typed.List.empty_list(nb.types.int64)
-        self.pores_ids = nb.typed.List.empty_list(nb.types.int64)
+        self.throats_ids = np.array([], np.int64)
+        self.pores_ids = np.array([], np.int64)
 
     def set_throats_ids(self, throats_ids):
         self.throats_ids = throats_ids
@@ -529,34 +522,10 @@ class BorderElements:
         self.pores_ids = pores_ids
 
     def get_throats_ids(self):
-        return np.asarray(self.throats_ids)
+        return self.throats_ids
 
     def get_pores_ids(self):
-        return np.asarray(self.pores_ids)
-
-    def add_throat(self, throat_id):
-        if throat_id not in self.throats_ids:
-            self.throats_ids.append(throat_id)
-
-    def add_pore(self, pore_id):
-        if pore_id not in self.pores_ids:
-            self.pores_ids.append(pore_id)
-
-    def remove_throat(self, throat_id):
-        if throat_id in self.throats_ids:
-            self.throats_ids.remove(throat_id)
-
-    def remove_pore(self, pore_id):
-        if pore_id in self.pores_ids:
-            self.pores_ids.remove(pore_id)
-
-    def remove_throat_list(self, throat_id_list):
-        for id in throat_id_list:
-            self.remove_throat(id)
-
-    def remove_pore_list(self, pore_id_list):
-        for id in pore_id_list:
-            self.remove_pore(id)
+        return self.pores_ids
 
 
 class CycleSimulation:
@@ -729,13 +698,13 @@ class CycleSimulation:
         )
 
         if len(border_throat_ids) > 0:
-            border_elements.set_throats_ids(nb.typed.List(border_throat_ids))
+            border_elements.set_throats_ids(border_throat_ids)
         else:
-            border_elements.set_throats_ids(nb.typed.List.empty_list(nb.types.int64))
+            border_elements.set_throats_ids(np.array([], np.int64))
         if len(border_pore_ids) > 0:
-            border_elements.set_pores_ids(nb.typed.List(border_pore_ids))
+            border_elements.set_pores_ids(border_pore_ids)
         else:
-            border_elements.set_pores_ids(nb.typed.List.empty_list(nb.types.int64))
+            border_elements.set_pores_ids(np.array([], np.int64))
 
     @staticmethod
     @nb.njit
