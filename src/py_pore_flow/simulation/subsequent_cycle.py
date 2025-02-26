@@ -65,7 +65,6 @@ class SubsequentCycleSimulation(CycleSimulation):
         neighbor_filled,
         Rmin,
         pc,
-        border_elements,
         is_throats=True,
     ):
         snap_off_elements = []
