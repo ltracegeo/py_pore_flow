@@ -680,10 +680,10 @@ class CycleSimulation:
 
             self.__fill_element(element, invasion_pc)
             sw_delta += self._update_element_filled_geometry(invasion_pc, element)
-            if (self.phase == OIL and element.So == 1.0) or (self.phase == WATER and element.Sw == 1.0):
-                self.trap_checker.update_trapped_pores()
-                self.__remove_trapped_from_border()
+            self.trap_checker.update_trapped_pores()
+            self.__remove_trapped_from_border()
 
+            self._find_initial_border_elements(self.network.pn_core, self.border_elements, self.phase)
         return sw_delta, invasion_pc
 
     def __remove_trapped_from_border(self):
