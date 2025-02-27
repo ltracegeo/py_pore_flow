@@ -548,7 +548,7 @@ class CycleSimulation:
         self.trap_checker.update_trapped_pores()
 
         self.border_elements = BorderElements()
-        self._find_initial_border_elements(self.network.pn_core, self.border_elements, phase)
+        self._find_border_elements(self.network.pn_core, self.border_elements, phase)
 
         self.saturation_calculator = None
 
@@ -655,9 +655,7 @@ class CycleSimulation:
             self.phase_connection_checker.update_phase_connections()
             if (self.phase == OIL and element.So == 1.0) or (self.phase == WATER and element.Sw == 1.0):
                 self.trap_checker.update_trapped_pores()
-            new_pores, new_throats = self._find_initial_border_elements(
-                self.network.pn_core, self.border_elements, self.phase
-            )
+            new_pores, new_throats = self._find_border_elements(self.network.pn_core, self.border_elements, self.phase)
             for pore_id in new_pores:
                 self._update_element_entry_pc(self.network.get_pore(pore_id), pc)
             for throat_id in new_throats:
@@ -683,8 +681,8 @@ class CycleSimulation:
         )
 
     @staticmethod
-    def _find_initial_border_elements(pn, border_elements, phase):
-        border_pore_ids, border_throat_ids = CycleSimulation.__find_initial_border_elements(
+    def _find_border_elements(pn, border_elements, phase):
+        border_pore_ids, border_throat_ids = CycleSimulation.__find_border_elements(
             phase,
             pn.pore.water_filled,
             pn.pore.oil_filled,
@@ -719,7 +717,7 @@ class CycleSimulation:
 
     @staticmethod
     @nb.njit
-    def __find_initial_border_elements(
+    def __find_border_elements(
         phase,
         pore_water_filled,
         pore_oil_filled,
@@ -819,7 +817,7 @@ class PhaseConnectionChecker:
         self.wqupc = Wqupc(len(self.network.pn_core.pore.all), len(self.network.pn_core.throat.all))
 
     def update_phase_connections(self):
-        self.__calculate_trapping(
+        self.__update_connections(
             self.network.pn_core.pore.oil_connected_to_inlet,
             self.network.pn_core.pore.oil_connected_to_outlet,
             self.network.pn_core.throat.oil_connected_to_inlet,
@@ -829,7 +827,7 @@ class PhaseConnectionChecker:
             self.network.pn_core.pore.inlets,
             self.network.pn_core.pore.outlets,
         )
-        self.__calculate_trapping(
+        self.__update_connections(
             self.network.pn_core.pore.water_connected_to_inlet,
             self.network.pn_core.pore.water_connected_to_outlet,
             self.network.pn_core.throat.water_connected_to_inlet,
@@ -840,7 +838,7 @@ class PhaseConnectionChecker:
             self.network.pn_core.pore.outlets,
         )
 
-    def __calculate_trapping(
+    def __update_connections(
         self,
         pore_connected_to_inlet,
         pore_connected_to_outlet,
@@ -852,7 +850,7 @@ class PhaseConnectionChecker:
         pore_outlets,
     ):
         self.wqupc.reset()
-        self._jit_update_trapped_pores(
+        self.__jit_update_connections(
             self.wqupc.parent_array,
             self.wqupc.size_array,
             self.wqupc.nP,
@@ -870,7 +868,7 @@ class PhaseConnectionChecker:
 
     @staticmethod
     @nb.njit
-    def _jit_update_trapped_pores(
+    def __jit_update_connections(
         parent_array,
         size_array,
         nP,
