@@ -538,6 +538,9 @@ class CycleSimulation:
 
         self.krel_calculator = KrelCalculator(self.network, calculate_full_conductance)
 
+        self.phase_connection_checker = PhaseConnectionChecker(network)
+        self.phase_connection_checker.update_phase_connections()
+
         if USE_OPENPNM_TRAPCHECKER:
             self.trap_checker = TrapCheckerOpenpnm(network, self.phase)
         else:
@@ -649,7 +652,9 @@ class CycleSimulation:
 
             self.__fill_element(element, invasion_pc)
             sw_delta += self._update_element_filled_geometry(invasion_pc, element)
-            self.trap_checker.update_trapped_pores()
+            self.phase_connection_checker.update_phase_connections()
+            if (self.phase == OIL and element.So == 1.0) or (self.phase == WATER and element.Sw == 1.0):
+                self.trap_checker.update_trapped_pores()
             new_pores, new_throats = self._find_initial_border_elements(
                 self.network.pn_core, self.border_elements, self.phase
             )
@@ -808,17 +813,12 @@ class TrapCheckerOpenpnm:
                 self.network.pn_core.throat.trapped[throat_id_list] = True
 
 
-class TrapChecker:
-    def __init__(self, network, phase):
+class PhaseConnectionChecker:
+    def __init__(self, network):
         self.network = network
-        self.phase = phase
         self.wqupc = Wqupc(len(self.network.pn_core.pore.all), len(self.network.pn_core.throat.all))
-        self.network.pn_core.pore.trapped[:] = False
-        self.network.pn_core.throat.trapped[:] = False
-        self.network.pn_core.pore.trapped_evacuation[:] = False
-        self.network.pn_core.throat.trapped_evacuation[:] = False
 
-    def update_trapped_pores(self):
+    def update_phase_connections(self):
         self.__calculate_trapping(
             self.network.pn_core.pore.oil_connected_to_inlet,
             self.network.pn_core.pore.oil_connected_to_outlet,
@@ -839,33 +839,6 @@ class TrapChecker:
             self.network.pn_core.pore.inlets,
             self.network.pn_core.pore.outlets,
         )
-
-        if self.phase == WATER:
-            self.network.pn_core["pore.trapped"] = self.network.pn_core.pore.trapped | (
-                self.network.pn_core.pore.oil_filled & ~self.network.pn_core.pore.oil_connected_to_outlet
-            )
-            self.network.pn_core["throat.trapped"] = self.network.pn_core.throat.trapped | (
-                self.network.pn_core.throat.oil_filled & ~self.network.pn_core.throat.oil_connected_to_outlet
-            )
-            self.network.pn_core["pore.trapped_evacuation"] = (
-                self.network.pn_core.pore.trapped | ~self.network.pn_core.pore.water_connected_to_inlet
-            )
-            self.network.pn_core["throat.trapped_evacuation"] = (
-                self.network.pn_core.throat.trapped | ~self.network.pn_core.throat.water_connected_to_inlet
-            )
-        else:
-            self.network.pn_core["pore.trapped"] = self.network.pn_core.pore.trapped | (
-                self.network.pn_core.pore.water_filled & ~self.network.pn_core.pore.water_connected_to_outlet
-            )
-            self.network.pn_core["throat.trapped"] = self.network.pn_core.throat.trapped | (
-                self.network.pn_core.throat.water_filled & ~self.network.pn_core.throat.water_connected_to_outlet
-            )
-            self.network.pn_core["pore.trapped_evacuation"] = (
-                self.network.pn_core.pore.trapped | ~self.network.pn_core.pore.oil_connected_to_inlet
-            )
-            self.network.pn_core["throat.trapped_evacuation"] = (
-                self.network.pn_core.throat.trapped | ~self.network.pn_core.throat.oil_connected_to_inlet
-            )
 
     def __calculate_trapping(
         self,
@@ -943,6 +916,44 @@ class TrapChecker:
             cluster = find(pore + nT)
             pore_connected_to_inlet[pore] = cluster in inlets_clusters
             pore_connected_to_outlet[pore] = cluster in outlets_clusters
+
+
+class TrapChecker:
+    def __init__(self, network, phase):
+        self.network = network
+        self.phase = phase
+        self.network.pn_core.pore.trapped[:] = False
+        self.network.pn_core.throat.trapped[:] = False
+        self.network.pn_core.pore.trapped_evacuation[:] = False
+        self.network.pn_core.throat.trapped_evacuation[:] = False
+
+    def update_trapped_pores(self):
+        if self.phase == WATER:
+            self.network.pn_core["pore.trapped"] = self.network.pn_core.pore.trapped | (
+                self.network.pn_core.pore.oil_filled & ~self.network.pn_core.pore.oil_connected_to_outlet
+            )
+            self.network.pn_core["throat.trapped"] = self.network.pn_core.throat.trapped | (
+                self.network.pn_core.throat.oil_filled & ~self.network.pn_core.throat.oil_connected_to_outlet
+            )
+            self.network.pn_core["pore.trapped_evacuation"] = (
+                self.network.pn_core.pore.trapped | ~self.network.pn_core.pore.water_connected_to_inlet
+            )
+            self.network.pn_core["throat.trapped_evacuation"] = (
+                self.network.pn_core.throat.trapped | ~self.network.pn_core.throat.water_connected_to_inlet
+            )
+        else:
+            self.network.pn_core["pore.trapped"] = self.network.pn_core.pore.trapped | (
+                self.network.pn_core.pore.water_filled & ~self.network.pn_core.pore.water_connected_to_outlet
+            )
+            self.network.pn_core["throat.trapped"] = self.network.pn_core.throat.trapped | (
+                self.network.pn_core.throat.water_filled & ~self.network.pn_core.throat.water_connected_to_outlet
+            )
+            self.network.pn_core["pore.trapped_evacuation"] = (
+                self.network.pn_core.pore.trapped | ~self.network.pn_core.pore.oil_connected_to_inlet
+            )
+            self.network.pn_core["throat.trapped_evacuation"] = (
+                self.network.pn_core.throat.trapped | ~self.network.pn_core.throat.oil_connected_to_inlet
+            )
 
 
 spec = [
