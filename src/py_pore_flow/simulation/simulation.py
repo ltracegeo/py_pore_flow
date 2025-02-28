@@ -52,7 +52,8 @@ def run_two_phase_simulation(
     Sw = [[], []]
     Krw = [[], []]
     Kro = [[], []]
-
+    log.info(f"Parameters: {parameters_dict}")
+    log.info(f"Config: {config}")
     simulation = Simulation(
         pn,
         parameters_dict,
@@ -116,6 +117,9 @@ class Simulation:
 
         self.generate_vtu = generate_vtu
 
+
+        log.info(f"Max Pc: {self.parameter_manager.pc_maximum}")
+        log.info(f"Min Pc: {self.parameter_manager.pc_minimum}")
         self.pc_incrementer = PcIncrementer(
             self.parameter_manager.pc_step,
             self.parameter_manager.pc_step_min,
@@ -164,9 +168,13 @@ class Simulation:
                 last_pc = current_pc
                 self.__check_snapshot(cycle_name, current_pc)
 
-                current_pc, Sw, Krw, Kro, pores_filled, total_pores, percentage = self.step_simulation.update(
-                    current_pc
-                )
+                (current_pc, 
+                Sw, 
+                Krw, 
+                Kro, 
+                pores_filled, 
+                total_pores, 
+                percentage,) = self.step_simulation.update(current_pc)
 
                 Pc_array.append(current_pc)
                 Sw_array.append(Sw)
@@ -182,10 +190,26 @@ class Simulation:
 
                 self.pc_incrementer.set_pc(current_pc)
 
-                if self.parameter_manager.end_at_sor and cycle_name == "imbibition" and Kro <= 0:
+                log.info(f"Step {cycle_name}, {simulation_end}, {Sw}, {self.parameter_manager.enforced_swi_1}, {self.parameter_manager.enforced_swi_2}")
+                if (self.parameter_manager.end_at_sor 
+                    and cycle_name == "imbibition" 
+                    and Kro <= 0
+                ):
                     simulation_end = True
                 elif self.step_simulation.cycle_should_end():
                     simulation_end = True
+                elif(
+                    Sw <= self.parameter_manager.enforced_swi_1
+                    and cycle_name == "drainage"
+                ):
+                    simulation_end = True
+                    break
+                elif(
+                    Sw >= self.parameter_manager.enforced_swi_2
+                    and cycle_name == "imbibition"
+                ):
+                    simulation_end = True
+                    break
 
             if self.parameter_manager.control_by_pc:
                 self.pc_incrementer.update_pc(Sw)
