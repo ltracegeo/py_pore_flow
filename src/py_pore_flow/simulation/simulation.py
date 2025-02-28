@@ -210,8 +210,10 @@ class Simulation:
 
                 if self.parameter_manager.end_at_sor and cycle_name == "imbibition" and Kro <= 0:
                     simulation_end = True
+                    break
                 elif self.step_simulation.cycle_should_end():
                     simulation_end = True
+                    break
                 elif Sw <= self.parameter_manager.enforced_swi_1 and cycle_name == "drainage":
                     simulation_end = True
                     break
