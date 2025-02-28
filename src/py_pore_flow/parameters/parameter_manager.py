@@ -56,6 +56,8 @@ DEFAULT_PARAMETERS = {
     "end_at_sor": True,
     "control_by_pc": False,
     "skip_imbibition": False,
+    "enforced_swi_1": 0.0,
+    "enforced_swi_2": 1.0,
 }
 
 
@@ -127,6 +129,14 @@ class ParameterManager:
     @property
     def skip_imbibition(self):
         return self.parameters_dict["skip_imbibition"]
+    
+    @property
+    def enforced_swi_1(self):
+        return self.parameters_dict["enforced_swi_1"]
+    
+    @property
+    def enforced_swi_2(self):
+        return self.parameters_dict["enforced_swi_2"]
 
     def generate_contact_angles(self, network):
         self.__update_cas(network, "initial")
