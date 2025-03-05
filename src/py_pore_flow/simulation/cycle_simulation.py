@@ -232,6 +232,9 @@ class FlowRateCalculator:
         network_manager.generate_sparse_system()
         a_sparse_array, b_array = network_manager.get_sparse_system()
 
+        if len(a_sparse_array["val"]) == 0:
+            return 1
+
         A_csr = csr_matrix(
             (
                 a_sparse_array["val"],

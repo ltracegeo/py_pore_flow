@@ -199,6 +199,8 @@ class ElementWidget(QtWidgets.QFrame):
             b[corner_oil_layer] = np.resize(self.pn[f"{element_type}.b"][id], n_corners)[corner_oil_layer]
         bo = np.resize(self.pn[f"{element_type}.bo"][id], n_corners)
         entry_pressure = self.__pad_with_nan(self.pn[f"{element_type}.entry_pressure"][id], n_corners)
+        piston_like_pressure = self.__pad_with_nan(self.pn[f"{element_type}.piston_like_pressure"][id], n_corners)
+        snap_off_pressure = self.__pad_with_nan(self.pn[f"{element_type}.snap_off_pressure"][id], n_corners)
 
         if element_type == "pore":
             if self.pn["pore.inlets"][id]:
@@ -231,6 +233,8 @@ class ElementWidget(QtWidgets.QFrame):
                 "corner_oil_layer": corner_oil_layer,
                 "corner_water_layer": corner_water_layer,
                 "entry_pressure": entry_pressure,
+                "piston_like_pressure": piston_like_pressure,
+                "snap_off_pressure": snap_off_pressure,
                 "water_single_conductance": [water_single_conductance],
                 "water_multi_conductance": [water_multi_conductance],
                 "oil_single_conductance": [oil_single_conductance],
