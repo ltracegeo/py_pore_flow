@@ -48,12 +48,18 @@ def initialize_pn(pn):
         pn[f"{element_type}.entry_pressure"] = 0.0
         pn[f"{element_type}.snap_off_pressure"] = 0.0
         pn[f"{element_type}.piston_like_pressure"] = 0.0
-        pn[f"{element_type}.initial_advancing_ca"] = 0.0
-        pn[f"{element_type}.initial_receding_ca"] = 0.0
-        pn[f"{element_type}.equilibrium_advancing_ca"] = 0.0
-        pn[f"{element_type}.equilibrium_receding_ca"] = 0.0
-        pn[f"{element_type}.second_advancing_ca"] = 0.0
-        pn[f"{element_type}.second_receding_ca"] = 0.0
+        if f"{element_type}.initial_advancing_ca" not in pn:
+            pn[f"{element_type}.initial_advancing_ca"] = 0.0
+        if f"{element_type}.initial_receding_ca" not in pn:
+            pn[f"{element_type}.initial_receding_ca"] = 0.0
+        if f"{element_type}.equilibrium_advancing_ca" not in pn:
+            pn[f"{element_type}.equilibrium_advancing_ca"] = 0.0
+        if f"{element_type}.equilibrium_receding_ca" not in pn:
+            pn[f"{element_type}.equilibrium_receding_ca"] = 0.0
+        if f"{element_type}.second_advancing_ca" not in pn:
+            pn[f"{element_type}.second_advancing_ca"] = 0.0
+        if f"{element_type}.second_receding_ca" not in pn:
+            pn[f"{element_type}.second_receding_ca"] = 0.0
         pn[f"{element_type}.oil_connected_to_inlet"] = False
         pn[f"{element_type}.oil_connected_to_outlet"] = False
         pn[f"{element_type}.water_connected_to_inlet"] = True
