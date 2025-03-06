@@ -11,7 +11,6 @@ from py_pore_flow.equations.geometry import (
     calculate_imbibition_network_bo,
     calculate_network_hinging_contact_angle,
     calculate_oil_layer,
-    calculate_oil_layer_network,
     calculate_r,
     check_water_layer_network,
 )

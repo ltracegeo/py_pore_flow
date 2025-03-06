@@ -13,6 +13,7 @@ from py_pore_flow.equations.geometry import (
     calculate_C,
     calculate_drainage_b,
     calculate_max_b,
+    calculate_oil_layer_collapse_pc_network,
     calculate_r,
     calculate_shape,
     calculate_sides,
@@ -312,6 +313,7 @@ def calculate_imbibition_values(network, max_pc):
 
     calculate_snap_off_values(network, max_pc)
     calculate_piston_like_values(network, max_pc)
+    calculate_oil_layer_collapse_values(network, max_pc)
 
     return network
 
@@ -387,6 +389,28 @@ def calculate_snap_off_values(network, max_pc):
         network.pn_core.pore.n_corners,
         Rmin,
         np.zeros(len(network.pn_core.pore.radius)),
+    )
+
+
+def calculate_oil_layer_collapse_values(network, max_pc):
+    Rmin = calculate_r(max_pc, 100000)
+
+    calculate_oil_layer_collapse_pc_network(
+        network.pn_core.throat.oil_layer_collapse_pressure,
+        network.pn_core.throat.corner_half_angle,
+        network.pn_core.throat.advancing_contact_angle,
+        network.pn_core.throat.receding_contact_angle,
+        network.pn_core.throat.n_corners,
+        Rmin,
+    )
+
+    calculate_oil_layer_collapse_pc_network(
+        network.pn_core.pore.oil_layer_collapse_pressure,
+        network.pn_core.pore.corner_half_angle,
+        network.pn_core.pore.advancing_contact_angle,
+        network.pn_core.pore.receding_contact_angle,
+        network.pn_core.pore.n_corners,
+        Rmin,
     )
 
 

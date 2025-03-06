@@ -418,27 +418,25 @@ def calculate_oil_layer_collapse_pc(beta, theta_a, b):
 
 
 @njit
-def calculate_oil_layer_element(corner_oil_layer, beta, theta_a, b, n_corners, pc):
+def calculate_oil_layer_element(corner_oil_layer, oil_layer_collapse_pc, b, n_corners, pc):
     for i in range(int(n_corners)):
         if corner_oil_layer[i]:
             if b[i] == 0:
                 corner_oil_layer[i] = False
             else:
-                collapse_pc = calculate_oil_layer_collapse_pc(beta[i], theta_a, b[i])
-                if pc < collapse_pc:
+                if pc < oil_layer_collapse_pc[i]:
                     corner_oil_layer[i] = False
     return corner_oil_layer
 
 
 @njit
-def calculate_oil_layer_network(corner_oil_layer, trapped, beta, theta_a, b, n_corners, pc):
-    number_of_elements = len(theta_a)
+def calculate_oil_layer_network(corner_oil_layer, oil_layer_collapse_pc, trapped, b, n_corners, pc):
+    number_of_elements = len(trapped)
     for i in range(number_of_elements):
         if not trapped[i]:
             corner_oil_layer[i] = calculate_oil_layer_element(
                 corner_oil_layer[i],
-                beta[i],
-                theta_a[i],
+                oil_layer_collapse_pc[i],
                 b[i],
                 n_corners[i],
                 pc,
@@ -462,3 +460,30 @@ def calculate_dimensionless_layer_area(b_tilde, beta, theta_i, theta_o):
 @njit
 def calculate_corner_C(theta, beta):
     return cos(theta) * (cos(theta + beta) / sin(beta)) - (pi / 2 - theta - beta)
+
+
+@njit
+def calculate_oil_layer_collapse_pc_network(oil_layer_collapse_pc, beta, theta_a, theta_r, n_corners, Rmin):
+    number_of_elements = len(theta_a)
+    for i in range(number_of_elements):
+        calculate_oil_layer_collapse_pc_element(
+            oil_layer_collapse_pc[i], beta[i], theta_a[i], theta_r[i], n_corners[i], Rmin
+        )
+
+
+@njit
+def calculate_oil_layer_collapse_pc_element(oil_layer_collapse_pc, beta, theta_a, theta_r, n_corners, Rmin):
+    for i in range(int(n_corners)):
+        oil_layer_collapse_pc[i] = calculate_oil_layer_collapse_pc_corner(beta[i], theta_a, theta_r, Rmin)
+
+
+@njit
+def calculate_oil_layer_collapse_pc_corner(beta, theta_a, theta_r, Rmin):
+    if theta_a > pi / 2 + beta:
+        if 2 * sin(beta) + cos(theta_a) > 1:
+            Pc = c.sigma * cos(acos(1) + beta) / (Rmin * cos(theta_r + beta))
+        else:
+            Pc = c.sigma * cos(acos(2 * sin(beta) + cos(theta_a)) + beta) / (Rmin * cos(theta_r + beta))
+    else:
+        Pc = 0
+    return Pc
