@@ -100,9 +100,8 @@ class SubsequentCycleSimulation(CycleSimulation):
     def __update_oil_layers(self, pc):
         calculate_oil_layer_network(
             self.network.pn_core.pore.corner_oil_layer,
+            self.network.pn_core.pore.oil_layer_collapse_pressure,
             self.network.pn_core.pore.trapped_evacuation,
-            self.network.pn_core.pore.corner_half_angle,
-            self.network.pn_core.pore.advancing_contact_angle,
             self.network.pn_core.pore.b,
             self.network.pn_core.pore.n_corners,
             pc,
@@ -110,9 +109,8 @@ class SubsequentCycleSimulation(CycleSimulation):
 
         calculate_oil_layer_network(
             self.network.pn_core.throat.corner_oil_layer,
+            self.network.pn_core.throat.oil_layer_collapse_pressure,
             self.network.pn_core.throat.trapped_evacuation,
-            self.network.pn_core.throat.corner_half_angle,
-            self.network.pn_core.throat.advancing_contact_angle,
             self.network.pn_core.throat.b,
             self.network.pn_core.throat.n_corners,
             pc,

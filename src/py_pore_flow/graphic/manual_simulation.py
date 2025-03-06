@@ -198,6 +198,7 @@ class ElementWidget(QtWidgets.QFrame):
             b = np.full(n_corners, 0.0, np.float64)
             b[corner_oil_layer] = np.resize(self.pn[f"{element_type}.b"][id], n_corners)[corner_oil_layer]
         bo = np.resize(self.pn[f"{element_type}.bo"][id], n_corners)
+        oil_layer_collapse_pressure = np.resize(self.pn[f"{element_type}.oil_layer_collapse_pressure"], n_corners)
         entry_pressure = self.__pad_with_nan(self.pn[f"{element_type}.entry_pressure"][id], n_corners)
         piston_like_pressure = self.__pad_with_nan(self.pn[f"{element_type}.piston_like_pressure"][id], n_corners)
         snap_off_pressure = self.__pad_with_nan(self.pn[f"{element_type}.snap_off_pressure"][id], n_corners)
@@ -239,6 +240,7 @@ class ElementWidget(QtWidgets.QFrame):
                 "water_multi_conductance": [water_multi_conductance],
                 "oil_single_conductance": [oil_single_conductance],
                 "oil_multi_conductance": [oil_multi_conductance],
+                "oil_layer_collapse_pressure": oil_layer_collapse_pressure,
             },
             orient="index",
         )
