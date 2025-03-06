@@ -326,10 +326,8 @@ def calculate_2nd_drainage_element_b(b, beta, max_b, theta_r, theta_a, theta_h, 
 
 @njit
 def calculate_2nd_drainage_corner_b(b, beta, theta_r, theta_a, theta_h, R, Rmin):
-    if theta_r + beta > pi / 2:
-        return 0.0
     if theta_r - theta_h > -1e-10:
-        return calculate_corner_bi(beta, theta_r, R)
+        return calculate_corner_bi(beta, theta_h, R)
     else:
         return b
 
