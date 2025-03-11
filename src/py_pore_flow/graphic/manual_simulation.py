@@ -7,7 +7,7 @@ from PySide2 import QtCore, QtGui, QtWidgets
 import pyqtgraph as pg
 
 from py_pore_flow.graphic.element_graphic import ElementPlotter
-from py_pore_flow.graphic.network_plot import PorePlot, ThroatPlot
+from py_pore_flow.graphic.network_plot import ElementNotFoundException, PorePlot, ThroatPlot
 from py_pore_flow.simulation.simulation import StepSimulation
 
 
@@ -87,11 +87,16 @@ class ManualSimulationPlot:
         if not text:
             return
 
-        if self.element_type_combobox.currentText() == "Throat":
-            self.set_throat(int(text))
-        else:
-            self.set_pore(int(text))
-        self.element_widget.update()
+        try:
+            if self.element_type_combobox.currentText() == "Throat":
+                self.set_throat(int(text))
+            else:
+                self.set_pore(int(text))
+            self.element_widget.update()
+        except ElementNotFoundException:
+            self.element_id_input.blockSignals(True)
+            self.element_id_input.setText("")
+            self.element_id_input.blockSignals(False)
 
     def __update_conn_combobox(self, conns, element_type):
         self.element_conn_combobox.blockSignals(True)
