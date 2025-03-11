@@ -23,6 +23,9 @@ class ManualSimulationPlot:
         )
         self.manual_simulation.set_max_pc(40000)
 
+        english_locale = QtCore.QLocale(QtCore.QLocale.English, QtCore.QLocale.UnitedStates)
+        QtCore.QLocale.setDefault(english_locale)
+
     def set_pore(self, pore_id):
         self.element_widget.set_pore(pore_id)
         self.__update_conn_combobox(self.element_widget.get_conns(), "Throat")
