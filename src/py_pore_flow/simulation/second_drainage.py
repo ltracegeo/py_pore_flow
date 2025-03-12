@@ -278,7 +278,7 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
         calculate_network_outter_hinging_contact_angle(
             pc,
             self.network.pn_core.pore.corner_half_angle,
-            self.network.pn_core.pore.b,
+            self.network.pn_core.pore.bo,
             self.network.pn_core.pore.n_corners,
             self.network.pn_core.pore.receding_contact_angle,
             self.network.pn_core.pore.advancing_contact_angle,
@@ -290,7 +290,7 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
         calculate_network_outter_hinging_contact_angle(
             pc,
             self.network.pn_core.throat.corner_half_angle,
-            self.network.pn_core.throat.b,
+            self.network.pn_core.throat.bo,
             self.network.pn_core.throat.n_corners,
             self.network.pn_core.throat.receding_contact_angle,
             self.network.pn_core.throat.advancing_contact_angle,
