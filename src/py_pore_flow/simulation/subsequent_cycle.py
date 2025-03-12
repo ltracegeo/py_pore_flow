@@ -250,7 +250,7 @@ class SubsequentCycleSimulation(CycleSimulation):
         self._update_b(pc)
         self.__update_oil_layers(pc)
         self.__update_water_layers()
-        self.__update_hinging_contact_angles(pc)
+        self._update_hinging_contact_angles(pc)
         super()._update_network_geometry(pc)
 
     def _update_element_b(self, type_name, id, pc):
@@ -300,7 +300,7 @@ class SubsequentCycleSimulation(CycleSimulation):
             filled_throats | self.network.pn_core.throat.trapped_evacuation[self.snap_off_throat_list],
         )
 
-    def __update_hinging_contact_angles(self, pc):
+    def _update_hinging_contact_angles(self, pc):
         calculate_network_hinging_contact_angle(
             pc,
             self.network.pn_core.pore.corner_half_angle,

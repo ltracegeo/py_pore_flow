@@ -6,10 +6,12 @@ from py_pore_flow.equations.geometry import (
     OIL,
     check_water_layer,
     calculate_2nd_drainage_element_b,
-    calculate_imbibition_element_bo,
+    calculate_imbibition_network_b,
     calculate_2nd_drainage_network_b,
+    calculate_2nd_drainage_network_bo,
     calculate_imbibition_network_bo,
     calculate_network_hinging_contact_angle,
+    calculate_network_outter_hinging_contact_angle,
     calculate_oil_layer,
     calculate_r,
     check_water_layer_network,
@@ -196,4 +198,104 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
             element.n_corners[id],
             self.Rmin,
             pc,
+        )
+
+    def _update_b(self, pc):
+        calculate_imbibition_network_b(
+            self.network.pn_core.pore.b,
+            self.network.pn_core.pore.trapped_evacuation,
+            self.network.pn_core.pore.corner_half_angle,
+            self.network.pn_core.pore.max_b,
+            self.network.pn_core.pore.receding_contact_angle,
+            self.network.pn_core.pore.advancing_contact_angle,
+            self.network.pn_core.pore.hinging_contact_angle,
+            self.network.pn_core.pore.corner_water_layer,
+            self.network.pn_core.pore.n_corners,
+            pc,
+            self.Rmin,
+        )
+        calculate_imbibition_network_b(
+            self.network.pn_core.throat.b,
+            self.network.pn_core.throat.trapped_evacuation,
+            self.network.pn_core.throat.corner_half_angle,
+            self.network.pn_core.throat.max_b,
+            self.network.pn_core.throat.receding_contact_angle,
+            self.network.pn_core.throat.advancing_contact_angle,
+            self.network.pn_core.throat.hinging_contact_angle,
+            self.network.pn_core.throat.corner_water_layer,
+            self.network.pn_core.throat.n_corners,
+            pc,
+            self.Rmin,
+        )
+
+        calculate_2nd_drainage_network_bo(
+            self.network.pn_core.pore.bo,
+            self.network.pn_core.pore.trapped_evacuation,
+            self.network.pn_core.pore.corner_half_angle,
+            self.network.pn_core.pore.max_b,
+            self.network.pn_core.pore.receding_contact_angle,
+            self.network.pn_core.pore.advancing_contact_angle,
+            self.network.pn_core.pore.hinging_contact_angle_o,
+            self.network.pn_core.pore.corner_oil_layer,
+            self.network.pn_core.pore.n_corners,
+            pc,
+        )
+        calculate_2nd_drainage_network_bo(
+            self.network.pn_core.throat.bo,
+            self.network.pn_core.throat.trapped_evacuation,
+            self.network.pn_core.throat.corner_half_angle,
+            self.network.pn_core.throat.max_b,
+            self.network.pn_core.throat.receding_contact_angle,
+            self.network.pn_core.throat.advancing_contact_angle,
+            self.network.pn_core.throat.hinging_contact_angle_o,
+            self.network.pn_core.throat.corner_oil_layer,
+            self.network.pn_core.throat.n_corners,
+            pc,
+        )
+
+    def _update_hinging_contact_angles(self, pc):
+        calculate_network_hinging_contact_angle(
+            pc,
+            self.network.pn_core.pore.corner_half_angle,
+            self.network.pn_core.pore.b,
+            self.network.pn_core.pore.n_corners,
+            self.network.pn_core.pore.receding_contact_angle,
+            self.network.pn_core.pore.advancing_contact_angle,
+            self.network.pn_core.pore.hinging_contact_angle,
+            self.network.pn_core.pore.trapped_evacuation,
+        )
+        calculate_network_hinging_contact_angle(
+            pc,
+            self.network.pn_core.throat.corner_half_angle,
+            self.network.pn_core.throat.b,
+            self.network.pn_core.throat.n_corners,
+            self.network.pn_core.throat.receding_contact_angle,
+            self.network.pn_core.throat.advancing_contact_angle,
+            self.network.pn_core.throat.hinging_contact_angle,
+            self.network.pn_core.throat.trapped_evacuation,
+        )
+
+        calculate_network_outter_hinging_contact_angle(
+            pc,
+            self.network.pn_core.pore.corner_half_angle,
+            self.network.pn_core.pore.b,
+            self.network.pn_core.pore.n_corners,
+            self.network.pn_core.pore.receding_contact_angle,
+            self.network.pn_core.pore.advancing_contact_angle,
+            self.network.pn_core.pore.hinging_contact_angle_o,
+            self.network.pn_core.pore.trapped_evacuation,
+            self.network.pn_core.pore.corner_oil_layer,
+            self.network.pn_core.pore.max_b,
+        )
+        calculate_network_outter_hinging_contact_angle(
+            pc,
+            self.network.pn_core.throat.corner_half_angle,
+            self.network.pn_core.throat.b,
+            self.network.pn_core.throat.n_corners,
+            self.network.pn_core.throat.receding_contact_angle,
+            self.network.pn_core.throat.advancing_contact_angle,
+            self.network.pn_core.throat.hinging_contact_angle_o,
+            self.network.pn_core.throat.trapped_evacuation,
+            self.network.pn_core.throat.corner_oil_layer,
+            self.network.pn_core.throat.max_b,
         )

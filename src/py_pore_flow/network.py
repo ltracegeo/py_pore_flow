@@ -25,6 +25,9 @@ def initialize_pn(pn):
         pn[f"{element_type}.corner_half_angle"] = np.empty((number_of_elements, MAX_NUMBER_OF_CORNERS), np.float64)
         pn[f"{element_type}.sides"] = np.empty((number_of_elements, MAX_NUMBER_OF_CORNERS), np.float64)
         pn[f"{element_type}.hinging_contact_angle"] = np.empty((number_of_elements, MAX_NUMBER_OF_CORNERS), np.float64)
+        pn[f"{element_type}.hinging_contact_angle_o"] = np.empty(
+            (number_of_elements, MAX_NUMBER_OF_CORNERS), np.float64
+        )
         pn[f"{element_type}.b"] = np.full((number_of_elements, MAX_NUMBER_OF_CORNERS), 0.0, np.float64)
         pn[f"{element_type}.bo"] = np.full((number_of_elements, MAX_NUMBER_OF_CORNERS), 0.0, np.float64)
         pn[f"{element_type}.max_b"] = 0.0
@@ -495,6 +498,7 @@ class PoresNetwork(ElementNetwork):
         self.corner_half_angle = pn["pore.corner_half_angle"]
         self.sides = pn["pore.sides"]
         self.hinging_contact_angle = pn["pore.hinging_contact_angle"]
+        self.hinging_contact_angle_o = pn["pore.hinging_contact_angle_o"]
         self.b = pn["pore.b"]
         self.bo = pn["pore.bo"]
         self.max_b = pn["pore.max_b"]
@@ -554,6 +558,7 @@ class ThroatsNetwork(ElementNetwork):
         self.corner_half_angle = pn["throat.corner_half_angle"]
         self.sides = pn["throat.sides"]
         self.hinging_contact_angle = pn["throat.hinging_contact_angle"]
+        self.hinging_contact_angle_o = pn["throat.hinging_contact_angle_o"]
         self.b = pn["throat.b"]
         self.bo = pn["throat.bo"]
         self.max_b = pn["throat.max_b"]

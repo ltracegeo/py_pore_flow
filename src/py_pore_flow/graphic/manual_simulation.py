@@ -52,6 +52,7 @@ class ManualSimulationPlot:
         self.cycle_combobox = QtWidgets.QComboBox()
         self.cycle_combobox.addItem("drainage")
         self.cycle_combobox.addItem("imbibition")
+        self.cycle_combobox.addItem("2nd_drainage")
         self.cycle_combobox.currentTextChanged.connect(self.__on_cycle_changed)
         self.pc_input = QtWidgets.QLineEdit()
         self.pc_input.setValidator(QtGui.QDoubleValidator())
@@ -196,6 +197,7 @@ class ElementWidget(QtWidgets.QFrame):
         oil_filled = self.pn[f"{element_type}.oil_filled"][id]
         sw = self.__pad_with_nan(self.pn[f"{element_type}.water_saturation"][id], n_corners)
         theta_h = np.degrees(np.resize(self.pn[f"{element_type}.hinging_contact_angle"][id], n_corners))
+        theta_ho = np.degrees(np.resize(self.pn[f"{element_type}.hinging_contact_angle_o"][id], n_corners))
         theta_a = np.degrees(np.resize(self.pn[f"{element_type}.advancing_contact_angle"][id], max(n_corners, 1)))
         theta_r = np.degrees(np.resize(self.pn[f"{element_type}.receding_contact_angle"][id], max(n_corners, 1)))
         corner_oil_layer = np.resize(self.pn[f"{element_type}.corner_oil_layer"][id], n_corners)
@@ -235,6 +237,7 @@ class ElementWidget(QtWidgets.QFrame):
                 "oil_filled": [str(oil_filled)],
                 "Sw": sw,
                 "theta_h": theta_h,
+                "theta_ho": theta_ho,
                 "theta_a": theta_a,
                 "theta_r": theta_r,
                 "bi": b,
