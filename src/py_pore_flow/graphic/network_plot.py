@@ -69,7 +69,7 @@ class ElementPlot:
         self.graphic.theta = np.resize(self.pn[f"{self.element_type}.hinging_contact_angle"][self.id], self.n_corners)
         self.graphic.distance_o = np.abs(bo)
         self.graphic.theta_o = np.resize(
-            self.pn[f"{self.element_type}.advancing_contact_angle"][self.id], self.n_corners
+            self.pn[f"{self.element_type}.hinging_contact_angle_o"][self.id], self.n_corners
         )
         self.graphic.phase_in_middle = OIL if self.pn[f"{self.element_type}.oil_filled"][self.id] else WATER
 
