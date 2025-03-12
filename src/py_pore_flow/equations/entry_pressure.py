@@ -291,21 +291,12 @@ def calculate_2nd_drainage_piston_like_displacement_pc_element(
 ):
     corner_has_oil_layer = corner_oil_layer[:n_corners]
     if len(corner_has_oil_layer) > 0 and corner_has_oil_layer.any():
-        calculate_2nd_drainage_piston_like_displacement_pc_element2(
-            G, r, bo, theta_a, theta_r, shape, beta, n_corners, -Rmax
-        )
+        Pc = calculate_pc(G, r, theta_r, shape, beta, n_corners)
     else:
         Fd = 1
         theta = theta_r
         Pc = c.sigma * cos(theta) / r * (1 + 2 * sqrt(pi * G)) * Fd
     return Pc
-
-
-@njit
-def calculate_2nd_drainage_piston_like_displacement_pc_element2(
-    shape_factor, radius, b, theta_a, theta_r, shape, beta, n_corners, Rmax
-):
-    return calculate_pc(shape_factor, radius, theta_r, shape, beta, n_corners)
 
 
 @njit
