@@ -62,8 +62,8 @@ class GraphicalTests:
 
         # self.oil_layer()
         # self.snap_off_water_layer()
-        # self.snap_off_oil_layer()
-        self.snap_off_2nd_drainage()
+        self.snap_off_oil_layer()
+        # self.snap_off_2nd_drainage()
 
         # self.test_display.close()
 
