@@ -168,6 +168,9 @@ class SubsequentCycleSimulation(CycleSimulation):
             number_of_filled_neighbors,
             throats_radii,
             self.network.pn_core.pore.shape_factor[pore_id],
+            self.network.pn_core.pore.shape[pore_id],
+            self.network.pn_core.pore.corner_half_angle[pore_id],
+            self.network.pn_core.pore.n_corners[pore_id],
             K,
         )
         self.network.pn_core.pore.entry_pressure[pore_id] = element_pc

@@ -52,6 +52,9 @@ def calculate_imbibition_pc(
     number_of_oil_filled_neighbors,
     throats_radii,
     G,
+    shape,
+    beta,
+    n_corners,
     K,
 ):
     if number_of_oil_filled_neighbors > 1 and pc > 0:
@@ -59,7 +62,10 @@ def calculate_imbibition_pc(
             radius, advancing_contact_angle, K, number_of_oil_filled_neighbors, throats_radii, G, 0
         )
     else:
-        return piston_like_displacement_pc
+        if pc > 0:
+            return piston_like_displacement_pc
+        else:
+            return -calculate_pc(G, radius, np.pi - advancing_contact_angle, shape, beta, n_corners)
 
 
 @njit
