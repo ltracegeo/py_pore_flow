@@ -94,18 +94,17 @@ def calculate_imbibition_piston_like_displacement_pc_element(
 ):
     arc_meniscus = [i for i in range(n_corners) if beta[i] < pi / 2 - receding_contact_angle]
     a = 0
-    for i in range(n_corners):
-        b[i] = Rmin * cos(receding_contact_angle + beta[i]) / sin(beta[i])
     A = radius**2 / (4 * shape_factor)
     R = Rmin
     Rold = R + 1000
-    while abs(R - Rold) > 1e-3 and a < 100:
-        theta_h = np.arccos(b * np.sin(beta) / R) - beta
+    while abs((R - Rold) / R) > 0.001 and a < 100:
+        for i in range(n_corners):
+            b[i] = Rmin * cos(receding_contact_angle + beta[i]) / sin(beta[i])
+        theta_h = np.arccos(b[:n_corners] * np.sin(beta[:n_corners]) / R) - beta[:n_corners]
         if np.any(theta_h[:n_corners] > advancing_contact_angle):
             for i in np.where(theta_h[:n_corners] > advancing_contact_angle)[0]:
                 b[i] = R * cos(advancing_contact_angle + beta[i]) / sin(beta[i])
-        if np.all(theta_h[:n_corners] > advancing_contact_angle):
-            return calculate_pc(shape_factor, radius, advancing_contact_angle, shape, beta, n_corners)
+                theta_h[i] = advancing_contact_angle
         Aeff = A - R**2 * sum(
             [
                 cos(theta_h[i]) * cos(theta_h[i] + beta[i]) / sin(beta[i]) + theta_h[i] + beta[i] - pi / 2.0
