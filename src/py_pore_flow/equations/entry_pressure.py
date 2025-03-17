@@ -331,7 +331,7 @@ def calculate_2nd_drainage_waterwet_snapoff_pc(r, beta, theta_a, theta_r, n_corn
         i1, i2 = i2, i1
     Pc_0 = c.sigma / (
         (sin(beta[i0]) / cos(theta_r - beta[i0]))
-        * (cot(beta[i0]) + cot(beta[i1]) - (Rmax * (cos(theta_a - beta[i1]) / beta[i1])))
+        * (r * (cot(beta[i0]) + cot(beta[i1])) - (Rmax * (cos(theta_a - beta[i1]) / sin(beta[i1]))))
     )
     Pc_1 = (
         (c.sigma / r)
