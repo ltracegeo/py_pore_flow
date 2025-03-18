@@ -560,26 +560,21 @@ class CycleSimulation:
     def update_pc(self, pc, target_sw=None):
         invasion_pc = pc
         total_sw_delta = 0.0
+        invasion_target_sw = None
 
         self._update_network_geometry(pc)
 
         while True:
             if target_sw is not None:
                 invasion_target_sw = target_sw - total_sw_delta
-            else:
-                invasion_target_sw = None
             invaded_pc = invasion_pc
-            sw_delta, invasion_pc = self._update_invasions(invasion_pc, invasion_target_sw)
+            sw_delta, invasion_pc, no_invasion_left = self._update_invasions(invasion_pc, invasion_target_sw)
             self._update_network_geometry(invaded_pc)
-            if target_sw is None:
+            total_sw_delta += sw_delta
+
+            if (target_sw is None) or (total_sw_delta >= target_sw) or (no_invasion_left):
                 break
-            elif sw_delta == 0.0:
-                break
-            else:
-                total_sw_delta += sw_delta
-                if total_sw_delta >= target_sw:
-                    break
-        return total_sw_delta, invaded_pc, invasion_pc
+        return total_sw_delta, invaded_pc, invasion_pc, no_invasion_left
 
     def calculate_sw_total(self):
         return self.saturation_calculator.calculate_sw_total()
@@ -637,10 +632,13 @@ class CycleSimulation:
 
         self._update_entry_pressures(pc)
 
+        no_invasion_left = False
+
         invasion_pc = pc
         while True:
             element_to_fill = self._get_element_to_fill(pc, self.border_elements)
             if element_to_fill is None:
+                no_invasion_left = True
                 break
 
             element_type, element_id, invasion_pc = element_to_fill
@@ -667,7 +665,7 @@ class CycleSimulation:
                 self._update_element_entry_pc(self.network.get_pore(pore_id), pc)
             for throat_id in new_throats:
                 self._update_element_entry_pc(self.network.get_throat(throat_id), pc)
-        return sw_delta, invasion_pc
+        return sw_delta, invasion_pc, no_invasion_left
 
     def __fill_element(self, element, pc):
         element.set_filled(self.phase, True)

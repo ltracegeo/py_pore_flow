@@ -652,6 +652,7 @@ class MultiStepSimulation(StepSimulation):
         super().__init__(pn, parameters_dict, config, generate_cas, calculate_full_conductance, set_initial_values)
         self.pc_incrementer = None
         self.sw_step = None
+        self.no_invasion_left = False
 
     def set_pc_incrementer(self, pc_incrementer):
         self.pc_incrementer = pc_incrementer
@@ -664,9 +665,10 @@ class MultiStepSimulation(StepSimulation):
         else:
             self.sw_step = None if self.parameter_manager.control_by_pc else self.parameter_manager.imbibition_sw_step
         self.is_first_step = True
+        self.no_invasion_left = False
 
     def cycle_should_end(self):
-        return self.pc_incrementer.cycle_should_end() or self.get_pores_left() == 0
+        return self.pc_incrementer.cycle_should_end() or self.get_pores_left() == 0 or self.no_invasion_left
 
     def _perform_step(self, pc):
         if self.sw_step is None or self.is_first_step:
@@ -680,13 +682,10 @@ class MultiStepSimulation(StepSimulation):
         total_sw_delta = 0.0
         next_pc = pc
         while True:
-            sw_delta, current_pc, next_pc = self.simulation.update_pc(next_pc, self.sw_step)
+            sw_delta, current_pc, next_pc, self.no_invasion_left = self.simulation.update_pc(next_pc, self.sw_step)
             self.max_pc = max(self.max_pc, current_pc)
             self.min_pc = min(self.min_pc, current_pc)
             total_sw_delta += sw_delta
             if total_sw_delta >= self.sw_step or self.cycle_should_end():
                 break
-            if current_pc == next_pc:
-                self.pc_incrementer.set_pc(current_pc)
-                next_pc = self.pc_incrementer.update_pc()
         return current_pc
