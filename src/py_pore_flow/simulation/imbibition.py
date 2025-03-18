@@ -78,10 +78,8 @@ class ImbibitionSimulation(SubsequentCycleSimulation):
         pc,
         pore_id_list,
         pore_entry_pressure,
-        pore_spontaneous_imbibition,
         throat_id_list,
         throat_entry_pressure,
-        throat_spontaneous_imbibition,
     ):
         max_pressure = -np.inf
         max_id = -1
@@ -90,41 +88,21 @@ class ImbibitionSimulation(SubsequentCycleSimulation):
         if len(pore_id_list) == 0 and len(throat_id_list) == 0:
             return None
 
-        if pc < 0:
-            for id in pore_id_list:
-                pressure = pore_entry_pressure[id]
-                if pressure > max_pressure:
-                    max_pressure = pressure
-                    max_id = id
-                    max_type = PORE
+        for id in pore_id_list:
+            pressure = pore_entry_pressure[id]
+            if pressure > max_pressure:
+                max_pressure = pressure
+                max_id = id
+                max_type = PORE
 
-            for id in throat_id_list:
-                pressure = throat_entry_pressure[id]
-                if pressure > max_pressure:
-                    max_pressure = pressure
-                    max_id = id
-                    max_type = THROAT
-        else:
-            for id in pore_id_list:
-                if pore_spontaneous_imbibition[id]:
-                    pressure = pore_entry_pressure[id]
-                    if pressure > max_pressure:
-                        max_pressure = pressure
-                        max_id = id
-                        max_type = PORE
+        for id in throat_id_list:
+            pressure = throat_entry_pressure[id]
+            if pressure > max_pressure:
+                max_pressure = pressure
+                max_id = id
+                max_type = THROAT
 
-            for id in throat_id_list:
-                if throat_spontaneous_imbibition[id]:
-                    pressure = throat_entry_pressure[id]
-                    if pressure > max_pressure:
-                        max_pressure = pressure
-                        max_id = id
-                        max_type = THROAT
-
-        if max_id != -1:
-            return (max_type, max_id, min(max_pressure, pc))
-        else:
-            return None
+        return (max_type, max_id, min(max_pressure, pc))
 
     def _update_element_filled_geometry(self, pc, element):
         element.corner_oil_layer = calculate_oil_layer(

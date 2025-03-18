@@ -23,7 +23,6 @@ from py_pore_flow.equations.entry_pressure import (
     calculate_2nd_drainage_snap_off_pc_network,
     calculate_drainage_pc,
     calculate_snap_off_viability,
-    calculate_spontaneous_imbibition_viability,
     calculate_snap_off_pc_network,
     calculate_imbibition_piston_like_displacement_pc_network,
 )
@@ -522,15 +521,6 @@ def calculate_element_imbibition_values(element, max_pc):
     element.C_a = calculate_C(
         np.full(element.n_corners, element.advancing_contact_angle), element.beta, element.n_corners
     )
-    element.spontaneous_imbibition = calculate_spontaneous_imbibition_viability(
-        element.advancing_contact_angle,
-        element.receding_contact_angle,
-        element.beta,
-        element.n_corners,
-        element.r,
-        element.G,
-        Rmin,
-    )
 
     element.snap_off_viability = calculate_snap_off_viability(
         element.receding_contact_angle,
@@ -541,7 +531,6 @@ def calculate_element_imbibition_values(element, max_pc):
 
 def calculate_element_2nd_drainage_values(element):
     element.snap_off_viability = True
-    element.spontaneous_imbibition = True
 
 
 class StepSimulation:

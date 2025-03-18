@@ -185,10 +185,8 @@ class SubsequentCycleSimulation(CycleSimulation):
             pc,
             pore_id_list,
             self.network.pn_core.pore.entry_pressure,
-            self.network.pn_core.pore.spontaneous_imbibition,
             throat_id_list,
             self.network.pn_core.throat.entry_pressure,
-            self.network.pn_core.throat.spontaneous_imbibition,
         )
 
         return element_to_fill

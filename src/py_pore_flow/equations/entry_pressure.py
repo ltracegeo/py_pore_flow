@@ -243,20 +243,6 @@ def calculate_oilwet_snapoff_pc(beta, theta_a, theta_r, n_corners, Rmin, h):
 
 
 @njit
-def calculate_spontaneous_imbibition_viability(theta_a, theta_r, beta, n_corners, r, G, Rmin):
-    angle_sum = 0.0
-    for i in range(int(n_corners)):
-        angle_sum += cos(theta_r + beta[i])
-
-    divisor = (r / Rmin - cos(theta_r) + 12 * G * sin(theta_r))
-
-    if divisor == 0:
-        return True
-    else:
-        return theta_a <= acos((-4 * G * angle_sum) / divisor)
-
-
-@njit
 def calculate_snap_off_viability(theta_r, beta, n_corners):
     if n_corners > 0:
         beta_min = np.min(beta[:n_corners])

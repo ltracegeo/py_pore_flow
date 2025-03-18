@@ -94,10 +94,8 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
         pc,
         pore_id_list,
         pore_entry_pressure,
-        pore_spontaneous_imbibition,
         throat_id_list,
         throat_entry_pressure,
-        throat_spontaneous_imbibition,
     ):
         min_pressure = np.inf
         min_id = -1
@@ -120,10 +118,7 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
                 min_id = id
                 min_type = THROAT
 
-        if min_id != -1:
-            return (min_type, min_id, max(min_pressure, pc))
-        else:
-            return None
+        return (min_type, min_id, max(min_pressure, pc))
 
     def _update_element_filled_geometry(self, pc, element):
         element.corner_oil_layer = False
