@@ -129,11 +129,11 @@ class ParameterManager:
     @property
     def skip_imbibition(self):
         return self.parameters_dict["skip_imbibition"]
-    
+
     @property
     def enforced_swi_1(self):
         return self.parameters_dict["enforced_swi_1"]
-    
+
     @property
     def enforced_swi_2(self):
         return self.parameters_dict["enforced_swi_2"]
