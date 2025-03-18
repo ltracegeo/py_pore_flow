@@ -584,13 +584,9 @@ class CycleSimulation:
 
     def get_pores_left(self):
         if self.phase == WATER:
-            return np.logical_not(
-                self.network.pn_core.pore.water_filled | self.network.pn_core.pore.trapped_evacuation
-            ).sum()
+            return np.logical_not(self.network.pn_core.pore.water_filled | self.network.pn_core.pore.trapped).sum()
         else:
-            return np.logical_not(
-                self.network.pn_core.pore.oil_filled | self.network.pn_core.pore.trapped_evacuation
-            ).sum()
+            return np.logical_not(self.network.pn_core.pore.oil_filled | self.network.pn_core.pore.trapped).sum()
 
     def get_oil_filled_percentage(self):
         total_pores = self.network.get_number_of_pores()
