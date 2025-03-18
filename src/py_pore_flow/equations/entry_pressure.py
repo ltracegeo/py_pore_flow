@@ -248,7 +248,12 @@ def calculate_spontaneous_imbibition_viability(theta_a, theta_r, beta, n_corners
     for i in range(int(n_corners)):
         angle_sum += cos(theta_r + beta[i])
 
-    return theta_a <= acos((-4 * G * angle_sum) / (r / Rmin - cos(theta_r) + 12 * G * sin(theta_r)))
+    divisor = (r / Rmin - cos(theta_r) + 12 * G * sin(theta_r))
+
+    if divisor == 0:
+        return True
+    else:
+        return theta_a <= acos((-4 * G * angle_sum) / divisor)
 
 
 @njit
