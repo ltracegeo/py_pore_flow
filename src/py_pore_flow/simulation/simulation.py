@@ -467,7 +467,11 @@ def calculate_element_initial_values(
 
 def calculate_element_drainage_values(element, max_pc):
     element.b = calculate_drainage_b(
-        element.beta, np.full(element.n_corners, element.receding_contact_angle), element.n_corners, max_pc
+        element.beta,
+        np.full(element.n_corners, element.receding_contact_angle),
+        element.n_corners,
+        element.max_b,
+        max_pc,
     )
     element.C_r = calculate_C(
         np.full(element.n_corners, element.receding_contact_angle), element.beta, element.n_corners
@@ -491,7 +495,11 @@ def calculate_element_imbibition_values(element, max_pc):
     Rmin = calculate_r(max_pc, 100000)
 
     element.b = calculate_drainage_b(
-        element.beta, np.full(element.n_corners, element.receding_contact_angle), element.n_corners, max_pc
+        element.beta,
+        np.full(element.n_corners, element.receding_contact_angle),
+        element.n_corners,
+        element.max_b,
+        max_pc,
     )
     element.C_r = calculate_C(
         np.full(element.n_corners, element.receding_contact_angle), element.beta, element.n_corners

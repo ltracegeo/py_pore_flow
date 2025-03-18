@@ -259,8 +259,8 @@ def calculate_hinging_contact_angle(Pc, beta, b, n_corners, theta_r, theta_a, th
 
 
 @njit
-def calculate_drainage_b(beta, theta, n_corners, Pc_max):
-    Rmin = c.sigma / Pc_max
+def calculate_drainage_b(beta, theta, n_corners, max_b, Pc_max):
+    Rmin = calculate_r(Pc_max, max_b)
 
     b = np.empty(MAX_NUMBER_OF_CORNERS, dtype=np.float64)
     for i in range(int(n_corners)):
