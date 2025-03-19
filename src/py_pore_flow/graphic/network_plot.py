@@ -3,6 +3,10 @@ import numpy as np
 from py_pore_flow.graphic.element_graphic import WATER, OIL, ElementGraphic, ElementPlotter
 
 
+class ElementNotFoundException(Exception):
+    pass
+
+
 class NetworkPlot:
     def __init__(self, pn):
         """
@@ -38,6 +42,9 @@ class ElementPlot:
         self.element_type = element_type
         self.id = element_id
 
+        if self.id >= len(self.pn[f"{self.element_type}.all"]):
+            raise ElementNotFoundException
+
         self.n_corners = self.pn[f"{self.element_type}.n_corners"][self.id]
 
         self.graphic = ElementGraphic()
@@ -55,11 +62,14 @@ class ElementPlot:
             b[corner_oil_layer] = np.resize(self.pn[f"{self.element_type}.b"][self.id], self.n_corners)[
                 corner_oil_layer
             ]
+        bo = np.full(self.n_corners, 0.0, np.float64)
+        bo[corner_oil_layer] = np.resize(self.pn[f"{self.element_type}.bo"][self.id], self.n_corners)[corner_oil_layer]
+
         self.graphic.distance = np.abs(b)
         self.graphic.theta = np.resize(self.pn[f"{self.element_type}.hinging_contact_angle"][self.id], self.n_corners)
-        self.graphic.distance_o = np.abs(np.resize(self.pn[f"{self.element_type}.bo"][self.id], self.n_corners))
+        self.graphic.distance_o = np.abs(bo)
         self.graphic.theta_o = np.resize(
-            self.pn[f"{self.element_type}.advancing_contact_angle"][self.id], self.n_corners
+            self.pn[f"{self.element_type}.hinging_contact_angle_o"][self.id], self.n_corners
         )
         self.graphic.phase_in_middle = OIL if self.pn[f"{self.element_type}.oil_filled"][self.id] else WATER
 

@@ -107,7 +107,7 @@ def automatic_simulation(
         pn,
         parameters_dict=parameters,
         generate_vtu=generate_vtu,
-        generate_cas=False,
+        generate_cas=setup_network,
         setup_network=setup_network,
         drainage_snapshot_pc=drainage_snapshot_pc,
         imbibition_snapshot_pc=imbibition_snapshot_pc,

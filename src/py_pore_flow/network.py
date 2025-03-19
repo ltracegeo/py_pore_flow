@@ -25,6 +25,9 @@ def initialize_pn(pn):
         pn[f"{element_type}.corner_half_angle"] = np.empty((number_of_elements, MAX_NUMBER_OF_CORNERS), np.float64)
         pn[f"{element_type}.sides"] = np.empty((number_of_elements, MAX_NUMBER_OF_CORNERS), np.float64)
         pn[f"{element_type}.hinging_contact_angle"] = np.empty((number_of_elements, MAX_NUMBER_OF_CORNERS), np.float64)
+        pn[f"{element_type}.hinging_contact_angle_o"] = np.empty(
+            (number_of_elements, MAX_NUMBER_OF_CORNERS), np.float64
+        )
         pn[f"{element_type}.b"] = np.full((number_of_elements, MAX_NUMBER_OF_CORNERS), 0.0, np.float64)
         pn[f"{element_type}.bo"] = np.full((number_of_elements, MAX_NUMBER_OF_CORNERS), 0.0, np.float64)
         pn[f"{element_type}.max_b"] = 0.0
@@ -43,17 +46,29 @@ def initialize_pn(pn):
         pn[f"{element_type}.trapped"] = False
         pn[f"{element_type}.trapped_evacuation"] = False
         pn[f"{element_type}.n_corners"] = int(0)
-        pn[f"{element_type}.spontaneous_imbibition"] = True
         pn[f"{element_type}.snap_off_viability"] = True
         pn[f"{element_type}.entry_pressure"] = 0.0
         pn[f"{element_type}.snap_off_pressure"] = 0.0
         pn[f"{element_type}.piston_like_pressure"] = 0.0
-        pn[f"{element_type}.initial_advancing_ca"] = 0.0
-        pn[f"{element_type}.initial_receding_ca"] = 0.0
-        pn[f"{element_type}.equilibrium_advancing_ca"] = 0.0
-        pn[f"{element_type}.equilibrium_receding_ca"] = 0.0
-        pn[f"{element_type}.second_advancing_ca"] = 0.0
-        pn[f"{element_type}.second_receding_ca"] = 0.0
+        pn[f"{element_type}.oil_layer_collapse_pressure"] = np.empty(
+            (number_of_elements, MAX_NUMBER_OF_CORNERS), np.float64
+        )
+        if f"{element_type}.initial_advancing_ca" not in pn:
+            pn[f"{element_type}.initial_advancing_ca"] = 0.0
+        if f"{element_type}.initial_receding_ca" not in pn:
+            pn[f"{element_type}.initial_receding_ca"] = 0.0
+        if f"{element_type}.equilibrium_advancing_ca" not in pn:
+            pn[f"{element_type}.equilibrium_advancing_ca"] = 0.0
+        if f"{element_type}.equilibrium_receding_ca" not in pn:
+            pn[f"{element_type}.equilibrium_receding_ca"] = 0.0
+        if f"{element_type}.second_advancing_ca" not in pn:
+            pn[f"{element_type}.second_advancing_ca"] = 0.0
+        if f"{element_type}.second_receding_ca" not in pn:
+            pn[f"{element_type}.second_receding_ca"] = 0.0
+        pn[f"{element_type}.oil_connected_to_inlet"] = False
+        pn[f"{element_type}.oil_connected_to_outlet"] = False
+        pn[f"{element_type}.water_connected_to_inlet"] = True
+        pn[f"{element_type}.water_connected_to_outlet"] = True
         pn[f"{element_type}.id"] = list(range(len(pn[f"{element_type}.all"])))
         if f"{element_type}.N" not in pn:
             pn[f"{element_type}.N"] = 1
@@ -233,10 +248,6 @@ class PnElement:
         return self.element.n_corners[self.id]
 
     @property
-    def spontaneous_imbibition(self):
-        return self.element.spontaneous_imbibition[self.id]
-
-    @property
     def snap_off_viability(self):
         return self.element.snap_off_viability[self.id]
 
@@ -335,10 +346,6 @@ class PnElement:
     @water_filled.setter
     def water_filled(self, water_filled):
         self.element.water_filled[self.id] = water_filled
-
-    @spontaneous_imbibition.setter
-    def spontaneous_imbibition(self, spontaneous_imbibition):
-        self.element.spontaneous_imbibition[self.id] = spontaneous_imbibition
 
     @snap_off_viability.setter
     def snap_off_viability(self, snap_off_viability):
@@ -482,6 +489,7 @@ class PoresNetwork(ElementNetwork):
         self.corner_half_angle = pn["pore.corner_half_angle"]
         self.sides = pn["pore.sides"]
         self.hinging_contact_angle = pn["pore.hinging_contact_angle"]
+        self.hinging_contact_angle_o = pn["pore.hinging_contact_angle_o"]
         self.b = pn["pore.b"]
         self.bo = pn["pore.bo"]
         self.max_b = pn["pore.max_b"]
@@ -500,11 +508,11 @@ class PoresNetwork(ElementNetwork):
         self.trapped = pn["pore.trapped"]
         self.trapped_evacuation = pn["pore.trapped_evacuation"]
         self.n_corners = pn["pore.n_corners"]
-        self.spontaneous_imbibition = pn["pore.spontaneous_imbibition"]
         self.snap_off_viability = pn["pore.snap_off_viability"]
         self.entry_pressure = pn["pore.entry_pressure"]
         self.snap_off_pressure = pn["pore.snap_off_pressure"]
         self.piston_like_pressure = pn["pore.piston_like_pressure"]
+        self.oil_layer_collapse_pressure = pn["pore.oil_layer_collapse_pressure"]
         self.conns = pn["pore.conns"]
         self.n_conns = pn["pore.n_conns"]
         self.area = pn["pore.area"]
@@ -516,6 +524,10 @@ class PoresNetwork(ElementNetwork):
         self.equilibrium_receding_ca = pn["pore.equilibrium_receding_ca"]
         self.second_advancing_ca = pn["pore.second_advancing_ca"]
         self.second_receding_ca = pn["pore.second_receding_ca"]
+        self.oil_connected_to_inlet = pn["pore.oil_connected_to_inlet"]
+        self.oil_connected_to_outlet = pn["pore.oil_connected_to_outlet"]
+        self.water_connected_to_inlet = pn["pore.water_connected_to_inlet"]
+        self.water_connected_to_outlet = pn["pore.water_connected_to_outlet"]
         self.id = pn["pore.id"]
         self.N = pn["pore.N"]
 
@@ -536,6 +548,7 @@ class ThroatsNetwork(ElementNetwork):
         self.corner_half_angle = pn["throat.corner_half_angle"]
         self.sides = pn["throat.sides"]
         self.hinging_contact_angle = pn["throat.hinging_contact_angle"]
+        self.hinging_contact_angle_o = pn["throat.hinging_contact_angle_o"]
         self.b = pn["throat.b"]
         self.bo = pn["throat.bo"]
         self.max_b = pn["throat.max_b"]
@@ -558,11 +571,11 @@ class ThroatsNetwork(ElementNetwork):
         self.trapped = pn["throat.trapped"]
         self.trapped_evacuation = pn["throat.trapped_evacuation"]
         self.n_corners = pn["throat.n_corners"]
-        self.spontaneous_imbibition = pn["throat.spontaneous_imbibition"]
         self.snap_off_viability = pn["throat.snap_off_viability"]
         self.entry_pressure = pn["throat.entry_pressure"]
         self.snap_off_pressure = pn["throat.snap_off_pressure"]
         self.piston_like_pressure = pn["throat.piston_like_pressure"]
+        self.oil_layer_collapse_pressure = pn["throat.oil_layer_collapse_pressure"]
         self.conns = pn["throat.conns"]
         self.n_conns = pn["throat.n_conns"]
         self.cross_sectional_area = pn["throat.cross_sectional_area"]
@@ -574,6 +587,10 @@ class ThroatsNetwork(ElementNetwork):
         self.equilibrium_receding_ca = pn["throat.equilibrium_receding_ca"]
         self.second_advancing_ca = pn["throat.second_advancing_ca"]
         self.second_receding_ca = pn["throat.second_receding_ca"]
+        self.oil_connected_to_inlet = pn["throat.oil_connected_to_inlet"]
+        self.oil_connected_to_outlet = pn["throat.oil_connected_to_outlet"]
+        self.water_connected_to_inlet = pn["throat.water_connected_to_inlet"]
+        self.water_connected_to_outlet = pn["throat.water_connected_to_outlet"]
         self.id = pn["throat.id"]
         self.N = pn["throat.N"]
 

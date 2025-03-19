@@ -7,7 +7,7 @@ from PySide2 import QtCore, QtGui, QtWidgets
 import pyqtgraph as pg
 
 from py_pore_flow.graphic.element_graphic import ElementPlotter
-from py_pore_flow.graphic.network_plot import PorePlot, ThroatPlot
+from py_pore_flow.graphic.network_plot import ElementNotFoundException, PorePlot, ThroatPlot
 from py_pore_flow.simulation.simulation import StepSimulation
 
 
@@ -22,6 +22,9 @@ class ManualSimulationPlot:
             set_initial_values=set_initial_values,
         )
         self.manual_simulation.set_max_pc(40000)
+
+        english_locale = QtCore.QLocale(QtCore.QLocale.English, QtCore.QLocale.UnitedStates)
+        QtCore.QLocale.setDefault(english_locale)
 
     def set_pore(self, pore_id):
         self.element_widget.set_pore(pore_id)
@@ -49,6 +52,7 @@ class ManualSimulationPlot:
         self.cycle_combobox = QtWidgets.QComboBox()
         self.cycle_combobox.addItem("drainage")
         self.cycle_combobox.addItem("imbibition")
+        self.cycle_combobox.addItem("2nd_drainage")
         self.cycle_combobox.currentTextChanged.connect(self.__on_cycle_changed)
         self.pc_input = QtWidgets.QLineEdit()
         self.pc_input.setValidator(QtGui.QDoubleValidator())
@@ -84,11 +88,16 @@ class ManualSimulationPlot:
         if not text:
             return
 
-        if self.element_type_combobox.currentText() == "Throat":
-            self.set_throat(int(text))
-        else:
-            self.set_pore(int(text))
-        self.element_widget.update()
+        try:
+            if self.element_type_combobox.currentText() == "Throat":
+                self.set_throat(int(text))
+            else:
+                self.set_pore(int(text))
+            self.element_widget.update()
+        except ElementNotFoundException:
+            self.element_id_input.blockSignals(True)
+            self.element_id_input.setText("")
+            self.element_id_input.blockSignals(False)
 
     def __update_conn_combobox(self, conns, element_type):
         self.element_conn_combobox.blockSignals(True)
@@ -188,6 +197,7 @@ class ElementWidget(QtWidgets.QFrame):
         oil_filled = self.pn[f"{element_type}.oil_filled"][id]
         sw = self.__pad_with_nan(self.pn[f"{element_type}.water_saturation"][id], n_corners)
         theta_h = np.degrees(np.resize(self.pn[f"{element_type}.hinging_contact_angle"][id], n_corners))
+        theta_ho = np.degrees(np.resize(self.pn[f"{element_type}.hinging_contact_angle_o"][id], n_corners))
         theta_a = np.degrees(np.resize(self.pn[f"{element_type}.advancing_contact_angle"][id], max(n_corners, 1)))
         theta_r = np.degrees(np.resize(self.pn[f"{element_type}.receding_contact_angle"][id], max(n_corners, 1)))
         corner_oil_layer = np.resize(self.pn[f"{element_type}.corner_oil_layer"][id], n_corners)
@@ -198,7 +208,10 @@ class ElementWidget(QtWidgets.QFrame):
             b = np.full(n_corners, 0.0, np.float64)
             b[corner_oil_layer] = np.resize(self.pn[f"{element_type}.b"][id], n_corners)[corner_oil_layer]
         bo = np.resize(self.pn[f"{element_type}.bo"][id], n_corners)
+        oil_layer_collapse_pressure = np.resize(self.pn[f"{element_type}.oil_layer_collapse_pressure"], n_corners)
         entry_pressure = self.__pad_with_nan(self.pn[f"{element_type}.entry_pressure"][id], n_corners)
+        piston_like_pressure = self.__pad_with_nan(self.pn[f"{element_type}.piston_like_pressure"][id], n_corners)
+        snap_off_pressure = self.__pad_with_nan(self.pn[f"{element_type}.snap_off_pressure"][id], n_corners)
 
         if element_type == "pore":
             if self.pn["pore.inlets"][id]:
@@ -224,6 +237,7 @@ class ElementWidget(QtWidgets.QFrame):
                 "oil_filled": [str(oil_filled)],
                 "Sw": sw,
                 "theta_h": theta_h,
+                "theta_ho": theta_ho,
                 "theta_a": theta_a,
                 "theta_r": theta_r,
                 "bi": b,
@@ -231,10 +245,13 @@ class ElementWidget(QtWidgets.QFrame):
                 "corner_oil_layer": corner_oil_layer,
                 "corner_water_layer": corner_water_layer,
                 "entry_pressure": entry_pressure,
+                "piston_like_pressure": piston_like_pressure,
+                "snap_off_pressure": snap_off_pressure,
                 "water_single_conductance": [water_single_conductance],
                 "water_multi_conductance": [water_multi_conductance],
                 "oil_single_conductance": [oil_single_conductance],
                 "oil_multi_conductance": [oil_multi_conductance],
+                "oil_layer_collapse_pressure": oil_layer_collapse_pressure,
             },
             orient="index",
         )

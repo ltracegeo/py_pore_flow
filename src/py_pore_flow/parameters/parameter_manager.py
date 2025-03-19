@@ -56,6 +56,7 @@ DEFAULT_PARAMETERS = {
     "end_at_sor": True,
     "control_by_pc": False,
     "skip_imbibition": False,
+    "skip_2nd_drainage": False,
     "enforced_swi_1": 0.0,
     "enforced_swi_2": 1.0,
 }
@@ -129,11 +130,15 @@ class ParameterManager:
     @property
     def skip_imbibition(self):
         return self.parameters_dict["skip_imbibition"]
-    
+
+    @property
+    def skip_2nd_drainage(self):
+        return self.parameters_dict["skip_2nd_drainage"]
+
     @property
     def enforced_swi_1(self):
         return self.parameters_dict["enforced_swi_1"]
-    
+
     @property
     def enforced_swi_2(self):
         return self.parameters_dict["enforced_swi_2"]
@@ -161,6 +166,12 @@ class ParameterManager:
         network.pn_core.throat.receding_contact_angle[network.pn_core.throat.oil_filled] = np.minimum(
             network.pn_core.throat.receding_contact_angle, network.pn_core.throat.equilibrium_receding_ca
         )[network.pn_core.throat.oil_filled]
+
+    def update_2nd_drainage_ca(self, network):
+        network.pn_core.pore.advancing_contact_angle[:] = network.pn_core.pore.equilibrium_advancing_ca
+        network.pn_core.throat.advancing_contact_angle[:] = network.pn_core.throat.equilibrium_advancing_ca
+        network.pn_core.pore.receding_contact_angle[:] = network.pn_core.pore.equilibrium_receding_ca
+        network.pn_core.throat.receding_contact_angle[:] = network.pn_core.throat.equilibrium_receding_ca
 
     def __update_cas(self, network, prefix):
         advancing_ca_array, receding_ca_array = self.__generate_cas(

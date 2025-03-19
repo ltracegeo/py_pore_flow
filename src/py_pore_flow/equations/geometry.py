@@ -240,7 +240,6 @@ def calculate_network_hinging_contact_angle(
 
 @njit
 def calculate_hinging_contact_angle(Pc, beta, b, n_corners, theta_r, theta_a, theta_hi):
-
     if Pc == 0:
         for i in range(int(n_corners)):
             theta_hi[i] = pi / 2 - beta[i]
@@ -260,8 +259,8 @@ def calculate_hinging_contact_angle(Pc, beta, b, n_corners, theta_r, theta_a, th
 
 
 @njit
-def calculate_drainage_b(beta, theta, n_corners, Pc_max):
-    Rmin = c.sigma / Pc_max
+def calculate_drainage_b(beta, theta, n_corners, max_b, Pc_max):
+    Rmin = calculate_r(Pc_max, max_b)
 
     b = np.empty(MAX_NUMBER_OF_CORNERS, dtype=np.float64)
     for i in range(int(n_corners)):
@@ -298,6 +297,36 @@ def calculate_imbibition_element_b(b, beta, max_b, theta_r, theta_a, theta_h, ha
 def calculate_imbibition_corner_b(b, beta, theta_r, theta_a, theta_h, R, Rmin):
     if theta_h - theta_a > -1e-10:
         return calculate_corner_bi(beta, theta_a, R)
+    else:
+        return b
+
+
+@njit
+def calculate_2nd_drainage_network_b(
+    b, trapped, beta, max_b, theta_r, theta_a, theta_h, has_water_layer, n_corners, pc, Rmin
+):
+    number_of_elements = len(beta)
+
+    for i in range(number_of_elements):
+        if not trapped[i]:
+            b[i] = calculate_2nd_drainage_element_b(
+                b[i], beta[i], max_b[i], theta_r[i], theta_a[i], theta_h[i], has_water_layer[i], n_corners[i], Rmin, pc
+            )
+
+
+@njit
+def calculate_2nd_drainage_element_b(b, beta, max_b, theta_r, theta_a, theta_h, has_water_layer, n_corners, Rmin, pc):
+    R = calculate_r(pc, max_b)
+    for i in range(int(n_corners)):
+        if has_water_layer[i]:
+            b[i] = calculate_2nd_drainage_corner_b(b[i], beta[i], theta_r, theta_a, theta_h[i], R, Rmin)
+    return b
+
+
+@njit
+def calculate_2nd_drainage_corner_b(b, beta, theta_r, theta_a, theta_h, R, Rmin):
+    if theta_r - theta_h > -1e-10:
+        return calculate_corner_bi(beta, theta_h, R)
     else:
         return b
 
@@ -386,27 +415,25 @@ def calculate_oil_layer_collapse_pc(beta, theta_a, b):
 
 
 @njit
-def calculate_oil_layer_element(corner_oil_layer, beta, theta_a, b, n_corners, pc):
+def calculate_oil_layer_element(corner_oil_layer, oil_layer_collapse_pc, b, n_corners, pc):
     for i in range(int(n_corners)):
         if corner_oil_layer[i]:
             if b[i] == 0:
                 corner_oil_layer[i] = False
             else:
-                collapse_pc = calculate_oil_layer_collapse_pc(beta[i], theta_a, b[i])
-                if pc < collapse_pc:
+                if pc < oil_layer_collapse_pc[i]:
                     corner_oil_layer[i] = False
     return corner_oil_layer
 
 
 @njit
-def calculate_oil_layer_network(corner_oil_layer, trapped, beta, theta_a, b, n_corners, pc):
-    number_of_elements = len(theta_a)
+def calculate_oil_layer_network(corner_oil_layer, oil_layer_collapse_pc, trapped, b, n_corners, pc):
+    number_of_elements = len(trapped)
     for i in range(number_of_elements):
         if not trapped[i]:
             corner_oil_layer[i] = calculate_oil_layer_element(
                 corner_oil_layer[i],
-                beta[i],
-                theta_a[i],
+                oil_layer_collapse_pc[i],
                 b[i],
                 n_corners[i],
                 pc,
@@ -430,3 +457,97 @@ def calculate_dimensionless_layer_area(b_tilde, beta, theta_i, theta_o):
 @njit
 def calculate_corner_C(theta, beta):
     return cos(theta) * (cos(theta + beta) / sin(beta)) - (pi / 2 - theta - beta)
+
+
+@njit
+def calculate_oil_layer_collapse_pc_network(oil_layer_collapse_pc, beta, theta_a, theta_r, n_corners, Rmin):
+    number_of_elements = len(theta_a)
+    for i in range(number_of_elements):
+        calculate_oil_layer_collapse_pc_element(
+            oil_layer_collapse_pc[i], beta[i], theta_a[i], theta_r[i], n_corners[i], Rmin
+        )
+
+
+@njit
+def calculate_oil_layer_collapse_pc_element(oil_layer_collapse_pc, beta, theta_a, theta_r, n_corners, Rmin):
+    for i in range(int(n_corners)):
+        oil_layer_collapse_pc[i] = calculate_oil_layer_collapse_pc_corner(beta[i], theta_a, theta_r, Rmin)
+
+
+@njit
+def calculate_oil_layer_collapse_pc_corner(beta, theta_a, theta_r, Rmin):
+    if theta_a > pi / 2 + beta:
+        if 2 * sin(beta) + cos(theta_a) > 1:
+            Pc = c.sigma * cos(acos(1) + beta) / (Rmin * cos(theta_r + beta))
+        else:
+            Pc = c.sigma * cos(acos(2 * sin(beta) + cos(theta_a)) + beta) / (Rmin * cos(theta_r + beta))
+    else:
+        Pc = 0
+    return Pc
+
+
+@njit
+def calculate_network_outter_hinging_contact_angle(
+    Pc,
+    beta,
+    b,
+    n_corners,
+    theta_r,
+    theta_a,
+    theta_ho,
+    trapped,
+    has_oil_layer,
+    max_b,
+):
+    number_of_elements = len(beta)
+
+    for i in range(number_of_elements):
+        if not trapped[i]:
+            calculate_outter_hinging_contact_angle(
+                Pc, beta[i], b[i], n_corners[i], theta_r[i], theta_a[i], theta_ho[i], has_oil_layer[i], max_b[i]
+            )
+    return theta_ho
+
+
+@njit
+def calculate_outter_hinging_contact_angle(Pc, beta, b, n_corners, theta_r, theta_a, theta_ho, has_oil_layer, max_b):
+    R = calculate_r(Pc, max_b)
+    for i in range(int(n_corners)):
+        if has_oil_layer[i]:
+            x = b[i] * sin(beta[i]) / R
+            if x > 1:
+                x = 1
+            elif x < -1:
+                x = -1
+            theta_ho[i] = acos(x) + beta[i]
+    theta_ho[:] = np.clip(theta_ho, theta_r, theta_a)
+
+
+@njit
+def calculate_2nd_drainage_network_bo(
+    b, trapped, beta, max_b, theta_r, theta_a, theta_ho, has_water_layer, n_corners, pc
+):
+    number_of_elements = len(beta)
+
+    for i in range(number_of_elements):
+        if not trapped[i]:
+            b[i] = calculate_2nd_drainage_element_bo(
+                b[i], beta[i], max_b[i], theta_r[i], theta_a[i], theta_ho[i], has_water_layer[i], n_corners[i], pc
+            )
+
+
+@njit
+def calculate_2nd_drainage_element_bo(b, beta, max_b, theta_r, theta_a, theta_ho, has_water_layer, n_corners, pc):
+    R = calculate_r(pc, max_b)
+    for i in range(int(n_corners)):
+        if has_water_layer[i]:
+            b[i] = calculate_2nd_drainage_corner_bo(b[i], beta[i], theta_r, theta_a, theta_ho[i], R)
+    return b
+
+
+@njit
+def calculate_2nd_drainage_corner_bo(b, beta, theta_r, theta_a, theta_ho, R):
+    if theta_r - theta_ho > -1e-10:
+        return calculate_corner_bo(beta, theta_r, R)
+    else:
+        return b

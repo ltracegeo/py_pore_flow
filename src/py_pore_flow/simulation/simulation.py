@@ -13,20 +13,23 @@ from py_pore_flow.equations.geometry import (
     calculate_C,
     calculate_drainage_b,
     calculate_max_b,
+    calculate_oil_layer_collapse_pc_network,
     calculate_r,
     calculate_shape,
     calculate_sides,
 )
 from py_pore_flow.equations.entry_pressure import (
+    calculate_2nd_drainage_piston_like_displacement_pc_network,
+    calculate_2nd_drainage_snap_off_pc_network,
     calculate_drainage_pc,
     calculate_snap_off_viability,
-    calculate_spontaneous_imbibition_viability,
     calculate_snap_off_pc_network,
     calculate_imbibition_piston_like_displacement_pc_network,
 )
 from py_pore_flow.network import initialize_pn, Network
 from py_pore_flow.output import pn_to_vtu
 from py_pore_flow.parameters.parameter_manager import ParameterManager
+from py_pore_flow.simulation.second_drainage import SecondDrainageSimulation
 from py_pore_flow.simulation.drainage import DrainageSimulation
 from py_pore_flow.simulation.imbibition import ImbibitionSimulation
 from py_pore_flow.simulation.cycle_simulation import ConductanceCalculator, PcIncrementer
@@ -47,13 +50,15 @@ def run_two_phase_simulation(
     number_of_elements = len(pn["pore.all"]) + len(pn["throat.all"])
     sys.setrecursionlimit(previous_limit + number_of_elements)
 
-    cycle = [[], []]
-    Pc = [[], []]
-    Sw = [[], []]
-    Krw = [[], []]
-    Kro = [[], []]
-    log.info(f"Parameters: {parameters_dict}")
-    log.info(f"Config: {config}")
+    cycle = [[], [], []]
+    Pc = [[], [], []]
+    Sw = [[], [], []]
+    Krw = [[], [], []]
+    Kro = [[], [], []]
+
+    log.debug(f"Parameters: {parameters_dict}")
+    log.debug(f"Config: {config}")
+
     simulation = Simulation(
         pn,
         parameters_dict,
@@ -71,15 +76,18 @@ def run_two_phase_simulation(
     if not simulation.parameter_manager.skip_imbibition:
         Pc[1], Sw[1], Krw[1], Kro[1] = simulation.run_imbibition()
         cycle[1] = [2] * len(Pc[1])
+    if not simulation.parameter_manager.skip_2nd_drainage:
+        Pc[2], Sw[2], Krw[2], Kro[2] = simulation.run_2nd_drainage()
+        cycle[2] = [3] * len(Pc[2])
 
     sys.setrecursionlimit(previous_limit)
 
     return (
-        np.array(cycle[0] + cycle[1]),
-        np.array(Pc[0] + Pc[1]),
-        np.array(Sw[0] + Sw[1]),
-        np.array(Krw[0] + Krw[1]),
-        np.array(Kro[0] + Kro[1]),
+        np.array(cycle[0] + cycle[1] + cycle[2]),
+        np.array(Pc[0] + Pc[1] + Pc[2]),
+        np.array(Sw[0] + Sw[1] + Sw[2]),
+        np.array(Krw[0] + Krw[1] + Krw[2]),
+        np.array(Kro[0] + Kro[1] + Kro[2]),
     )
 
 
@@ -117,9 +125,6 @@ class Simulation:
 
         self.generate_vtu = generate_vtu
 
-
-        log.info(f"Max Pc: {self.parameter_manager.pc_maximum}")
-        log.info(f"Min Pc: {self.parameter_manager.pc_minimum}")
         self.pc_incrementer = PcIncrementer(
             self.parameter_manager.pc_step,
             self.parameter_manager.pc_step_min,
@@ -144,13 +149,18 @@ class Simulation:
     def run_imbibition(self):
         return self.__run_cycle("imbibition")
 
+    def run_2nd_drainage(self):
+        return self.__run_cycle("2nd_drainage")
+
     def __run_cycle(self, cycle_name):
         log.info(f"Start {cycle_name}")
 
         if cycle_name == "drainage":
             self.pc_incrementer.set_cycle(self.pc_incrementer.DRAINAGE_CYCLE)
-        else:
+        elif cycle_name == "imbibition":
             self.pc_incrementer.set_cycle(self.pc_incrementer.IMBIBITION_CYCLE)
+        else:
+            self.pc_incrementer.set_cycle(self.pc_incrementer.SECOND_DRAINAGE_CYCLE)
         self.step_simulation.set_cycle(cycle_name)
 
         Pc_array = []
@@ -168,13 +178,15 @@ class Simulation:
                 last_pc = current_pc
                 self.__check_snapshot(cycle_name, current_pc)
 
-                (current_pc, 
-                Sw, 
-                Krw, 
-                Kro, 
-                pores_filled, 
-                total_pores, 
-                percentage,) = self.step_simulation.update(current_pc)
+                (
+                    current_pc,
+                    Sw,
+                    Krw,
+                    Kro,
+                    pores_filled,
+                    total_pores,
+                    percentage,
+                ) = self.step_simulation.update(current_pc)
 
                 Pc_array.append(current_pc)
                 Sw_array.append(Sw)
@@ -186,28 +198,26 @@ class Simulation:
                 )
 
                 if self.generate_vtu:
-                    pn_to_vtu(self.pn, current_pc, Sw, 1 if cycle_name == "drainage" else 2)
+                    if cycle_name == "drainage":
+                        cycle_number = 1
+                    elif cycle_name == "imbibition":
+                        cycle_number = 2
+                    elif cycle_name == "2nd_drainage":
+                        cycle_number = 3
+                    pn_to_vtu(self.pn, current_pc, Sw, cycle_number)
 
                 self.pc_incrementer.set_pc(current_pc)
 
-                log.info(f"Step {cycle_name}, {simulation_end}, {Sw}, {self.parameter_manager.enforced_swi_1}, {self.parameter_manager.enforced_swi_2}")
-                if (self.parameter_manager.end_at_sor 
-                    and cycle_name == "imbibition" 
-                    and Kro <= 0
-                ):
-                    simulation_end = True
-                elif self.step_simulation.cycle_should_end():
-                    simulation_end = True
-                elif(
-                    Sw <= self.parameter_manager.enforced_swi_1
-                    and cycle_name == "drainage"
-                ):
+                if self.parameter_manager.end_at_sor and cycle_name == "imbibition" and Kro <= 0:
                     simulation_end = True
                     break
-                elif(
-                    Sw >= self.parameter_manager.enforced_swi_2
-                    and cycle_name == "imbibition"
-                ):
+                elif self.step_simulation.cycle_should_end():
+                    simulation_end = True
+                    break
+                elif Sw <= self.parameter_manager.enforced_swi_1 and cycle_name == "drainage":
+                    simulation_end = True
+                    break
+                elif Sw >= self.parameter_manager.enforced_swi_2 and cycle_name == "imbibition":
                     simulation_end = True
                     break
 
@@ -299,9 +309,34 @@ def calculate_imbibition_values(network, max_pc):
     network.pn_core["throat.trapped"] = False
     network.pn_core["pore.trapped_evacuation"] = False
     network.pn_core["throat.trapped_evacuation"] = False
+    network.pn_core.pore.hinging_contact_angle_o[:, :] = network.pn_core.pore.advancing_contact_angle[:, np.newaxis]
+    network.pn_core.throat.hinging_contact_angle_o[:, :] = network.pn_core.throat.advancing_contact_angle[:, np.newaxis]
 
     calculate_snap_off_values(network, max_pc)
     calculate_piston_like_values(network, max_pc)
+    calculate_oil_layer_collapse_values(network, max_pc)
+
+    return network
+
+
+def calculate_2nd_drainage_values(network, min_pc):
+    for pore in network.pore_list:
+        calculate_element_2nd_drainage_values(pore)
+
+    for throat in network.throat_list:
+        calculate_element_2nd_drainage_values(throat)
+
+    conductance_calculator = ConductanceCalculator(network)
+    conductance_calculator.calculate_singlephase_conductance(OIL)
+    conductance_calculator.calculate_singlephase_conductance(WATER)
+
+    network.pn_core["pore.trapped"] = False
+    network.pn_core["throat.trapped"] = False
+    network.pn_core["pore.trapped_evacuation"] = False
+    network.pn_core["throat.trapped_evacuation"] = False
+
+    calculate_2nd_drainage_snap_off_values(network, min_pc)
+    calculate_2nd_drainage_piston_like_values(network, min_pc)
 
     return network
 
@@ -358,6 +393,82 @@ def calculate_snap_off_values(network, max_pc):
     )
 
 
+def calculate_oil_layer_collapse_values(network, max_pc):
+    Rmin = calculate_r(max_pc, 100000)
+
+    calculate_oil_layer_collapse_pc_network(
+        network.pn_core.throat.oil_layer_collapse_pressure,
+        network.pn_core.throat.corner_half_angle,
+        network.pn_core.throat.advancing_contact_angle,
+        network.pn_core.throat.receding_contact_angle,
+        network.pn_core.throat.n_corners,
+        Rmin,
+    )
+
+    calculate_oil_layer_collapse_pc_network(
+        network.pn_core.pore.oil_layer_collapse_pressure,
+        network.pn_core.pore.corner_half_angle,
+        network.pn_core.pore.advancing_contact_angle,
+        network.pn_core.pore.receding_contact_angle,
+        network.pn_core.pore.n_corners,
+        Rmin,
+    )
+
+
+def calculate_2nd_drainage_piston_like_values(network, min_pc):
+    Rmax = calculate_r(min_pc, 100000)
+    network.pn_core["throat.piston_like_pressure"] = calculate_2nd_drainage_piston_like_displacement_pc_network(
+        network.pn_core.throat.shape_factor,
+        network.pn_core.throat.radius,
+        network.pn_core.throat.receding_contact_angle,
+        network.pn_core.throat.advancing_contact_angle,
+        network.pn_core.throat.corner_oil_layer,
+        network.pn_core.throat.n_corners,
+        network.pn_core.throat.bo,
+        network.pn_core.throat.shape,
+        network.pn_core.throat.corner_half_angle,
+        Rmax,
+    )
+
+    network.pn_core["pore.piston_like_pressure"] = calculate_2nd_drainage_piston_like_displacement_pc_network(
+        network.pn_core.pore.shape_factor,
+        network.pn_core.pore.radius,
+        network.pn_core.pore.receding_contact_angle,
+        network.pn_core.pore.advancing_contact_angle,
+        network.pn_core.pore.corner_oil_layer,
+        network.pn_core.pore.n_corners,
+        network.pn_core.pore.bo,
+        network.pn_core.pore.shape,
+        network.pn_core.pore.corner_half_angle,
+        Rmax,
+    )
+    # print(network.pn_core.pore.piston_like_pressure)
+
+
+def calculate_2nd_drainage_snap_off_values(network, min_pc):
+    Rmax = calculate_r(min_pc, 100000)
+
+    network.pn_core["throat.snap_off_pressure"] = calculate_2nd_drainage_snap_off_pc_network(
+        network.pn_core.throat.radius,
+        network.pn_core.throat.corner_half_angle,
+        network.pn_core.throat.advancing_contact_angle,
+        network.pn_core.throat.receding_contact_angle,
+        network.pn_core.throat.n_corners,
+        Rmax,
+        np.zeros(len(network.pn_core.throat.radius)),
+    )
+
+    network.pn_core["pore.snap_off_pressure"] = calculate_2nd_drainage_snap_off_pc_network(
+        network.pn_core.pore.radius,
+        network.pn_core.pore.corner_half_angle,
+        network.pn_core.pore.advancing_contact_angle,
+        network.pn_core.pore.receding_contact_angle,
+        network.pn_core.pore.n_corners,
+        Rmax,
+        np.zeros(len(network.pn_core.pore.radius)),
+    )
+
+
 def calculate_element_initial_values(
     element,
 ):
@@ -370,7 +481,11 @@ def calculate_element_initial_values(
 
 def calculate_element_drainage_values(element, max_pc):
     element.b = calculate_drainage_b(
-        element.beta, np.full(element.n_corners, element.receding_contact_angle), element.n_corners, max_pc
+        element.beta,
+        np.full(element.n_corners, element.receding_contact_angle),
+        element.n_corners,
+        element.max_b,
+        max_pc,
     )
     element.C_r = calculate_C(
         np.full(element.n_corners, element.receding_contact_angle), element.beta, element.n_corners
@@ -394,7 +509,11 @@ def calculate_element_imbibition_values(element, max_pc):
     Rmin = calculate_r(max_pc, 100000)
 
     element.b = calculate_drainage_b(
-        element.beta, np.full(element.n_corners, element.receding_contact_angle), element.n_corners, max_pc
+        element.beta,
+        np.full(element.n_corners, element.receding_contact_angle),
+        element.n_corners,
+        element.max_b,
+        max_pc,
     )
     element.C_r = calculate_C(
         np.full(element.n_corners, element.receding_contact_angle), element.beta, element.n_corners
@@ -402,21 +521,16 @@ def calculate_element_imbibition_values(element, max_pc):
     element.C_a = calculate_C(
         np.full(element.n_corners, element.advancing_contact_angle), element.beta, element.n_corners
     )
-    element.spontaneous_imbibition = calculate_spontaneous_imbibition_viability(
-        element.advancing_contact_angle,
-        element.receding_contact_angle,
-        element.beta,
-        element.n_corners,
-        element.r,
-        element.G,
-        Rmin,
-    )
 
     element.snap_off_viability = calculate_snap_off_viability(
         element.receding_contact_angle,
         element.beta,
         element.n_corners,
     )
+
+
+def calculate_element_2nd_drainage_values(element):
+    element.snap_off_viability = True
 
 
 class StepSimulation:
@@ -431,6 +545,7 @@ class StepSimulation:
     ):
         self.simulation = None
         self.max_pc = config["max_pc"] if config else None
+        self.min_pc = 0
         self.calculate_full_conductance = calculate_full_conductance
         self.is_first_step = True
         self.current_pc = 0
@@ -459,10 +574,15 @@ class StepSimulation:
             calculate_drainage_values(self.network, self.max_pc)
             self.simulation = DrainageSimulation(self.network, self.calculate_full_conductance)
             self.max_pc = 0
-        else:
+        elif cycle == "imbibition":
             self.parameter_manager.update_equilibrium_cas(self.network)
             calculate_imbibition_values(self.network, self.max_pc)
             self.simulation = ImbibitionSimulation(self.network, self.max_pc, self.calculate_full_conductance)
+            self.min_pc = self.max_pc
+        elif cycle == "2nd_drainage":
+            self.parameter_manager.update_2nd_drainage_ca(self.network)
+            calculate_2nd_drainage_values(self.network, self.min_pc)
+            self.simulation = SecondDrainageSimulation(self.network, self.max_pc, self.calculate_full_conductance)
 
     def update(self, pc):
         self.current_pc = self._perform_step(pc)
@@ -515,6 +635,7 @@ class StepSimulation:
     def __step_by_pc(self, pc):
         self.simulation.update_pc(pc)
         self.max_pc = max(self.max_pc, pc)
+        self.min_pc = min(self.min_pc, pc)
         return pc
 
 
@@ -531,6 +652,7 @@ class MultiStepSimulation(StepSimulation):
         super().__init__(pn, parameters_dict, config, generate_cas, calculate_full_conductance, set_initial_values)
         self.pc_incrementer = None
         self.sw_step = None
+        self.no_invasion_left = False
 
     def set_pc_incrementer(self, pc_incrementer):
         self.pc_incrementer = pc_incrementer
@@ -543,9 +665,10 @@ class MultiStepSimulation(StepSimulation):
         else:
             self.sw_step = None if self.parameter_manager.control_by_pc else self.parameter_manager.imbibition_sw_step
         self.is_first_step = True
+        self.no_invasion_left = False
 
     def cycle_should_end(self):
-        return self.pc_incrementer.cycle_should_end() or self.get_pores_left() == 0
+        return self.pc_incrementer.cycle_should_end() or self.get_pores_left() == 0 or self.no_invasion_left
 
     def _perform_step(self, pc):
         if self.sw_step is None or self.is_first_step:
@@ -559,12 +682,10 @@ class MultiStepSimulation(StepSimulation):
         total_sw_delta = 0.0
         next_pc = pc
         while True:
-            sw_delta, current_pc, next_pc = self.simulation.update_pc(next_pc, self.sw_step)
+            sw_delta, current_pc, next_pc, self.no_invasion_left = self.simulation.update_pc(next_pc, self.sw_step)
             self.max_pc = max(self.max_pc, current_pc)
+            self.min_pc = min(self.min_pc, current_pc)
             total_sw_delta += sw_delta
             if total_sw_delta >= self.sw_step or self.cycle_should_end():
                 break
-            if current_pc == next_pc:
-                self.pc_incrementer.set_pc(current_pc)
-                next_pc = self.pc_incrementer.update_pc()
         return current_pc
