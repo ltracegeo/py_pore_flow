@@ -155,23 +155,25 @@ class ParameterManager:
 
     def update_equilibrium_cas(self, network):
         network.pn_core.pore.advancing_contact_angle[
-            network.pn_core.pore.oil_filled
-        ] = network.pn_core.pore.equilibrium_advancing_ca[network.pn_core.pore.oil_filled]
-        network.pn_core.pore.receding_contact_angle[network.pn_core.pore.oil_filled] = np.minimum(
+            network.pn_core.pore.changed_wettability
+        ] = network.pn_core.pore.equilibrium_advancing_ca[network.pn_core.pore.changed_wettability]
+        network.pn_core.pore.receding_contact_angle[network.pn_core.pore.changed_wettability] = np.minimum(
             network.pn_core.pore.receding_contact_angle, network.pn_core.pore.equilibrium_receding_ca
-        )[network.pn_core.pore.oil_filled]
+        )[network.pn_core.pore.changed_wettability]
         network.pn_core.throat.advancing_contact_angle[
-            network.pn_core.throat.oil_filled
-        ] = network.pn_core.throat.equilibrium_advancing_ca[network.pn_core.throat.oil_filled]
-        network.pn_core.throat.receding_contact_angle[network.pn_core.throat.oil_filled] = np.minimum(
+            network.pn_core.throat.changed_wettability
+        ] = network.pn_core.throat.equilibrium_advancing_ca[network.pn_core.throat.changed_wettability]
+        network.pn_core.throat.receding_contact_angle[network.pn_core.throat.changed_wettability] = np.minimum(
             network.pn_core.throat.receding_contact_angle, network.pn_core.throat.equilibrium_receding_ca
-        )[network.pn_core.throat.oil_filled]
+        )[network.pn_core.throat.changed_wettability]
 
     def update_2nd_drainage_ca(self, network):
-        network.pn_core.pore.advancing_contact_angle[:] = network.pn_core.pore.equilibrium_advancing_ca
-        network.pn_core.throat.advancing_contact_angle[:] = network.pn_core.throat.equilibrium_advancing_ca
-        network.pn_core.pore.receding_contact_angle[:] = network.pn_core.pore.equilibrium_receding_ca
-        network.pn_core.throat.receding_contact_angle[:] = network.pn_core.throat.equilibrium_receding_ca
+        network.pn_core.pore.receding_contact_angle[
+            network.pn_core.pore.changed_wettability
+        ] = network.pn_core.pore.equilibrium_receding_ca[network.pn_core.pore.changed_wettability]
+        network.pn_core.throat.receding_contact_angle[
+            network.pn_core.throat.changed_wettability
+        ] = network.pn_core.throat.equilibrium_receding_ca[network.pn_core.throat.changed_wettability]
 
     def __update_cas(self, network, prefix):
         advancing_ca_array, receding_ca_array = self.__generate_cas(

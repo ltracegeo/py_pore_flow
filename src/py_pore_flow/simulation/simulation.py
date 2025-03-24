@@ -533,6 +533,11 @@ def calculate_element_2nd_drainage_values(element):
     element.snap_off_viability = True
 
 
+def update_wettability_property(network):
+    network.pn_core.pore.changed_wettability[:] = network.pn_core.pore.oil_filled
+    network.pn_core.throat.changed_wettability[:] = network.pn_core.throat.oil_filled
+
+
 class StepSimulation:
     def __init__(
         self,
@@ -575,6 +580,7 @@ class StepSimulation:
             self.simulation = DrainageSimulation(self.network, self.calculate_full_conductance)
             self.max_pc = 0
         elif cycle == "imbibition":
+            update_wettability_property(self.network)
             self.parameter_manager.update_equilibrium_cas(self.network)
             calculate_imbibition_values(self.network, self.max_pc)
             self.simulation = ImbibitionSimulation(self.network, self.max_pc, self.calculate_full_conductance)
