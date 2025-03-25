@@ -35,10 +35,11 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
 
     def _update_snap_offs_pcs(self, pc):
         throat_snap_off_viability = np.empty(len(self.network.pn.throats()), np.bool_)
-        for i in range(len(self.network.pn.throats())):
-            throat_snap_off_viability[i] = self.network.pn_core.throat.corner_oil_layer[i][
-                : self.network.pn_core.throat.n_conns[i]
-            ].any()
+        self.__set_snap_off_viability(
+            throat_snap_off_viability,
+            self.network.pn_core.throat.corner_oil_layer,
+            self.network.pn_core.throat.n_conns,
+        )
         self.snap_off_throat_list = self._snap_off(
             self.network.pn.throats(),
             self.network.pn_core.throat.n_corners,
@@ -62,10 +63,11 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
         )
 
         pore_snap_off_viability = np.empty(len(self.network.pn.pores()), np.bool_)
-        for i in range(len(self.network.pn.pores())):
-            pore_snap_off_viability[i] = self.network.pn_core.pore.corner_oil_layer[i][
-                : self.network.pn_core.pore.n_conns[i]
-            ].any()
+        self.__set_snap_off_viability(
+            pore_snap_off_viability,
+            self.network.pn_core.pore.corner_oil_layer,
+            self.network.pn_core.pore.n_conns,
+        )
         self.snap_off_pore_list = self._snap_off(
             self.network.pn.pores(),
             self.network.pn_core.pore.n_corners,
@@ -87,6 +89,12 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
             pc,
             is_throats=False,
         )
+
+    @staticmethod
+    @nb.njit
+    def __set_snap_off_viability(snap_off_viability, corner_oil_layer, n_conns):
+        for i in range(len(snap_off_viability)):
+            snap_off_viability[i] = corner_oil_layer[i][: n_conns[i]].any()
 
     @staticmethod
     @nb.njit
