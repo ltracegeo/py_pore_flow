@@ -22,9 +22,10 @@ def print_props():
 
 
 def run(sample_directory, manual, generate_vtu, debug, enable_profiling, drainage_snapshot_pc, imbibition_snapshot_pc):
+    sample_directory = Path(sample_directory).as_posix()
     if enable_profiling:
         prof = cProfile.Profile()
-        prof.run(f'run_simulation("{sample_directory}", {{}}, {manual}, {generate_vtu}, {debug}, False)')
+        prof.run(f'run_simulation("{sample_directory}", {{}}, {manual}, {generate_vtu}, {debug})')
         prof.dump_stats("output.prof")
     else:
         run_simulation(
