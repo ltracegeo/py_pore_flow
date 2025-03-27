@@ -4,7 +4,7 @@ import numpy as np
 import openpnm as op
 
 from py_pore_flow.equations.geometry import WATER
-from py_pore_flow.simulation.cycle_simulation import BorderElements, CycleSimulation
+from py_pore_flow.simulation.cycle_simulation import BorderElements, CycleSimulation, PhaseConnectionChecker
 from py_pore_flow.network import initialize_pn, Network
 
 
@@ -214,9 +214,13 @@ class TestCycleSimulation(unittest.TestCase):
         pn["throat.oil_saturation"] = 1.0 - pn["throat.water_saturation"]
         pn["pore.oil_filled"] = ~pn["pore.water_filled"]
         pn["throat.oil_filled"] = ~pn["throat.water_filled"]
+
         network = Network(pn)
+        phase_connection_checker = PhaseConnectionChecker(network)
+        phase_connection_checker.update_phase_connections()
+
         border_elements = BorderElements()
-        CycleSimulation._find_initial_border_elements(network.pn_core, border_elements, WATER)
+        CycleSimulation._find_border_elements(network.pn_core, border_elements, WATER)
 
         np.testing.assert_equal(border_elements.get_pores_ids(), [3, 6, 7, 9, 13, 14, 16])
         np.testing.assert_equal(border_elements.get_throats_ids(), [])
