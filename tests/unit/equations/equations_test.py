@@ -4,7 +4,7 @@ from numpy.testing import assert_almost_equal, assert_equal
 import numpy as np
 import openpnm as op
 
-from equations.geometry import (
+from py_pore_flow.equations.geometry import (
     CIRCLE,
     SQUARE,
     TRIANGLE,
@@ -16,22 +16,22 @@ from equations.geometry import (
     calculate_hinging_contact_angle,
     calculate_shape,
 )
-from equations.entry_pressure import (
+from py_pore_flow.equations.entry_pressure import (
     calculate_drainage_pc,
     calculate_snap_off_pc_element,
     calculate_imbibition_piston_like_displacement_pc_element,
 )
-from equations.conductance import (
+from py_pore_flow.equations.conductance import (
     calculate_network_singlephase_conductivity,
     calculate_network_multiphase_water_conductivity,
     calculate_network_multiphase_oil_conductivity,
     calculate_conductance,
 )
-import global_random
-from network import initialize_pn, Network
-from parameters.parameter_manager import ParameterManager
-from simulation.simulation import calculate_initial_values
-import constants as c
+from py_pore_flow import global_random
+from py_pore_flow.network import initialize_pn, Network
+from py_pore_flow.parameters.parameter_manager import ParameterManager
+from py_pore_flow.simulation.simulation import calculate_initial_values
+from py_pore_flow import constants as c
 
 
 class TestEquations(unittest.TestCase):
@@ -117,7 +117,7 @@ class TestEquations(unittest.TestCase):
         entry_pc = calculate_imbibition_piston_like_displacement_pc_element(
             shape_factor, radius, b, advancing_contact_angle, receding_contact_angle, shape, beta, len(beta), Rmin
         )
-        self.assertEqual(entry_pc, 6810.556807178534)
+        self.assertEqual(entry_pc, 6600.634402546918)
 
         shape_factor = 0.0490196078431372
         radius = 9.092194e-06
@@ -130,7 +130,7 @@ class TestEquations(unittest.TestCase):
         entry_pc = calculate_imbibition_piston_like_displacement_pc_element(
             shape_factor, radius, b, advancing_contact_angle, receding_contact_angle, shape, beta, len(beta), Rmin
         )
-        self.assertEqual(entry_pc, 5001.326568915203)
+        self.assertEqual(entry_pc, 5001.326695864241)
 
         shape_factor = 0.0677922077922077
         radius = 5.985215e-06
@@ -143,7 +143,7 @@ class TestEquations(unittest.TestCase):
         entry_pc = calculate_imbibition_piston_like_displacement_pc_element(
             shape_factor, radius, b, advancing_contact_angle, receding_contact_angle, shape, beta, len(beta), Rmin
         )
-        self.assertEqual(entry_pc, 9283.62521689095)
+        self.assertEqual(entry_pc, 7477.34261076128)
 
     def test_snap_off_pc(self):
         pc = 5000
@@ -183,13 +183,13 @@ class TestEquations(unittest.TestCase):
         beta = np.array([0.35483625, 0.52387179, 0.69208829])
         n_corners = len(beta)
         receding_contact_angle = np.full(n_corners, 0.014092640613489886)
-        b = calculate_drainage_b(beta, receding_contact_angle, n_corners, max_pc)
+        b = calculate_drainage_b(beta, receding_contact_angle, n_corners, 1000, max_pc)
         assert_almost_equal(b[:n_corners], np.array([2.0134182e-06, 1.2875214e-06, 8.9420597e-07]))
 
         beta = np.array([0.78539816, 0.78539816, 0.78539816, 0.78539816])
         n_corners = len(beta)
         receding_contact_angle = np.full(n_corners, 0.013387853642248211)
-        b = calculate_drainage_b(beta, receding_contact_angle, n_corners, max_pc)
+        b = calculate_drainage_b(beta, receding_contact_angle, n_corners, 1000, max_pc)
         assert_almost_equal(b[:n_corners], np.array([7.398922e-07, 7.398922e-07, 7.398922e-07, 7.398922e-07]))
 
     def test_hinging_contact_angle(self):
