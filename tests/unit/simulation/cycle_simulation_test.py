@@ -4,7 +4,12 @@ import numpy as np
 import openpnm as op
 
 from py_pore_flow.equations.geometry import WATER
-from py_pore_flow.simulation.cycle_simulation import BorderElements, CycleSimulation, PhaseConnectionChecker
+from py_pore_flow.simulation.cycle_simulation import (
+    BorderElements,
+    CycleSimulation,
+    PhaseConnectionChecker,
+    TrapChecker,
+)
 from py_pore_flow.network import initialize_pn, Network
 
 
@@ -224,3 +229,50 @@ class TestCycleSimulation(unittest.TestCase):
 
         np.testing.assert_equal(border_elements.get_pores_ids(), [3, 6, 7, 9, 13, 14, 16])
         np.testing.assert_equal(border_elements.get_throats_ids(), [])
+
+        # Trapping
+        trap_checker = TrapChecker(network, WATER)
+        trap_checker.update_trapped_pores()
+        np.testing.assert_equal(
+            pn["throat.trapped"],
+            [
+                False,
+                False,
+                False,
+                False,
+                False,
+                False,
+                False,
+                False,
+                True,
+                True,
+                False,
+                False,
+                False,
+                False,
+                False,
+                False,
+            ],
+        )
+        np.testing.assert_equal(
+            pn["pore.trapped"],
+            [
+                False,
+                False,
+                False,
+                False,
+                False,
+                False,
+                False,
+                True,
+                True,
+                True,
+                False,
+                False,
+                False,
+                True,
+                True,
+                False,
+                False,
+            ],
+        )
