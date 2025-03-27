@@ -3,12 +3,12 @@ import unittest
 from numpy.testing import assert_almost_equal, assert_equal
 import openpnm as op
 
-import global_random
-from network import initialize_pn, Network
-from parameters.parameter_manager import ParameterManager
-from simulation.simulation import calculate_initial_values
+from py_pore_flow import global_random
+from py_pore_flow.network import initialize_pn, Network
+from py_pore_flow.parameters.parameter_manager import ParameterManager
+from py_pore_flow.simulation.simulation import calculate_initial_values
 
-from equations.geometry import (
+from py_pore_flow.equations.geometry import (
     calculate_C,
 )
 
