@@ -27,6 +27,9 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
     def __init__(self, network, pc_max, calculate_full_conductance=False):
         super().__init__(network, pc_max, OIL, calculate_full_conductance)
 
+        self.adversary_fluid_filled = network.pn_core.throat.water_filled
+        self.limit_contact_angle = network.pn_core.pore.receding_contact_angle
+
         if c.pore_fill_alg == "oren2":
             self.calculate_pore_body_filling_pc = PORE_BODY_FILLING_STRATEGY["oren1"]
 

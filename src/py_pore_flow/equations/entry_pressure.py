@@ -42,7 +42,6 @@ def calculate_drainage_pc(shape_factor, radius, receding_contact_angle, shape, b
     return calculate_pc(shape_factor, radius, theta, shape, beta, n_corners)
 
 
-@njit
 def calculate_imbibition_pc(
     calculate_pore_body_filling_pc,
     piston_like_displacement_pc,
