@@ -134,27 +134,17 @@ class SubsequentCycleSimulation(CycleSimulation):
     def _update_pore_entry_pc(self, pore_id, pc):
         K = self.krel_calculator.get_absolute_permeability()
 
-        contact_angle = (
-            self.network.pn_core.pore.advancing_contact_angle[pore_id]
-            if self.phase == WATER
-            else self.network.pn_core.pore.receding_contact_angle[pore_id]
-        )
-
         neighbors = self.network.get_neighbor_throats_ids(pore_id)
-        filled_neighbors = (
-            self.network.pn_core.throat.oil_filled[neighbors]
-            if self.phase == WATER
-            else self.network.pn_core.throat.water_filled[neighbors]
-        )
-        number_of_filled_neighbors = filled_neighbors.sum()
-
-        throats_radii = self.network.pn_core.throat.radius[neighbors[filled_neighbors]]
+        mask = self.adversary_fluid_filled[neighbors]
+        filled_neighbors = neighbors[mask]
+        number_of_filled_neighbors = filled_neighbors.size
+        throats_radii = self.network.pn_core.throat.radius[filled_neighbors]
 
         element_pc = calculate_imbibition_pc(
             self.calculate_pore_body_filling_pc,
             self.network.pn_core.pore.piston_like_pressure[pore_id],
             self.network.pn_core.pore.radius[pore_id],
-            contact_angle,
+            self.limit_contact_angle[pore_id],
             pc,
             number_of_filled_neighbors,
             throats_radii,
