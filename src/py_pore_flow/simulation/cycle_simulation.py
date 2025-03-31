@@ -4,8 +4,9 @@ import numba as nb
 from numba.experimental import jitclass
 import numpy as np
 import openpnm
-
 from pyflowsolver import NetworkManager
+from pypardiso import spsolve
+from scipy.sparse import csr_matrix
 
 from py_pore_flow import log
 from py_pore_flow.equations.geometry import (
@@ -22,8 +23,8 @@ from py_pore_flow.equations.conductance import (
     calculate_network_singlephase_conductivity,
 )
 from py_pore_flow.network import Network
-from pypardiso import spsolve
-from scipy.sparse import csr_matrix
+from py_pore_flow.simulation.clusters import PhaseConnectionChecker
+
 
 # Flags
 USE_OPENPNM_SOLVER = False
@@ -541,8 +542,8 @@ class CycleSimulation:
 
         self.krel_calculator = KrelCalculator(self.network, calculate_full_conductance)
 
-        self.phase_connection_checker = PhaseConnectionChecker(network)
-        self.phase_connection_checker.update_phase_connections()
+        self.phase_connection_checker = PhaseConnectionChecker(network, self.phase)
+        self.phase_connection_checker.reset_phase_connections()
 
         if USE_OPENPNM_TRAPCHECKER:
             self.trap_checker = TrapCheckerOpenpnm(network, self.phase)
@@ -653,7 +654,10 @@ class CycleSimulation:
 
             self.__fill_element(element, invasion_pc)
             sw_delta += self._update_element_filled_geometry(invasion_pc, element)
-            self.phase_connection_checker.update_phase_connections()
+            if element.is_pore():
+                self.phase_connection_checker.update_phase_connections(PORE, element.id)
+            else:
+                self.phase_connection_checker.update_phase_connections(THROAT, element.id)
             if (self.phase == OIL and element.So == 1.0) or (self.phase == WATER and element.Sw == 1.0):
                 self.trap_checker.update_trapped_pores()
             new_pores, new_throats = self._find_border_elements(self.network.pn_core, self.border_elements, self.phase)
@@ -812,111 +816,6 @@ class TrapCheckerOpenpnm:
                 self.network.pn_core.throat.trapped[throat_id_list] = True
 
 
-class PhaseConnectionChecker:
-    def __init__(self, network):
-        self.network = network
-        self.wqupc = Wqupc(len(self.network.pn_core.pore.all), len(self.network.pn_core.throat.all))
-
-    def update_phase_connections(self):
-        self.__update_connections(
-            self.network.pn_core.pore.oil_connected_to_inlet,
-            self.network.pn_core.pore.oil_connected_to_outlet,
-            self.network.pn_core.throat.oil_connected_to_inlet,
-            self.network.pn_core.throat.oil_connected_to_outlet,
-            self.network.pn_core.pore.oil_saturation > 0.0 + TRAP_TOLERANCE,
-            self.network.pn_core.throat.oil_saturation > 0.0 + TRAP_TOLERANCE,
-            self.network.pn_core.pore.inlets,
-            self.network.pn_core.pore.outlets,
-        )
-        self.__update_connections(
-            self.network.pn_core.pore.water_connected_to_inlet,
-            self.network.pn_core.pore.water_connected_to_outlet,
-            self.network.pn_core.throat.water_connected_to_inlet,
-            self.network.pn_core.throat.water_connected_to_outlet,
-            self.network.pn_core.pore.water_saturation > 0.0 + TRAP_TOLERANCE,
-            self.network.pn_core.throat.water_saturation > 0.0 + TRAP_TOLERANCE,
-            self.network.pn_core.pore.inlets,
-            self.network.pn_core.pore.outlets,
-        )
-
-    def __update_connections(
-        self,
-        pore_connected_to_inlet,
-        pore_connected_to_outlet,
-        throat_connected_to_inlet,
-        throat_connected_to_outlet,
-        pore_has_phase,
-        throat_has_phase,
-        pore_inlets,
-        pore_outlets,
-    ):
-        self.wqupc.reset()
-        self.__jit_update_connections(
-            self.wqupc.parent_array,
-            self.wqupc.size_array,
-            self.wqupc.nP,
-            self.wqupc.nT,
-            pore_connected_to_inlet,
-            pore_connected_to_outlet,
-            throat_connected_to_inlet,
-            throat_connected_to_outlet,
-            pore_has_phase,
-            throat_has_phase,
-            self.network.pn_core.throat.conns,
-            pore_inlets,
-            pore_outlets,
-        )
-
-    @staticmethod
-    @nb.njit
-    def __jit_update_connections(
-        parent_array,
-        size_array,
-        nP,
-        nT,
-        pore_connected_to_inlet,
-        pore_connected_to_outlet,
-        throat_connected_to_inlet,
-        throat_connected_to_outlet,
-        pore_has_phase,
-        throat_has_phase,
-        throat_conns,
-        pore_inlets,
-        pore_outlets,
-    ):
-        union = lambda p, q: wqupc_union(p, q, parent_array, size_array)
-        find = lambda p: wqupc_find(p, parent_array)
-
-        for throat in range(nT):
-            if throat_has_phase[throat]:
-                pore_0, pore_1 = throat_conns[throat]
-                if pore_has_phase[pore_0]:
-                    union(throat, (pore_0 + nT))
-                if pore_has_phase[pore_1]:
-                    union(throat, (pore_1 + nT))
-
-        inlets_clusters = set()
-        outlets_clusters = set()
-
-        for pore in range(nP):
-            if pore_inlets[pore] | pore_outlets[pore]:
-                cluster = find(pore + nT)
-                if pore_inlets[pore]:
-                    inlets_clusters.add(cluster)
-                if pore_outlets[pore]:
-                    outlets_clusters.add(cluster)
-
-        for throat in range(nT):
-            cluster = find(throat)
-            throat_connected_to_inlet[throat] = cluster in inlets_clusters
-            throat_connected_to_outlet[throat] = cluster in outlets_clusters
-
-        for pore in range(nP):
-            cluster = find(pore + nT)
-            pore_connected_to_inlet[pore] = cluster in inlets_clusters
-            pore_connected_to_outlet[pore] = cluster in outlets_clusters
-
-
 class TrapChecker:
     def __init__(self, network, phase):
         self.network = network
@@ -1069,67 +968,3 @@ class PcIncrementer:
             self.pc_step = min(self.pc_step, self.pc_step_max)
         else:
             self.pc_step = self.pc_step_initial
-
-
-class Wqupc:
-    def __init__(self, nP, nT):
-        self.nP = nP
-        self.nT = nT
-        self.parent_array = np.arange(self.nP + self.nT, dtype=np.uint32)
-        self.size_array = np.ones((self.nP + self.nT))
-
-    def union(self, p, q):
-        wqupc_union(p, q + self.nT, self.parent_array, self.size_array)
-
-    def find_throat(self, p):
-        return wqupc_find(p, self.parent_array)
-
-    def find_pore(self, p):
-        return wqupc_find(p + self.nT, self.parent_array)
-
-    def reset(self):
-        wqupc_reset(
-            self.parent_array,
-            self.size_array,
-            self.nP,
-            self.nT,
-        )
-
-
-@nb.njit
-def wqupc_find(p, parent_array):
-    root = p
-    while root != parent_array[root]:
-        # parent_array[root] = parent_array[parent_array[root]]
-        root = parent_array[root]
-
-    while p != root:
-        next_p = parent_array[p]
-        parent_array[p] = root
-        p = next_p
-
-    return root
-
-
-@nb.njit
-def wqupc_union(p, q, parent_array, size_array):
-    # Find the roots of the elements p and q
-    rootP = wqupc_find(p, parent_array)
-    rootQ = wqupc_find(q, parent_array)
-
-    if rootP == rootQ:
-        return
-
-    if size_array[rootP] < size_array[rootQ]:
-        parent_array[rootP] = rootQ
-        size_array[rootQ] += size_array[rootP]
-    else:
-        parent_array[rootQ] = rootP
-        size_array[rootP] += size_array[rootQ]
-
-
-@nb.njit
-def wqupc_reset(parent_array, size_array, nP, nT):
-    for i in range(nP + nT):
-        parent_array[i] = i
-        size_array[i] = 1
