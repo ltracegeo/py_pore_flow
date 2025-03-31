@@ -23,6 +23,8 @@ from py_pore_flow import log
 class ImbibitionSimulation(SubsequentCycleSimulation):
     def __init__(self, network, pc_max, calculate_full_conductance=False):
         super().__init__(network, pc_max, WATER, calculate_full_conductance)
+        self.adversary_fluid_filled = network.pn_core.throat.oil_filled
+        self.limit_contact_angle = network.pn_core.pore.advancing_contact_angle
 
     def _can_be_filled(self, current_pc, invasion_pc):
         return current_pc <= invasion_pc
