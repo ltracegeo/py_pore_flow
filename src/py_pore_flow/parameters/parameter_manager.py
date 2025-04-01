@@ -260,7 +260,7 @@ class ParameterManager:
         return contact_angles
 
     @staticmethod
-    @njit
+    @njit(cache=True)
     def __calculate_cas(intrinsic_ca_array, model_class, separation_angle):
         if model_class == 1:
             advancing_ca_array = intrinsic_ca_array
