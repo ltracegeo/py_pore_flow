@@ -7,12 +7,12 @@ import py_pore_flow.constants as c
 from py_pore_flow.equations.geometry import CIRCLE, calculate_corner_C, MAX_NUMBER_OF_CORNERS
 
 
-@njit
+@njit(cache=True)
 def cot(x):
     return 1 / tan(x)
 
 
-@njit
+@njit(cache=True)
 def calculate_pc(shape_factor, radius, theta, shape, beta, n_corners):
     G = shape_factor
     r = radius
@@ -36,7 +36,7 @@ def calculate_pc(shape_factor, radius, theta, shape, beta, n_corners):
     return Pc
 
 
-@njit
+@njit(cache=True)
 def calculate_drainage_pc(shape_factor, radius, receding_contact_angle, shape, beta, n_corners):
     theta = receding_contact_angle
     return calculate_pc(shape_factor, radius, theta, shape, beta, n_corners)
@@ -61,7 +61,7 @@ def calculate_imbibition_pc(
         return piston_like_displacement_pc
 
 
-@njit
+@njit(cache=True)
 def calculate_imbibition_piston_like_displacement_pc_network(
     shape_factor, r, b, theta_a, theta_r, shape, beta, n_corners, Rmin
 ):
@@ -87,7 +87,7 @@ def calculate_imbibition_piston_like_displacement_pc_network(
     return Pc
 
 
-@njit
+@njit(cache=True)
 def calculate_imbibition_piston_like_displacement_pc_element(
     shape_factor, radius, b, advancing_contact_angle, receding_contact_angle, shape, beta, n_corners, Rmin
 ):
@@ -124,7 +124,7 @@ def calculate_imbibition_piston_like_displacement_pc_element(
     return c.sigma / R
 
 
-@njit
+@njit(cache=True)
 def calculate_pore_body_filling_blunt1_pc(r, theta_a, K, oil_filled_throats_n, throats_radii, G, h):
     x = np.random.uniform(0, 1, oil_filled_throats_n)
 
@@ -140,7 +140,7 @@ def calculate_pore_body_filling_blunt1_pc(r, theta_a, K, oil_filled_throats_n, t
     return Pc
 
 
-@njit
+@njit(cache=True)
 def calculate_pore_body_filling_blunt2_pc(r, theta_a, K, oil_filled_throats_n, throats_radii, G, h):
     x = np.random.uniform(0, 1, oil_filled_throats_n)
 
@@ -156,7 +156,7 @@ def calculate_pore_body_filling_blunt2_pc(r, theta_a, K, oil_filled_throats_n, t
     return Pc
 
 
-@njit
+@njit(cache=True)
 def calculate_pore_body_filling_oren1_pc(r, theta_a, K, oil_filled_throats_n, throats_radii, G, h):
     x = np.random.uniform(0, 1, oil_filled_throats_n)
 
@@ -172,7 +172,7 @@ def calculate_pore_body_filling_oren1_pc(r, theta_a, K, oil_filled_throats_n, th
     return Pc
 
 
-@njit
+@njit(cache=True)
 def calculate_pore_body_filling_oren2_pc(r, theta_a, K, oil_filled_throats_n, throats_radii, G, h):
     x = np.random.uniform(0, 1, oil_filled_throats_n)
 
@@ -196,7 +196,7 @@ PORE_BODY_FILLING_STRATEGY = {
 }
 
 
-@njit
+@njit(cache=True)
 def calculate_snap_off_pc_network(r, beta, theta_a, theta_r, n_corners, Rmin, h):
     number_of_elements = len(r)
 
@@ -209,7 +209,7 @@ def calculate_snap_off_pc_network(r, beta, theta_a, theta_r, n_corners, Rmin, h)
     return Pc
 
 
-@njit
+@njit(cache=True)
 def calculate_snap_off_pc_element(r, beta, theta_a, theta_r, n_corners, Rmin, h):
     if theta_a < (pi / 2 - np.min(beta[:n_corners])):
         Pc = calculate_waterwet_snapoff_pc(r, beta, theta_a, theta_r, n_corners, Rmin, h)
@@ -218,7 +218,7 @@ def calculate_snap_off_pc_element(r, beta, theta_a, theta_r, n_corners, Rmin, h)
     return Pc
 
 
-@njit
+@njit(cache=True)
 def calculate_waterwet_snapoff_pc(r, beta, theta_a, theta_r, n_corners, Rmin, h):
     i0 = np.argmin(beta[:n_corners])
     i1 = (i0 + 1) % n_corners
@@ -236,7 +236,7 @@ def calculate_waterwet_snapoff_pc(r, beta, theta_a, theta_r, n_corners, Rmin, h)
     return Pc
 
 
-@njit
+@njit(cache=True)
 def calculate_oilwet_snapoff_pc(beta, theta_a, theta_r, n_corners, Rmin, h):
     i = np.argmin(beta[:n_corners])
     if theta_a <= (pi - beta[i]):
@@ -246,7 +246,7 @@ def calculate_oilwet_snapoff_pc(beta, theta_a, theta_r, n_corners, Rmin, h):
     return Pc
 
 
-@njit
+@njit(cache=True)
 def calculate_snap_off_viability(theta_r, beta, n_corners):
     if n_corners > 0:
         beta_min = np.min(beta[:n_corners])
@@ -255,7 +255,7 @@ def calculate_snap_off_viability(theta_r, beta, n_corners):
         return False
 
 
-@njit
+@njit(cache=True)
 def calculate_2nd_drainage_piston_like_displacement_pc_network(
     shape_factor, r, theta_r, theta_a, corner_oil_layer, n_corners, bo, shape, beta, Rmax
 ):
@@ -279,7 +279,7 @@ def calculate_2nd_drainage_piston_like_displacement_pc_network(
     return Pc
 
 
-@njit
+@njit(cache=True)
 def calculate_2nd_drainage_piston_like_displacement_pc_element(
     G, r, theta_r, theta_a, corner_oil_layer, bo, shape, beta, n_corners, Rmax
 ):
@@ -293,7 +293,7 @@ def calculate_2nd_drainage_piston_like_displacement_pc_element(
     return Pc
 
 
-@njit
+@njit(cache=True)
 def calculate_2nd_drainage_snap_off_pc_network(r, beta, theta_a, theta_r, n_corners, Rmax, h):
     number_of_elements = len(r)
 
@@ -308,7 +308,7 @@ def calculate_2nd_drainage_snap_off_pc_network(r, beta, theta_a, theta_r, n_corn
     return Pc
 
 
-@njit
+@njit(cache=True)
 def calculate_2nd_drainage_snap_off_pc_element(r, beta, theta_a, theta_r, n_corners, Rmax, h):
     if pi - theta_r < (pi / 2 - np.min(beta[:n_corners])):
         Pc = calculate_2nd_drainage_waterwet_snapoff_pc(r, beta, theta_a, theta_r, n_corners, Rmax)
@@ -317,7 +317,7 @@ def calculate_2nd_drainage_snap_off_pc_element(r, beta, theta_a, theta_r, n_corn
     return Pc
 
 
-@njit
+@njit(cache=True)
 def calculate_2nd_drainage_waterwet_snapoff_pc(r, beta, theta_a, theta_r, n_corners, Rmax):
     i0 = np.argmin(beta[:n_corners])
     i1 = (i0 + 1) % n_corners
@@ -337,7 +337,7 @@ def calculate_2nd_drainage_waterwet_snapoff_pc(r, beta, theta_a, theta_r, n_corn
     return Pc
 
 
-@njit
+@njit(cache=True)
 def calculate_2nd_drainage_oilwet_snapoff_pc(beta, theta_a, theta_r, n_corners, Rmax):
     i = np.argmin(beta[:n_corners])
     if theta_r > beta[i]:
