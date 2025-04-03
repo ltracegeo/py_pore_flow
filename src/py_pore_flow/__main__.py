@@ -21,7 +21,16 @@ def print_props():
     print(pn.props())
 
 
-def run(sample_directory, manual, generate_vtu, debug, enable_profiling, drainage_snapshot_pc, imbibition_snapshot_pc):
+def run(
+    sample_directory,
+    manual,
+    generate_vtu,
+    debug,
+    show_final_plot,
+    enable_profiling,
+    drainage_snapshot_pc,
+    imbibition_snapshot_pc,
+):
     sample_directory = Path(sample_directory).as_posix()
     if enable_profiling:
         prof = cProfile.Profile()
@@ -34,6 +43,7 @@ def run(sample_directory, manual, generate_vtu, debug, enable_profiling, drainag
             manual,
             generate_vtu,
             debug,
+            show_final_plot=show_final_plot,
             drainage_snapshot_pc=drainage_snapshot_pc,
             imbibition_snapshot_pc=imbibition_snapshot_pc,
         )
@@ -137,6 +147,7 @@ if __name__ == "__main__":
     arg_parser.add_argument("--prof", action="store_true", help="Enable profiling")
     arg_parser.add_argument("--vtu", action="store_true", help="Generate vtu files for each simulation step")
     arg_parser.add_argument("--debug", action="store_true", help="Enable debug messages")
+    arg_parser.add_argument("--nogui", action="store_true", help="Disable graphical window")
     arg_parser.add_argument("--snapshot", action="store_true", help="Input is a snapshot instead of a statoil")
     arg_parser.add_argument(
         "--drainage_snapshot_pc", type=float, default=None, help="Pc to take snapshotin drainage cycle"
@@ -156,6 +167,7 @@ if __name__ == "__main__":
         manual = args.manual
         generate_vtu = args.vtu
         debug = args.debug
+        show_final_plot = not args.nogui
         enable_profiling = args.prof
         drainage_snapshot_pc = args.drainage_snapshot_pc
         imbibition_snapshot_pc = args.imbibition_snapshot_pc
@@ -166,6 +178,7 @@ if __name__ == "__main__":
             manual,
             generate_vtu,
             debug,
+            show_final_plot,
             enable_profiling,
             drainage_snapshot_pc,
             imbibition_snapshot_pc,
