@@ -45,7 +45,7 @@ class SubsequentCycleSimulation(CycleSimulation):
         pass
 
     @staticmethod
-    @nb.njit
+    @nb.njit(cache=True)
     def _snap_off(
         element_imminent_snap_off,
         element_id_list,
