@@ -130,16 +130,16 @@ class Network:
         return self.throat_list
 
     def get_inlets_ids(self):
-        return list(np.where(self.pn_core.pore.inlets == True)[0])
+        return np.array(np.where(self.pn_core.pore.inlets == True)[0], np.int64)
 
     def get_outlets_ids(self):
-        return list(np.where(self.pn_core.pore.outlets == True)[0])
+        return np.array(np.where(self.pn_core.pore.outlets == True)[0], np.int64)
 
     def get_pores_ids(self):
-        return list(self.pn.pores())
+        return self.pn.pores()
 
     def get_throats_ids(self):
-        return list(self.pn.throats())
+        return self.pn.throats()
 
     def get_number_of_pores(self):
         return len(self.pn.pores())
