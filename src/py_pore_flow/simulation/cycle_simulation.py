@@ -768,7 +768,7 @@ class CycleSimulation:
         return new_pores, new_throats
 
     @staticmethod
-    @nb.njit
+    @nb.njit(cache=True)
     def __find_border_elements(
         phase,
         pore_water_filled,

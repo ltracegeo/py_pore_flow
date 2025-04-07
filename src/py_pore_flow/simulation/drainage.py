@@ -28,7 +28,7 @@ class DrainageSimulation(CycleSimulation):
         return element_to_fill
 
     @staticmethod
-    @nb.njit
+    @nb.njit(cache=True)
     def __jit_pore_throats_element_to_fill(
         pc,
         pore_id_list,
