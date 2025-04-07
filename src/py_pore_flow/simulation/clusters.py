@@ -157,7 +157,7 @@ class PhaseConnectionChecker2:
         )
 
     @staticmethod
-    @nb.njit
+    @nb.njit(cache=True)
     def __jit_update_connections(
         parent_array,
         size_array,
@@ -202,7 +202,7 @@ class PhaseConnectionChecker2:
         )
 
     @staticmethod
-    @nb.njit
+    @nb.njit(cache=True)
     def __jit_reset_connections(
         parent_array,
         size_array,
@@ -239,7 +239,7 @@ class PhaseConnectionChecker2:
         )
 
 
-@nb.njit
+@nb.njit(cache=True)
 def cluster_create_union(
     parent_array,
     size_array,
@@ -259,7 +259,7 @@ def cluster_create_union(
                 union(throat, (pore_1 + nT))
 
 
-@nb.njit
+@nb.njit(cache=True)
 def cluster_add_union(
     parent_array,
     size_array,
@@ -289,7 +289,7 @@ def cluster_add_union(
                     union(throat_id, (pore_id + nT))
 
 
-@nb.njit
+@nb.njit(cache=True)
 def cluster_update_connections(
     parent_array,
     nP,
@@ -350,7 +350,7 @@ class Wqupc:
         )
 
 
-@nb.njit
+@nb.njit(cache=True)
 def wqupc_find(p, parent_array):
     root = p
     while root != parent_array[root]:
@@ -365,7 +365,7 @@ def wqupc_find(p, parent_array):
     return root
 
 
-@nb.njit
+@nb.njit(cache=True)
 def wqupc_union(p, q, parent_array, size_array):
     # Find the roots of the elements p and q
     rootP = wqupc_find(p, parent_array)
@@ -382,7 +382,7 @@ def wqupc_union(p, q, parent_array, size_array):
         size_array[rootP] += size_array[rootQ]
 
 
-@nb.njit
+@nb.njit(cache=True)
 def wqupc_reset(parent_array, size_array, nP, nT):
     for i in range(nP + nT):
         parent_array[i] = i

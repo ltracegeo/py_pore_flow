@@ -11,7 +11,7 @@ def set_seed(seed):
     numba_set_seed(seed)
 
 
-@nb.njit
+@nb.njit(cache=True)
 def numba_set_seed(seed):
     np.random.seed(seed)
 

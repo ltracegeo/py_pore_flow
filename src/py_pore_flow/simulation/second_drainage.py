@@ -94,13 +94,13 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
         )
 
     @staticmethod
-    @nb.njit
+    @nb.njit(cache=True)
     def __set_snap_off_viability(snap_off_viability, corner_oil_layer, n_conns):
         for i in range(len(snap_off_viability)):
             snap_off_viability[i] = corner_oil_layer[i][: n_conns[i]].any()
 
     @staticmethod
-    @nb.njit
+    @nb.njit(cache=True)
     def _jit_pore_throats_element_to_fill(
         pc,
         pore_id_list,
