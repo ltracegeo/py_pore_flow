@@ -18,10 +18,14 @@ class PhaseConnectionChecker:
 
         water_connection = PhaseConnectionChecker2(
             self.network.pn_core,
+            self.network.get_inlets_ids(),
+            self.network.get_outlets_ids(),
             WATER,
         )
         oil_connection = PhaseConnectionChecker2(
             self.network.pn_core,
+            self.network.get_inlets_ids(),
+            self.network.get_outlets_ids(),
             OIL,
         )
 
@@ -49,8 +53,10 @@ class PhaseConnectionChecker:
 
 
 class PhaseConnectionChecker2:
-    def __init__(self, pn, phase):
+    def __init__(self, pn, pore_inlets_ids, pore_outlets_ids, phase):
         self.pn = pn
+        self.pore_inlets_ids = pore_inlets_ids
+        self.pore_outlets_ids = pore_outlets_ids
         self.phase = phase
 
         self.wqupc = Wqupc(len(self.pn.pore.all), len(self.pn.throat.all))
@@ -124,8 +130,8 @@ class PhaseConnectionChecker2:
             self.pn.pore.n_conns,
             throat_has_phase,
             self.pn.throat.conns,
-            self.pn.pore.inlets,
-            self.pn.pore.outlets,
+            self.pore_inlets_ids,
+            self.pore_outlets_ids,
             pore_id_list,
             throat_id_list,
         )
@@ -152,8 +158,8 @@ class PhaseConnectionChecker2:
             pore_has_phase,
             throat_has_phase,
             self.pn.throat.conns,
-            self.pn.pore.inlets,
-            self.pn.pore.outlets,
+            self.pore_inlets_ids,
+            self.pore_outlets_ids,
         )
 
     @staticmethod
@@ -172,8 +178,8 @@ class PhaseConnectionChecker2:
         pore_n_conns,
         throat_has_phase,
         throat_conns,
-        pore_inlets,
-        pore_outlets,
+        pore_inlets_ids,
+        pore_outlets_ids,
         pore_id_list,
         throat_id_list,
     ):
@@ -197,8 +203,8 @@ class PhaseConnectionChecker2:
             pore_connected_to_outlet,
             throat_connected_to_inlet,
             throat_connected_to_outlet,
-            pore_inlets,
-            pore_outlets,
+            pore_inlets_ids,
+            pore_outlets_ids,
         )
 
     @staticmethod
@@ -215,8 +221,8 @@ class PhaseConnectionChecker2:
         pore_has_phase,
         throat_has_phase,
         throat_conns,
-        pore_inlets,
-        pore_outlets,
+        pore_inlets_ids,
+        pore_outlets_ids,
     ):
         cluster_create_union(
             parent_array,
@@ -234,8 +240,8 @@ class PhaseConnectionChecker2:
             pore_connected_to_outlet,
             throat_connected_to_inlet,
             throat_connected_to_outlet,
-            pore_inlets,
-            pore_outlets,
+            pore_inlets_ids,
+            pore_outlets_ids,
         )
 
 
@@ -298,21 +304,20 @@ def cluster_update_connections(
     pore_connected_to_outlet,
     throat_connected_to_inlet,
     throat_connected_to_outlet,
-    pore_inlets,
-    pore_outlets,
+    pore_inlets_ids,
+    pore_outlets_ids,
 ):
     find = lambda p: wqupc_find(p, parent_array)
 
     inlets_clusters = set()
     outlets_clusters = set()
 
-    for pore in range(nP):
-        if pore_inlets[pore] | pore_outlets[pore]:
-            cluster = find(pore + nT)
-            if pore_inlets[pore]:
-                inlets_clusters.add(cluster)
-            if pore_outlets[pore]:
-                outlets_clusters.add(cluster)
+    for pore_id in pore_inlets_ids:
+        cluster = find(pore_id + nT)
+        inlets_clusters.add(cluster)
+    for pore_id in pore_outlets_ids:
+        cluster = find(pore_id + nT)
+        outlets_clusters.add(cluster)
 
     for throat in range(nT):
         cluster = find(throat)
