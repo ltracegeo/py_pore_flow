@@ -537,9 +537,6 @@ class CycleSimulation:
         self.network = network
         self.phase = phase
 
-        self.pores_dict = self.network.get_pore_list()
-        self.throats_dict = self.network.get_throat_list()
-
         self.krel_calculator = KrelCalculator(self.network, calculate_full_conductance)
 
         self.phase_connection_checker = PhaseConnectionChecker(network, self.phase)
