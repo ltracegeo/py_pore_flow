@@ -323,6 +323,8 @@ def calculate_2nd_drainage_element_b(b, beta, max_b, theta_r, theta_a, theta_h, 
     for i in range(int(n_corners)):
         if has_water_layer[i]:
             b[i] = calculate_2nd_drainage_corner_b(b[i], beta[i], theta_r, theta_a, theta_h[i], R, Rmin)
+        else:
+            b[i] = 0
     return b
 
 
@@ -545,6 +547,8 @@ def calculate_2nd_drainage_element_bo(b, beta, max_b, theta_r, theta_a, theta_ho
     for i in range(int(n_corners)):
         if has_water_layer[i]:
             b[i] = calculate_2nd_drainage_corner_bo(b[i], beta[i], theta_r, theta_a, theta_ho[i], R)
+        else:
+            b[i] = 0
     return b
 
 
@@ -554,3 +558,40 @@ def calculate_2nd_drainage_corner_bo(b, beta, theta_r, theta_a, theta_ho, R):
         return calculate_corner_bo(beta, theta_r, R)
     else:
         return b
+
+
+@njit(cache=True)
+def calculate_multiphase_mask_drainage(is_multiphase, n_corners, b, oil_filled):
+    for i in range(len(is_multiphase)):
+        if oil_filled[i] and np.any(b[i][: n_corners[i]] > 0):
+            is_multiphase[i] = True
+
+
+@njit(cache=True)
+def calculate_multiphase_mask_imbibition(
+    is_multiphase, b, n_corners, has_oil_layer, oil_collapse_pc, water_filled, oil_filled, trapped_evacuation, pc
+):
+    for i in range(len(is_multiphase)):
+        # if trapped_evacuation[i]:
+        #     continue
+        if water_filled[i] and np.all(pc < oil_collapse_pc[i][: n_corners[i]]):
+            is_multiphase[i] = False
+        elif oil_filled[i] and np.all(b[i][: n_corners[i]] == 0):
+            is_multiphase[i] = False
+        else:
+            is_multiphase[i] = True
+
+
+@njit(cache=True)
+def calculate_multiphase_mask_2nd_drainage(
+    is_multiphase, b, bo, n_corners, has_oil_layer, water_filled, oil_filled, trapped_evacuation, pc
+):
+    for i in range(len(is_multiphase)):
+        # if trapped_evacuation[i]:
+        #     continue
+        if oil_filled[i] and np.any(b[i][: n_corners[i]] > 0):
+            is_multiphase[i] = True
+        elif water_filled[i] and np.any(has_oil_layer[i][: n_corners[i]]):
+            is_multiphase[i] = True
+        else:
+            is_multiphase[i] = False
