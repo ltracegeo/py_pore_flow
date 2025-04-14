@@ -608,6 +608,7 @@ class CycleSimulation:
 
     def update_pc(self, pc, target_sw=None):
         invasion_pc = pc
+        old_pc = pc
         total_sw_delta = 0.0
         invasion_target_sw = None
 
@@ -618,12 +619,22 @@ class CycleSimulation:
                 invasion_target_sw = target_sw - total_sw_delta
             invaded_pc = invasion_pc
             sw_delta, invasion_pc, no_invasion_left = self._update_invasions(invasion_pc, invasion_target_sw)
-            self._update_network_geometry(invaded_pc)
+            if invaded_pc * old_pc < 0:
+                # It is necessary to recalculate geometry when pressure change signal
+                self._update_network_geometry(invaded_pc)
+            self._update_multiphase_mask(invaded_pc, old_pc)
+            old_pc = invaded_pc
             total_sw_delta += sw_delta
 
             if (target_sw is None) or (total_sw_delta >= target_sw) or (no_invasion_left):
                 break
+
+        self._update_network_geometry(invaded_pc)
+
         return total_sw_delta, invaded_pc, invasion_pc, no_invasion_left
+
+    def _update_multiphase_mask(self, pc, pc_old):
+        pass
 
     def calculate_sw_total(self):
         return self.saturation_calculator.calculate_sw_total()

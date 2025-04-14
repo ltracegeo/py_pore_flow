@@ -42,6 +42,9 @@ class SubsequentCycleSimulation(CycleSimulation):
         invaded_pc = super()._update_invasions(pc, target_sw)
         return invaded_pc
 
+    def _update_multiphase_mask(self, pc, pc_old):
+        super()._update_multiphase_mask(pc, pc_old)
+
     def calculate_pore_body_filling_pc(self, r, theta_a, K, oil_filled_throats_n, throats_radii, G, h):
         pass
 

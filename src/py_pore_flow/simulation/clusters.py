@@ -65,8 +65,8 @@ class PhaseConnectionChecker2:
                 self.pn.pore.water_connected_to_outlet,
                 self.pn.throat.water_connected_to_inlet,
                 self.pn.throat.water_connected_to_outlet,
-                self.pn.pore.water_saturation > 0.0 + TRAP_TOLERANCE,
-                self.pn.throat.water_saturation > 0.0 + TRAP_TOLERANCE,
+                self.pn.pore.is_multiphase | self.pn.pore.water_filled,
+                self.pn.throat.is_multiphase | self.pn.throat.water_filled,
             )
         else:
             self.__reset_connections(
@@ -74,8 +74,8 @@ class PhaseConnectionChecker2:
                 self.pn.pore.oil_connected_to_outlet,
                 self.pn.throat.oil_connected_to_inlet,
                 self.pn.throat.oil_connected_to_outlet,
-                self.pn.pore.oil_saturation > 0.0 + TRAP_TOLERANCE,
-                self.pn.throat.oil_saturation > 0.0 + TRAP_TOLERANCE,
+                self.pn.pore.is_multiphase | self.pn.pore.oil_filled,
+                self.pn.throat.is_multiphase | self.pn.throat.oil_filled,
             )
 
     def update_connections(self, pore_id_list, throat_id_list):
@@ -85,8 +85,8 @@ class PhaseConnectionChecker2:
                 self.pn.pore.water_connected_to_outlet,
                 self.pn.throat.water_connected_to_inlet,
                 self.pn.throat.water_connected_to_outlet,
-                self.pn.pore.water_saturation > 0.0 + TRAP_TOLERANCE,
-                self.pn.throat.water_saturation > 0.0 + TRAP_TOLERANCE,
+                self.pn.pore.is_multiphase | self.pn.pore.water_filled,
+                self.pn.throat.is_multiphase | self.pn.throat.water_filled,
                 pore_id_list,
                 throat_id_list,
             )
@@ -96,8 +96,8 @@ class PhaseConnectionChecker2:
                 self.pn.pore.oil_connected_to_outlet,
                 self.pn.throat.oil_connected_to_inlet,
                 self.pn.throat.oil_connected_to_outlet,
-                self.pn.pore.oil_saturation > 0.0 + TRAP_TOLERANCE,
-                self.pn.throat.oil_saturation > 0.0 + TRAP_TOLERANCE,
+                self.pn.pore.is_multiphase | self.pn.pore.oil_filled,
+                self.pn.throat.is_multiphase | self.pn.throat.oil_filled,
                 pore_id_list,
                 throat_id_list,
             )
