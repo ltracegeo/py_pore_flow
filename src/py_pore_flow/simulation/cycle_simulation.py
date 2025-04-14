@@ -513,6 +513,10 @@ class SaturationCalculator:
         if should_update:
             element_data.water_saturation[id] = sw
             element_data.oil_saturation[id] = so
+            if sw > 0 and so > 0:
+                element_data.is_multiphase[id] = True
+            else:
+                element_data.is_multiphase[id] = False
 
         if self.phase == OIL:
             return element_data.oil_saturation[id] * element_data.volume[id] / self.total_volume
@@ -608,6 +612,7 @@ class CycleSimulation:
 
     def update_pc(self, pc, target_sw=None):
         invasion_pc = pc
+        old_pc = pc
         total_sw_delta = 0.0
 
         self._update_network_geometry(pc)
@@ -616,11 +621,24 @@ class CycleSimulation:
             invaded_pc = invasion_pc
             sw_delta, invasion_pc, no_invasion_left = self.__update_invasions(invasion_pc)
             self._update_network_geometry(invaded_pc)
+            self._update_multiphase_mask(invaded_pc, old_pc)
+            old_pc = invaded_pc
             total_sw_delta += sw_delta
 
             if (target_sw is None) or (total_sw_delta >= target_sw) or (no_invasion_left):
                 break
+
+        self._update_network_geometry(invaded_pc)
+
         return total_sw_delta, invaded_pc, invasion_pc, no_invasion_left
+
+    def _update_multiphase_mask(self, pc, pc_old):
+        self.network.pn_core.pore.is_multiphase[:] = (self.network.pn_core.pore.water_saturation > 0) & (
+            self.network.pn_core.pore.oil_saturation > 0
+        )
+        self.network.pn_core.throat.is_multiphase[:] = (self.network.pn_core.throat.water_saturation > 0) & (
+            self.network.pn_core.throat.oil_saturation > 0
+        )
 
     def calculate_sw_total(self):
         return self.saturation_calculator.calculate_sw_total()
