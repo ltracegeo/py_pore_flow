@@ -30,6 +30,7 @@ def run(
     enable_profiling,
     drainage_snapshot_pc,
     imbibition_snapshot_pc,
+    second_drainage_snapshot_pc,
 ):
     sample_directory = Path(sample_directory).as_posix()
     if enable_profiling:
@@ -46,6 +47,7 @@ def run(
             show_final_plot=show_final_plot,
             drainage_snapshot_pc=drainage_snapshot_pc,
             imbibition_snapshot_pc=imbibition_snapshot_pc,
+            second_drainage_snapshot_pc=second_drainage_snapshot_pc,
         )
 
 
@@ -58,6 +60,7 @@ def run_simulation(
     show_final_plot=True,
     drainage_snapshot_pc=None,
     imbibition_snapshot_pc=None,
+    second_drainage_snapshot_pc=None,
 ):
     network_name = ""
     my_path = Path(directory_path)
@@ -88,6 +91,7 @@ def run_simulation(
             True,
             drainage_snapshot_pc,
             imbibition_snapshot_pc,
+            second_drainage_snapshot_pc,
         )
 
 
@@ -108,6 +112,7 @@ def automatic_simulation(
     setup_network=True,
     drainage_snapshot_pc=None,
     imbibition_snapshot_pc=None,
+    second_drainage_snapshot_pc=None,
     config=None,
 ):
     start = time.time()
@@ -122,6 +127,7 @@ def automatic_simulation(
         setup_network=setup_network,
         drainage_snapshot_pc=drainage_snapshot_pc,
         imbibition_snapshot_pc=imbibition_snapshot_pc,
+        second_drainage_snapshot_pc=second_drainage_snapshot_pc,
         config=config,
     )
 
@@ -155,6 +161,9 @@ if __name__ == "__main__":
     arg_parser.add_argument(
         "--imbibition_snapshot_pc", type=float, default=None, help="Pc to take snapshotin imbibition cycle"
     )
+    arg_parser.add_argument(
+        "--second_drainage_snapshot_pc", type=float, default=None, help="Pc to take snapshotin imbibition cycle"
+    )
     arg_parser.add_argument("network_path", help="Path to a directory with the network statoil files")
     args = arg_parser.parse_args()
 
@@ -171,6 +180,7 @@ if __name__ == "__main__":
         enable_profiling = args.prof
         drainage_snapshot_pc = args.drainage_snapshot_pc
         imbibition_snapshot_pc = args.imbibition_snapshot_pc
+        second_drainage_snapshot_pc = args.second_drainage_snapshot_pc
 
         sample_directory = args.network_path
         run(
@@ -182,4 +192,5 @@ if __name__ == "__main__":
             enable_profiling,
             drainage_snapshot_pc,
             imbibition_snapshot_pc,
+            second_drainage_snapshot_pc,
         )

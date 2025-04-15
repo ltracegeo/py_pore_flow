@@ -43,6 +43,7 @@ def run_two_phase_simulation(
     setup_network=True,
     drainage_snapshot_pc=None,
     imbibition_snapshot_pc=None,
+    second_drainage_snapshot_pc=None,
     config=None,
 ):
     previous_limit = sys.getrecursionlimit()
@@ -67,16 +68,21 @@ def run_two_phase_simulation(
         setup_network,
         drainage_snapshot_pc,
         imbibition_snapshot_pc,
+        second_drainage_snapshot_pc,
         config,
     )
 
-    if not config or not config["skip_drainage"]:
+    skip_drainage = config is not None and config["skip_drainage"]
+    skip_imbibition = simulation.parameter_manager.skip_imbibition or config is not None and config["skip_imbibition"]
+    skip_2nd_drainage = simulation.parameter_manager.skip_2nd_drainage
+
+    if not skip_drainage:
         Pc[0], Sw[0], Krw[0], Kro[0] = simulation.run_drainage()
         cycle[0] = [1] * len(Pc[0])
-    if not simulation.parameter_manager.skip_imbibition:
+    if not skip_imbibition:
         Pc[1], Sw[1], Krw[1], Kro[1] = simulation.run_imbibition()
         cycle[1] = [2] * len(Pc[1])
-    if not simulation.parameter_manager.skip_2nd_drainage:
+    if not skip_2nd_drainage:
         Pc[2], Sw[2], Krw[2], Kro[2] = simulation.run_2nd_drainage()
         cycle[2] = [3] * len(Pc[2])
 
@@ -105,11 +111,13 @@ class Simulation:
         setup_network=True,
         drainage_snapshot_pc=None,
         imbibition_snapshot_pc=None,
+        second_drainage_snapshot_pc=None,
         config=None,
     ):
         self.pn = pn
         self.drainage_snapshot_pc = drainage_snapshot_pc
         self.imbibition_snapshot_pc = imbibition_snapshot_pc
+        self.second_drainage_snapshot_pc = second_drainage_snapshot_pc
         generate_cas = generate_cas
         set_initial_values = setup_network
 
@@ -230,16 +238,25 @@ class Simulation:
 
     def __check_snapshot(self, cycle_name, current_pc):
         if (
-            isinstance(self.drainage_snapshot_pc, int)
-            or isinstance(self.drainage_snapshot_pc, float)
-            and self.snapshot_not_taken
-            and cycle_name == "drainage"
-            and current_pc >= self.drainage_snapshot_pc
-        ) or (
-            self.imbibition_snapshot_pc is not None
-            and self.snapshot_not_taken
-            and cycle_name == "imbibition"
-            and current_pc <= self.imbibition_snapshot_pc
+            (
+                isinstance(self.drainage_snapshot_pc, int)
+                or isinstance(self.drainage_snapshot_pc, float)
+                and self.snapshot_not_taken
+                and cycle_name == "drainage"
+                and current_pc >= self.drainage_snapshot_pc
+            )
+            or (
+                self.imbibition_snapshot_pc is not None
+                and self.snapshot_not_taken
+                and cycle_name == "imbibition"
+                and current_pc <= self.imbibition_snapshot_pc
+            )
+            or (
+                self.second_drainage_snapshot_pc is not None
+                and self.snapshot_not_taken
+                and cycle_name == "2nd_drainage"
+                and current_pc >= self.second_drainage_snapshot_pc
+            )
         ):
             snapshot_dict = self.step_simulation.get_snapshot(current_pc)
             self.__save_snapshot(snapshot_dict)
@@ -628,8 +645,13 @@ class StepSimulation:
         config = {}
         if snapshot_dict["cycle"] == "imbibition":
             config["skip_drainage"] = True
+            config["skip_imbibition"] = False
+        elif snapshot_dict["cycle"] == "2nd_drainage":
+            config["skip_drainage"] = True
+            config["skip_imbibition"] = True
         else:
             config["skip_drainage"] = False
+            config["skip_imbibition"] = False
         config["pc"] = snapshot_dict["pc"]
         config["max_pc"] = snapshot_dict["max_pc"]
 
