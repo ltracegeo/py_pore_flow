@@ -323,29 +323,10 @@ class SubsequentCycleSimulation(CycleSimulation):
 
 class SubsequentSaturation(SaturationCalculator):
     def __init__(self, network, phase):
-        super().__init__(network)
-        self.phase = phase
+        super().__init__(network, phase)
 
-    def update_saturations(self, pc):
-        self.__update_imbibition_saturations()
-
-    def update_element_saturations(self, type_name, id, pc):
-        if type_name == "pore":
-            element_data = self.network.pn_core.pore
-        else:
-            element_data = self.network.pn_core.throat
-
-        self.__update_imbibition_element_saturations(type_name, id)
-        if self.phase == OIL:
-            return element_data.oil_saturation[id] * element_data.volume[id] / self.total_volume
-        else:
-            return element_data.water_saturation[id] * element_data.volume[id] / self.total_volume
-
-    def __update_imbibition_saturations(self):
-        (
-            self.network.pn_core["pore.water_saturation"],
-            self.network.pn_core["pore.oil_saturation"],
-        ) = calculate_imbibition_network_saturation(
+    def _get_pores_saturations(self, pc):
+        return calculate_imbibition_network_saturation(
             self.network.pn_core.pore.area,
             self.network.pn_core.pore.oil_filled,
             self.network.pn_core.pore.advancing_contact_angle,
@@ -356,10 +337,9 @@ class SubsequentSaturation(SaturationCalculator):
             self.network.pn_core.pore.n_corners,
             self.network.pn_core.pore.corner_oil_layer,
         )
-        (
-            self.network.pn_core["throat.water_saturation"],
-            self.network.pn_core["throat.oil_saturation"],
-        ) = calculate_imbibition_network_saturation(
+
+    def _get_throats_saturations(self, pc):
+        return calculate_imbibition_network_saturation(
             self.network.pn_core.throat.cross_sectional_area,
             self.network.pn_core.throat.oil_filled,
             self.network.pn_core.throat.advancing_contact_angle,
@@ -371,7 +351,7 @@ class SubsequentSaturation(SaturationCalculator):
             self.network.pn_core.throat.corner_oil_layer,
         )
 
-    def __update_imbibition_element_saturations(self, type_name, id):
+    def _get_element_saturations(self, type_name, id, pc):
         if type_name == "pore":
             element_data = self.network.pn_core.pore
             area = self.network.pn_core.pore.area[id]
@@ -379,7 +359,7 @@ class SubsequentSaturation(SaturationCalculator):
             element_data = self.network.pn_core.throat
             area = self.network.pn_core.throat.cross_sectional_area[id]
 
-        (element_data.water_saturation[id], element_data.oil_saturation[id],) = calculate_imbibition_element_saturation(
+        return calculate_imbibition_element_saturation(
             area,
             element_data.oil_filled[id],
             element_data.advancing_contact_angle[id],

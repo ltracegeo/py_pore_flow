@@ -465,19 +465,63 @@ class KrelCalculator:
 
 
 class SaturationCalculator:
-    def __init__(self, network):
+    def __init__(self, network, phase):
         self.network = network
+        self.phase = phase
+
         self.total_volume = (self.network.pn_core.pore.volume * self.network.pn_core.pore.N).sum() + (
             self.network.pn_core.throat.volume * self.network.pn_core.throat.N
         ).sum()
 
-    @abstractmethod
     def update_saturations(self, pc):
+        pore_sw, pore_so = self._get_pores_saturations(pc)
+        if self.phase == WATER:
+            update_mask = pore_sw > self.network.pn_core.pore.water_saturation
+        else:
+            update_mask = pore_so > self.network.pn_core.pore.oil_saturation
+        self.network.pn_core.pore.water_saturation[update_mask] = pore_sw[update_mask]
+        self.network.pn_core.pore.oil_saturation[update_mask] = pore_so[update_mask]
+
+        throat_sw, throat_so = self._get_throats_saturations(pc)
+        if self.phase == WATER:
+            update_mask = throat_sw > self.network.pn_core.throat.water_saturation
+        else:
+            update_mask = throat_so > self.network.pn_core.throat.oil_saturation
+        self.network.pn_core.throat.water_saturation[update_mask] = throat_sw[update_mask]
+        self.network.pn_core.throat.oil_saturation[update_mask] = throat_so[update_mask]
+
+    @abstractmethod
+    def _get_pores_saturations(self, pc):
         pass
 
     @abstractmethod
-    def update_element_saturations(self, type_name, id, pc):
+    def _get_throats_saturations(self, pc):
         pass
+
+    @abstractmethod
+    def _get_element_saturations(self, type_name, id, pc):
+        pass
+
+    def update_element_saturations(self, type_name, id, pc):
+        if type_name == "pore":
+            element_data = self.network.pn_core.pore
+        else:
+            element_data = self.network.pn_core.throat
+
+        sw, so = self._get_element_saturations(type_name, id, pc)
+        if self.phase == WATER:
+            should_update = sw > element_data.water_saturation[id]
+        else:
+            should_update = so > element_data.oil_saturation[id]
+
+        if should_update:
+            element_data.water_saturation[id] = sw
+            element_data.oil_saturation[id] = so
+
+        if self.phase == OIL:
+            return element_data.oil_saturation[id] * element_data.volume[id] / self.total_volume
+        else:
+            return element_data.water_saturation[id] * element_data.volume[id] / self.total_volume
 
     def calculate_sw_total(self):
         return calculate_sw_total(

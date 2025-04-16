@@ -72,35 +72,19 @@ class DrainageSimulation(CycleSimulation):
 
 class DrainageSaturation(SaturationCalculator):
     def __init__(self, network):
-        super().__init__(network)
+        super().__init__(network, OIL)
 
-    def update_saturations(self, pc):
-        self.__update_drainage_saturations(pc)
-
-    def update_element_saturations(self, type_name, id, pc):
-        if type_name == "pore":
-            element_data = self.network.pn_core.pore
-        else:
-            element_data = self.network.pn_core.throat
-
-        self.__update_drainage_element_saturations(type_name, id, pc)
-        return element_data.oil_saturation[id] * element_data.volume[id] / self.total_volume
-
-    def __update_drainage_saturations(self, pc):
-        (
-            self.network.pn_core["pore.water_saturation"],
-            self.network.pn_core["pore.oil_saturation"],
-        ) = calculate_drainage_network_saturation(
+    def _get_pores_saturations(self, pc):
+        return calculate_drainage_network_saturation(
             self.network.pn_core.pore.shape,
             self.network.pn_core.pore.C_r,
             pc,
             self.network.pn_core.pore.area,
             self.network.pn_core.pore.oil_filled,
         )
-        (
-            self.network.pn_core["throat.water_saturation"],
-            self.network.pn_core["throat.oil_saturation"],
-        ) = calculate_drainage_network_saturation(
+
+    def _get_throats_saturations(self, pc):
+        return calculate_drainage_network_saturation(
             self.network.pn_core.throat.shape,
             self.network.pn_core.throat.C_r,
             pc,
@@ -108,7 +92,7 @@ class DrainageSaturation(SaturationCalculator):
             self.network.pn_core.throat.oil_filled,
         )
 
-    def __update_drainage_element_saturations(self, type_name, id, pc):
+    def _get_element_saturations(self, type_name, id, pc):
         if type_name == "pore":
             element_data = self.network.pn_core.pore
             area = self.network.pn_core.pore.area[id]
@@ -116,7 +100,7 @@ class DrainageSaturation(SaturationCalculator):
             element_data = self.network.pn_core.throat
             area = self.network.pn_core.throat.cross_sectional_area[id]
 
-        (element_data.water_saturation[id], element_data.oil_saturation[id],) = calculate_drainage_element_saturation(
+        return calculate_drainage_element_saturation(
             element_data.shape[id],
             element_data.C_r[id],
             pc,
