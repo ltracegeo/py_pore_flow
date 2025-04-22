@@ -183,14 +183,23 @@ if __name__ == "__main__":
         second_drainage_snapshot_pc = args.second_drainage_snapshot_pc
 
         sample_directory = args.network_path
-        run(
-            sample_directory,
-            manual,
-            generate_vtu,
-            debug,
-            show_final_plot,
-            enable_profiling,
-            drainage_snapshot_pc,
-            imbibition_snapshot_pc,
-            second_drainage_snapshot_pc,
+
+        import threading
+
+        threading.stack_size(10 * 1024 * 1024)
+        thread = threading.Thread(
+            target=run,
+            args=(
+                sample_directory,
+                manual,
+                generate_vtu,
+                debug,
+                show_final_plot,
+                enable_profiling,
+                drainage_snapshot_pc,
+                imbibition_snapshot_pc,
+                second_drainage_snapshot_pc,
+            ),
         )
+        thread.start()
+        thread.join()
