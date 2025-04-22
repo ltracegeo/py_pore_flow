@@ -102,6 +102,24 @@ class PhaseConnectionChecker2:
                 throat_id_list,
             )
 
+    def delete_connections(self, element_type, element_id, last_cluster_id):
+        element_conns = None
+        element_n_conns = None
+        neighbor_has_phase = None
+        neighbor_scanned = None
+        neighbor_connected = None
+
+        current_last_cluster_id = last_cluster_id
+        if element_type == PORE:
+            previous_cluster = self.pore_cluster[element_id]
+            self.pore_cluster[element_id] = -1
+
+            ############################
+
+        else:
+            pass
+        return current_last_cluster_id
+
     def __update_connections(
         self,
         pore_connected_to_inlet,
@@ -531,3 +549,41 @@ def wqupc_reset(parent_array, size_array, nP, nT):
     for i in range(nP + nT):
         parent_array[i] = i
         size_array[i] = 1
+
+
+def scan_element(
+    element_id,
+    element_conns,
+    element_n_conns,
+    element_has_phase,
+    element_scanned,
+    element_connected,
+    neighbor_conns,
+    neighbor_n_conns,
+    neighbor_has_phase,
+    neighbor_scanned,
+    neighbor_connected,
+    looking_elements,
+):
+    conns = element_conns[element_id][:element_n_conns]
+    for neighbor_id in conns:
+        if neighbor_has_phase[neighbor_id] and not neighbor_scanned[neighbor_id]:
+            neighbor_scanned[neighbor_id] = True
+
+            if neighbor_connected[neighbor_id] or neighbor_scanned[looking_elements].all():
+                neighbor_connected[neighbor_scanned] = True
+                finished_cluster = True
+            else:
+                finished_cluster = scan_element(
+                    neighbor_id,
+                    neighbor_conns,
+                    neighbor_n_conns,
+                    element_has_phase,
+                    element_scanned,
+                    element_connected,
+                    looking_elements,
+                )
+
+            if finished_cluster:
+                return True
+    return False
