@@ -31,6 +31,9 @@ def calculate_element_multiphase_oil_conductivity(bi, bo, beta, theta_i, theta_o
 
 @njit
 def calculate_dimensionless_layer_conductivity(bi, bo, beta, theta_i, theta_o):
+    if bo == 0:
+        return 0
+
     b_tilde = bi / bo
 
     Al = calculate_dimensionless_layer_area(b_tilde, beta, theta_i, theta_o)
