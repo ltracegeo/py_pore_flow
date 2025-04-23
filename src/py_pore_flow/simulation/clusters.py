@@ -102,23 +102,53 @@ class PhaseConnectionChecker2:
                 throat_id_list,
             )
 
-    def delete_connections(self, element_type, element_id, last_cluster_id):
-        element_conns = None
-        element_n_conns = None
-        neighbor_has_phase = None
-        neighbor_scanned = None
-        neighbor_connected = None
-
-        current_last_cluster_id = last_cluster_id
+    def __delete_connections(self, element_type, element_id):
         if element_type == PORE:
             previous_cluster = self.pore_cluster[element_id]
             self.pore_cluster[element_id] = -1
 
-            ############################
+            pore_to_scan = self.pore_cluster == previous_cluster
+            pores_to_find = np.where((self.pn.pore.inlets | self.pn.pore.outlets) & pore_to_scan)[0]
+            throat_to_scan = self.throat_cluster == previous_cluster
+            throats_to_find = np.array([])
 
+            self.max_cluster_id = reorder_clusters(
+                element_id,
+                self.pn.pore.conns,
+                self.pn.pore.n_conns,
+                pore_to_scan,
+                self.pore_cluster,
+                pores_to_find,
+                self.pn.throat.conns,
+                self.pn.throat.n_conns,
+                throat_to_scan,
+                self.throat_cluster,
+                throats_to_find,
+                self.max_cluster_id,
+            )
         else:
-            pass
-        return current_last_cluster_id
+            previous_cluster = self.throat_cluster[element_id]
+            self.throat_cluster[element_id] = -1
+
+            pore_to_scan = self.pore_cluster == previous_cluster
+            pores_to_find = np.where((self.pn.pore.inlets | self.pn.pore.outlets) & pore_to_scan)[0]
+            throat_to_scan = self.throat_cluster == previous_cluster
+            throats_to_find = np.array([])
+
+            self.max_cluster_id = reorder_clusters(
+                element_id,
+                self.pn.throat.conns,
+                self.pn.throat.n_conns,
+                throat_to_scan,
+                self.throat_cluster,
+                throats_to_find,
+                self.pn.pore.conns,
+                self.pn.pore.n_conns,
+                pore_to_scan,
+                self.pore_cluster,
+                pores_to_find,
+                self.max_cluster_id,
+            )
 
     def __update_connections(
         self,
@@ -558,19 +588,22 @@ def scan_element(
     element_has_phase,
     element_scanned,
     element_connected,
+    elements_to_find,
     neighbor_conns,
     neighbor_n_conns,
     neighbor_has_phase,
     neighbor_scanned,
     neighbor_connected,
-    looking_elements,
+    neighbors_to_find,
 ):
     conns = element_conns[element_id][:element_n_conns]
     for neighbor_id in conns:
         if neighbor_has_phase[neighbor_id] and not neighbor_scanned[neighbor_id]:
             neighbor_scanned[neighbor_id] = True
 
-            if neighbor_connected[neighbor_id] or neighbor_scanned[looking_elements].all():
+            if neighbor_connected[neighbor_id] or (
+                len(neighbors_to_find) > 0 and neighbor_scanned[neighbors_to_find].all()
+            ):
                 neighbor_connected[neighbor_scanned] = True
                 finished_cluster = True
             else:
@@ -578,12 +611,73 @@ def scan_element(
                     neighbor_id,
                     neighbor_conns,
                     neighbor_n_conns,
+                    neighbor_has_phase,
+                    neighbor_scanned,
+                    neighbor_connected,
+                    neighbors_to_find,
+                    element_conns,
+                    element_n_conns,
                     element_has_phase,
                     element_scanned,
                     element_connected,
-                    looking_elements,
+                    elements_to_find,
                 )
 
             if finished_cluster:
                 return True
     return False
+
+
+def reorder_clusters(
+    element_id,
+    element_conns,
+    element_n_conns,
+    element_to_scan,
+    element_cluster,
+    elements_to_find,
+    neighbor_conns,
+    neighbor_n_conns,
+    neighbor_to_scan,
+    neighbor_cluster,
+    neighbors_to_find,
+    max_cluster_id,
+):
+    number_of_elements = len(element_to_scan)
+    number_of_neighbors = len(neighbor_to_scan)
+
+    element_scanned_general = np.full(number_of_elements, False, np.bool_)
+    element_connected = np.full(number_of_elements, False, np.bool_)
+    neighbor_scanned_general = np.full(number_of_neighbors, False, np.bool_)
+    neighbor_connected = np.full(number_of_neighbors, False, np.bool_)
+
+    conns = element_conns[element_id][:element_n_conns]
+    for neighbor_id in conns:
+        if not neighbor_scanned_general[neighbor_id]:
+            element_scanned = np.full(number_of_elements, False, np.bool_)
+            neighbor_scanned = np.full(number_of_neighbors, False, np.bool_)
+            found = scan_element(
+                neighbor_id,
+                neighbor_conns,
+                neighbor_n_conns,
+                neighbor_to_scan,
+                neighbor_scanned,
+                neighbor_connected,
+                neighbors_to_find,
+                element_conns,
+                element_n_conns,
+                element_to_scan,
+                element_scanned,
+                element_connected,
+                elements_to_find,
+            )
+            if not found:
+                if element_scanned[elements_to_find].any() or neighbor_scanned[neighbors_to_find].any():
+                    max_cluster_id += 1
+                    element_cluster[element_scanned] = max_cluster_id
+                    neighbor_cluster[neighbor_scanned] = max_cluster_id
+                else:
+                    element_cluster[element_scanned] = -1
+                    neighbor_cluster[neighbor_scanned] = -1
+            element_scanned_general |= element_scanned
+            neighbor_scanned_general |= neighbor_scanned
+    return max_cluster_id
