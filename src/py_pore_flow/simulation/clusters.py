@@ -102,54 +102,6 @@ class PhaseConnectionChecker2:
                 throat_id_list,
             )
 
-    def __delete_connections(self, element_type, element_id):
-        if element_type == PORE:
-            previous_cluster = self.pore_cluster[element_id]
-            self.pore_cluster[element_id] = -1
-
-            pore_to_scan = self.pore_cluster == previous_cluster
-            pores_to_find = np.where((self.pn.pore.inlets | self.pn.pore.outlets) & pore_to_scan)[0]
-            throat_to_scan = self.throat_cluster == previous_cluster
-            throats_to_find = np.array([])
-
-            self.max_cluster_id = reorder_clusters(
-                element_id,
-                self.pn.pore.conns,
-                self.pn.pore.n_conns,
-                pore_to_scan,
-                self.pore_cluster,
-                pores_to_find,
-                self.pn.throat.conns,
-                self.pn.throat.n_conns,
-                throat_to_scan,
-                self.throat_cluster,
-                throats_to_find,
-                self.max_cluster_id,
-            )
-        else:
-            previous_cluster = self.throat_cluster[element_id]
-            self.throat_cluster[element_id] = -1
-
-            pore_to_scan = self.pore_cluster == previous_cluster
-            pores_to_find = np.where((self.pn.pore.inlets | self.pn.pore.outlets) & pore_to_scan)[0]
-            throat_to_scan = self.throat_cluster == previous_cluster
-            throats_to_find = np.array([])
-
-            self.max_cluster_id = reorder_clusters(
-                element_id,
-                self.pn.throat.conns,
-                self.pn.throat.n_conns,
-                throat_to_scan,
-                self.throat_cluster,
-                throats_to_find,
-                self.pn.pore.conns,
-                self.pn.pore.n_conns,
-                pore_to_scan,
-                self.pore_cluster,
-                pores_to_find,
-                self.max_cluster_id,
-            )
-
     def __update_connections(
         self,
         pore_connected_to_inlet,
@@ -305,6 +257,76 @@ class PhaseConnectionChecker2:
             pore_inlets,
             pore_outlets,
         )
+
+
+class ReductiblePhaseConnectionChecker2:
+    def __init__(self, pn, phase):
+        super().__init__(pn, phase)
+
+    def reverse_connections(self, element_type, element_id):
+        self.__delete_connections(element_type, element_id)
+        cluster_update_connections(
+            parent_array,
+            nP,
+            nT,
+            pore_connected_to_inlet,
+            pore_connected_to_outlet,
+            pore_cluster,
+            pore_conns,
+            pore_n_conns,
+            throat_connected_to_inlet,
+            throat_connected_to_outlet,
+            throat_cluster,
+            throat_conns,
+            pore_inlets,
+            pore_outlets,
+            pore_id_list,
+            throat_id_list,
+        )
+
+    def __delete_connections(self, element_type, element_id):
+        if element_type == PORE:
+            previous_cluster = self.pore_cluster[element_id]
+            self.pore_cluster[element_id] = -1
+        else:
+            previous_cluster = self.throat_cluster[element_id]
+            self.throat_cluster[element_id] = -1
+        
+        pore_to_scan = self.pore_cluster == previous_cluster
+        pores_to_find = np.where((self.pn.pore.inlets | self.pn.pore.outlets) & pore_to_scan)[0]
+        throat_to_scan = self.throat_cluster == previous_cluster
+        throats_to_find = np.array([])
+
+        if element_type == PORE:
+            self.max_cluster_id = reorder_clusters(
+                element_id,
+                self.pn.pore.conns,
+                self.pn.pore.n_conns,
+                pore_to_scan,
+                self.pore_cluster,
+                pores_to_find,
+                self.pn.throat.conns,
+                self.pn.throat.n_conns,
+                throat_to_scan,
+                self.throat_cluster,
+                throats_to_find,
+                self.max_cluster_id,
+            )
+        else:
+            self.max_cluster_id = reorder_clusters(
+                element_id,
+                self.pn.throat.conns,
+                self.pn.throat.n_conns,
+                throat_to_scan,
+                self.throat_cluster,
+                throats_to_find,
+                self.pn.pore.conns,
+                self.pn.pore.n_conns,
+                pore_to_scan,
+                self.pore_cluster,
+                pores_to_find,
+                self.max_cluster_id,
+            )
 
 
 @nb.njit(cache=True)
