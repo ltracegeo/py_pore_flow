@@ -263,26 +263,14 @@ class ReductiblePhaseConnectionChecker2:
     def __init__(self, pn, phase):
         super().__init__(pn, phase)
 
+        self.pore_old_cluster = None
+        self.throat_old_cluster = None
+
     def reverse_connections(self, element_type, element_id):
+        self.pore_old_cluster = self.pore_cluster.copy()
+        self.throat_old_cluster = self.throat_cluster.copy()
         self.__delete_connections(element_type, element_id)
-        cluster_update_connections(
-            parent_array,
-            nP,
-            nT,
-            pore_connected_to_inlet,
-            pore_connected_to_outlet,
-            pore_cluster,
-            pore_conns,
-            pore_n_conns,
-            throat_connected_to_inlet,
-            throat_connected_to_outlet,
-            throat_cluster,
-            throat_conns,
-            pore_inlets,
-            pore_outlets,
-            pore_id_list,
-            throat_id_list,
-        )
+        self.__update_element_connection(element_type, element_id)
 
     def __delete_connections(self, element_type, element_id):
         if element_type == PORE:
@@ -291,7 +279,7 @@ class ReductiblePhaseConnectionChecker2:
         else:
             previous_cluster = self.throat_cluster[element_id]
             self.throat_cluster[element_id] = -1
-        
+
         pore_to_scan = self.pore_cluster == previous_cluster
         pores_to_find = np.where((self.pn.pore.inlets | self.pn.pore.outlets) & pore_to_scan)[0]
         throat_to_scan = self.throat_cluster == previous_cluster
@@ -326,6 +314,90 @@ class ReductiblePhaseConnectionChecker2:
                 self.pore_cluster,
                 pores_to_find,
                 self.max_cluster_id,
+            )
+
+    def __update_element_connection(self, element_type, element_id):
+        self.__njit_update_element_connection(
+            element_type,
+            element_id,
+            self.pn.pore.connected_to_inlet,
+            self.pn.pore.connected_to_outlet,
+            self.pore_old_cluster,
+            self.pore_cluster,
+            self.pn.pore.conns,
+            self.pn.pore.n_conns,
+            self.pn.throat.connected_to_inlet,
+            self.pn.throat.connected_to_outlet,
+            self.throat_old_cluster,
+            self.throat_cluster,
+            self.pn.throat.conns,
+            self.pn.throat.n_conns,
+            self.pn.pore.inlets,
+            self.pn.pore.outlets,
+        )
+
+    def __njit_update_element_connection(
+        element_type,
+        element_id,
+        pore_connected_to_inlet,
+        pore_connected_to_outlet,
+        pore_old_cluster,
+        pore_cluster,
+        pore_conns,
+        pore_n_conns,
+        throat_connected_to_inlet,
+        throat_connected_to_outlet,
+        throat_old_cluster,
+        throat_cluster,
+        throat_conns,
+        throat_n_conns,
+        pore_inlets,
+        pore_outlets,
+    ):
+        inlets_clusters = set()
+        outlets_clusters = set()
+
+        for pore_id in range(len(pore_connected_to_inlet)):
+            if pore_inlets[pore_id] | pore_outlets[pore_id]:
+                cluster = pore_cluster[pore_id]
+                if pore_inlets[pore_id]:
+                    inlets_clusters.add(cluster)
+                if pore_outlets[pore_id]:
+                    outlets_clusters.add(cluster)
+
+        if element_type == PORE:
+            non_wqupc_update_element_connection(
+                element_id,
+                pore_connected_to_inlet,
+                pore_connected_to_outlet,
+                pore_old_cluster,
+                pore_cluster,
+                pore_conns,
+                pore_n_conns,
+                throat_connected_to_inlet,
+                throat_connected_to_outlet,
+                throat_old_cluster,
+                throat_cluster,
+                throat_conns,
+                inlets_clusters,
+                outlets_clusters,
+            )
+        else:
+            non_wqupc_update_element_connection(
+                element_id,
+                throat_connected_to_inlet,
+                throat_connected_to_outlet,
+                throat_old_cluster,
+                throat_cluster,
+                throat_conns,
+                throat_n_conns,
+                pore_connected_to_inlet,
+                pore_connected_to_outlet,
+                pore_old_cluster,
+                pore_cluster,
+                pore_conns,
+                inlets_clusters,
+                outlets_clusters,
             )
 
 
@@ -703,3 +775,51 @@ def reorder_clusters(
             element_scanned_general |= element_scanned
             neighbor_scanned_general |= neighbor_scanned
     return max_cluster_id
+
+
+@nb.njit(cache=True)
+def non_wqupc_update_element_connection(
+    element_id,
+    element_connected_to_inlet,
+    element_connected_to_outlet,
+    element_cluster,
+    element_new_cluster,
+    element_conns,
+    element_n_conns,
+    neighbor_connected_to_inlet,
+    neighbor_connected_to_outlet,
+    neighbor_cluster,
+    neighbor_new_cluster,
+    inlets_clusters,
+    outlets_clusters,
+):
+    cluster = element_new_cluster[element_id]
+    element_cluster[element_id] = cluster
+
+    element_in_changed_cluster = np.where(element_cluster == cluster)[0]
+    neighbor_in_changed_cluster = np.where(neighbor_cluster == cluster)[0]
+
+    inlets_in_cluster = cluster in inlets_clusters
+    outlets_in_cluster = cluster in outlets_clusters
+
+    for element_type_id in element_in_changed_cluster:
+        element_connected_to_inlet[element_type_id] = inlets_in_cluster
+        element_connected_to_outlet[element_type_id] = outlets_in_cluster
+
+    for neighbor_type_id in neighbor_in_changed_cluster:
+        neighbor_connected_to_inlet[neighbor_type_id] = inlets_in_cluster
+        neighbor_connected_to_outlet[neighbor_type_id] = outlets_in_cluster
+
+    for neighbor_id in element_conns[element_id][: element_n_conns[element_id]]:
+        old_cluster = neighbor_cluster[neighbor_id]
+        new_cluster = neighbor_new_cluster[neighbor_id]
+        if new_cluster != old_cluster:
+            element_in_changed_cluster = np.where(element_cluster == old_cluster)[0]
+            element_cluster[np.where(element_cluster == old_cluster)[0]] = new_cluster
+            element_connected_to_inlet[element_in_changed_cluster] = new_cluster in inlets_clusters
+            element_connected_to_outlet[element_in_changed_cluster] = new_cluster in outlets_clusters
+
+            neighbor_in_changed_cluster = np.where(neighbor_cluster == old_cluster)[0]
+            neighbor_cluster[np.where(neighbor_cluster == old_cluster)[0]] = new_cluster
+            neighbor_connected_to_inlet[neighbor_in_changed_cluster] = new_cluster in inlets_clusters
+            neighbor_connected_to_outlet[neighbor_in_changed_cluster] = new_cluster in outlets_clusters
