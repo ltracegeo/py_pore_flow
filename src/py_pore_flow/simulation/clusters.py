@@ -324,9 +324,9 @@ class ReductiblePhaseConnectionChecker2(PhaseConnectionChecker2):
             self.throat_cluster[element_id] = -1
 
         pore_to_scan = self.pore_cluster == previous_cluster
-        pores_to_find = np.where((self.pn.pore.inlets | self.pn.pore.outlets) & pore_to_scan)[0]
+        pores_to_find = np.where((self.pn.pore.inlets | self.pn.pore.outlets) & pore_to_scan)[0].astype(np.int32)
         throat_to_scan = self.throat_cluster == previous_cluster
-        throats_to_find = np.empty(0, np.int64)
+        throats_to_find = np.empty(0, np.int32)
 
         if element_type == PORE:
             self.max_cluster_id = reorder_clusters(
@@ -718,6 +718,24 @@ def wqupc_reset(parent_array, size_array, nP, nT):
         size_array[i] = 1
 
 
+@nb.njit(
+    nb.bool_(
+        nb.int32,
+        nb.int32[:, :],
+        nb.int32[:],
+        nb.bool_[:],
+        nb.bool_[:],
+        nb.bool_[:],
+        nb.int32[:],
+        nb.int32[:, :],
+        nb.int32[:],
+        nb.bool_[:],
+        nb.bool_[:],
+        nb.bool_[:],
+        nb.int32[:],
+    ),
+    cache=True,
+)
 def scan_element(
     element_id,
     element_conns,
@@ -765,6 +783,7 @@ def scan_element(
     return False
 
 
+@nb.njit(cache=True)
 def reorder_clusters(
     element_id,
     element_conns,
