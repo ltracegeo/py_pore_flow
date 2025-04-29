@@ -71,9 +71,9 @@ class PhaseConnectionChecker:
             + self.network.pn_core.throat.oil_connected_to_outlet.sum()
         )
 
-        print(
-            f"water (in: {water_connected_inlet}, out: {water_connected_water}) | oil (in: {oil_connected_inlet}, out: {oil_connected_oil})"
-        )
+        # print(
+        #     f"water (in: {water_connected_inlet}, out: {water_connected_water}) | oil (in: {oil_connected_inlet}, out: {oil_connected_oil})"
+        # )
 
 
 class PhaseConnectionChecker2:
@@ -304,7 +304,6 @@ class ReductiblePhaseConnectionChecker2(PhaseConnectionChecker2):
         super().reset_connections()
 
         self.max_cluster_id = max(self.pore_cluster.max(), self.throat_cluster.max())
-        print("MAX CLUSTER!!!!!!!!!!!", self.max_cluster_id)
 
     def update_connections(self, pore_id_list, throat_id_list):
         # self.reset_connections()
@@ -332,7 +331,9 @@ class ReductiblePhaseConnectionChecker2(PhaseConnectionChecker2):
         for throat_id in np.where(throat_has_phase_diff)[0]:
             self.__delete_connections(THROAT, throat_id)
 
-        modified_clusters = get_modified_cluester(self.pore_old_cluster, self.throat_old_cluster, self.pore_cluster, self.throat_cluster)
+        modified_clusters = get_modified_cluester(
+            self.pore_old_cluster, self.throat_old_cluster, self.pore_cluster, self.throat_cluster
+        )
         self.__update_element_connection(modified_clusters)
         # pore_cluster_diff = self.pore_old_cluster != self.pore_cluster
         # throat_cluster_diff = self.throat_old_cluster != self.throat_cluster
@@ -390,10 +391,11 @@ class ReductiblePhaseConnectionChecker2(PhaseConnectionChecker2):
 
     def __update_element_connection(self, modified_clusters):
         # from collections import Counter
-
         # counter = Counter(self.pore_cluster)
-        # filtered = {k: v for k, v in counter.items() if v > 1}
-        # print("C", filtered)
+        # pores_filtered = {k: v for k, v in counter.items() if v > 1}
+        # counter = Counter(self.throat_cluster)
+        # throats_filtered = {k: v for k, v in counter.items() if v > 1}
+        # print("C", pores_filtered, throats_filtered)
 
         if self.phase == WATER:
             self.__njit_update_element_connection(
@@ -461,8 +463,8 @@ class ReductiblePhaseConnectionChecker2(PhaseConnectionChecker2):
                     inlets_clusters.add(cluster)
                 if pore_outlets[pore_id]:
                     outlets_clusters.add(cluster)
-        
-        print("lets clusters", inlets_clusters, outlets_clusters)
+
+        # print("lets clusters", inlets_clusters, outlets_clusters)
 
         # if element_type == PORE:
         non_wqupc_update_element_connection(
@@ -496,7 +498,7 @@ class ReductiblePhaseConnectionChecker2(PhaseConnectionChecker2):
         #         inlets_clusters,
         #         outlets_clusters,
         #     )
-        print("outs", pore_connected_to_outlet.sum() + throat_connected_to_outlet.sum())
+        # print("outs", pore_connected_to_outlet.sum() + throat_connected_to_outlet.sum())
 
 
 @nb.njit(cache=True)
@@ -902,12 +904,15 @@ def non_wqupc_update_element_connection(
     outlets_clusters,
 ):
     for cluster in modified_clusters:
-        print("ROBIM", cluster)
-        element_in_changed_cluster = np.where(element_cluster == cluster)[0]
-        neighbor_in_changed_cluster = np.where(neighbor_cluster == cluster)[0]
+        element_in_changed_cluster = np.where(element_new_cluster == cluster)[0]
+        neighbor_in_changed_cluster = np.where(neighbor_new_cluster == cluster)[0]
 
         inlets_in_cluster = cluster in inlets_clusters
         outlets_in_cluster = cluster in outlets_clusters
+
+        # if cluster == 97:
+        #     print("ROBIM", cluster, "inlets_in_cluster", inlets_in_cluster, "outlets_in_cluster", outlets_in_cluster, "inlets_clusters", inlets_clusters, "outlets_clusters", outlets_clusters)
+        #     print("element_in_changed_cluster", element_in_changed_cluster, "neighbor_in_changed_cluster", neighbor_in_changed_cluster)
 
         # for element_type_id in element_in_changed_cluster:
         element_connected_to_inlet[element_in_changed_cluster] = inlets_in_cluster
