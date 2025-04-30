@@ -286,7 +286,7 @@ class ReductiblePhaseConnectionChecker2(PhaseConnectionChecker2):
 
     def update_connections(self, pore_id_list, throat_id_list):
         if False:
-            self.reset_connections()
+            super().reset_connections()
         else:
             if len(pore_id_list) > 0:
                 self.reverse_connections(PORE, pore_id_list[0])
