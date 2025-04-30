@@ -285,11 +285,13 @@ class ReductiblePhaseConnectionChecker2(PhaseConnectionChecker2):
         self.max_cluster_id = max(self.pore_cluster.max(), self.throat_cluster.max())
 
     def update_connections(self, pore_id_list, throat_id_list):
-        # self.reset_connections()
-        if len(pore_id_list) > 0:
-            self.reverse_connections(PORE, pore_id_list[0])
-        elif len(throat_id_list) > 0:
-            self.reverse_connections(THROAT, throat_id_list[0])
+        if False:
+            self.reset_connections()
+        else:
+            if len(pore_id_list) > 0:
+                self.reverse_connections(PORE, pore_id_list[0])
+            elif len(throat_id_list) > 0:
+                self.reverse_connections(THROAT, throat_id_list[0])
 
     def reverse_connections(self, element_type, element_id):
         if self.phase == WATER:
@@ -310,7 +312,7 @@ class ReductiblePhaseConnectionChecker2(PhaseConnectionChecker2):
         for throat_id in np.where(throat_has_phase_diff)[0]:
             self.__delete_connections(THROAT, throat_id)
 
-        modified_clusters = get_modified_cluester(
+        modified_clusters = get_modified_clusters(
             self.pore_old_cluster, self.throat_old_cluster, self.pore_cluster, self.throat_cluster
         )
         self.__update_element_connection(modified_clusters)
@@ -318,10 +320,10 @@ class ReductiblePhaseConnectionChecker2(PhaseConnectionChecker2):
     def __delete_connections(self, element_type, element_id):
         if element_type == PORE:
             previous_cluster = self.pore_cluster[element_id]
-            self.pore_cluster[element_id] = -1
+            remove_from_clusters(self.pore_cluster, element_id)
         else:
             previous_cluster = self.throat_cluster[element_id]
-            self.throat_cluster[element_id] = -1
+            remove_from_clusters(self.throat_cluster, element_id)
 
         pore_to_scan = self.pore_cluster == previous_cluster
         pores_to_find = np.where((self.pn.pore.inlets | self.pn.pore.outlets) & pore_to_scan)[0].astype(np.int32)
@@ -416,16 +418,17 @@ class ReductiblePhaseConnectionChecker2(PhaseConnectionChecker2):
         pore_inlets,
         pore_outlets,
     ):
-        inlets_clusters = set()
-        outlets_clusters = set()
+        # inlets_clusters = set()
+        # outlets_clusters = set()
 
-        for pore_id in range(len(pore_connected_to_inlet)):
-            if pore_inlets[pore_id] | pore_outlets[pore_id]:
-                cluster = pore_cluster[pore_id]
-                if pore_inlets[pore_id]:
-                    inlets_clusters.add(cluster)
-                if pore_outlets[pore_id]:
-                    outlets_clusters.add(cluster)
+        # for pore_id in range(len(pore_connected_to_inlet)):
+        #     if pore_inlets[pore_id] | pore_outlets[pore_id]:
+        #         cluster = pore_cluster[pore_id]
+        #         if pore_inlets[pore_id]:
+        #             inlets_clusters.add(cluster)
+        #         if pore_outlets[pore_id]:
+        #             outlets_clusters.add(cluster)
+        inlets_clusters, outlets_clusters = get_inlet_outlet_clusters(pore_cluster, pore_inlets, pore_outlets)
 
         non_wqupc_update_element_connection(
             modified_clusters,
@@ -832,8 +835,8 @@ def reorder_clusters(
                     element_cluster[element_scanned] = max_cluster_id
                     neighbor_cluster[neighbor_scanned] = max_cluster_id
                 else:
-                    element_cluster[element_scanned] = -1
-                    neighbor_cluster[neighbor_scanned] = -1
+                    remove_from_clusters(element_cluster, np.where(element_scanned)[0])
+                    remove_from_clusters(neighbor_cluster, np.where(neighbor_scanned)[0])
             element_scanned_general |= element_scanned
             neighbor_scanned_general |= neighbor_scanned
     return max_cluster_id
@@ -882,7 +885,28 @@ def get_modified_values(original, modified):
 
 
 @nb.njit(cache=True)
-def get_modified_cluester(pore_cluster_old, throat_cluster_old, pore_cluster, throat_cluster):
+def get_modified_clusters(pore_cluster_old, throat_cluster_old, pore_cluster, throat_cluster):
     modified_pore_clusters = get_modified_values(pore_cluster_old, pore_cluster)
     modified_throat_clusters = get_modified_values(throat_cluster_old, throat_cluster)
     return np.array(list(modified_pore_clusters | modified_throat_clusters), np.int64)
+
+
+@nb.njit(cache=True)
+def get_inlet_outlet_clusters(pore_cluster, pore_inlets, pore_outlets):
+    inlets_clusters = set()
+    outlets_clusters = set()
+
+    for pore_id in range(len(pore_cluster)):
+        if pore_inlets[pore_id] | pore_outlets[pore_id]:
+            cluster = pore_cluster[pore_id]
+            if pore_inlets[pore_id]:
+                inlets_clusters.add(cluster)
+            if pore_outlets[pore_id]:
+                outlets_clusters.add(cluster)
+
+    return inlets_clusters, outlets_clusters
+
+
+@nb.njit(cache=True)
+def remove_from_clusters(element_cluster_array, element_id_list):
+    element_cluster_array[element_id_list] = -element_id_list
