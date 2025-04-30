@@ -402,17 +402,17 @@ class ReductiblePhaseConnectionChecker2(PhaseConnectionChecker2):
     ):
         modified_clusters = get_modified_clusters(pore_old_cluster, throat_old_cluster, pore_cluster, throat_cluster)
 
-        removed_clusters = modified_clusters[modified_clusters < 0]
-        removed_pores = isin_indexes(pore_cluster, removed_clusters)
-        removed_throats = isin_indexes(throat_cluster, removed_clusters)
-        for pore_id in removed_pores:
-            pore_connected_to_inlet[pore_id] = False
-            pore_connected_to_outlet[pore_id] = False
-        for throat_id in removed_throats:
-            throat_connected_to_inlet[throat_id] = False
-            throat_connected_to_outlet[throat_id] = False
+        # removed_clusters = modified_clusters[modified_clusters < 0]
+        # removed_pores = isin_indexes(pore_cluster, removed_clusters)
+        # removed_throats = isin_indexes(throat_cluster, removed_clusters)
+        # for pore_id in removed_pores:
+        #     pore_connected_to_inlet[pore_id] = False
+        #     pore_connected_to_outlet[pore_id] = False
+        # for throat_id in removed_throats:
+        #     throat_connected_to_inlet[throat_id] = False
+        #     throat_connected_to_outlet[throat_id] = False
 
-        modified_clusters = modified_clusters[modified_clusters > 0]
+        # modified_clusters = modified_clusters[modified_clusters > 0]
 
         # inlets_clusters = set()
         # outlets_clusters = set()
