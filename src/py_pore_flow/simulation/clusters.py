@@ -746,17 +746,14 @@ def scan_element(
     neighbor_connected,
     neighbors_to_find,
 ):
-    conns = element_conns[element_id][: element_n_conns[element_id]]
-    for neighbor_id in conns:
-        if neighbor_has_phase[neighbor_id] and not neighbor_scanned[neighbor_id]:
-            neighbor_scanned[neighbor_id] = True
-
-            if neighbor_connected[neighbor_id] or (
-                len(neighbors_to_find) > 0 and neighbor_scanned[neighbors_to_find].all()
-            ):
-                neighbor_connected[neighbor_scanned] = True
-                finished_cluster = True
-            else:
+    if element_has_phase[element_id] and not element_scanned[element_id]:
+        element_scanned[element_id] = True
+        if element_connected[element_id] or (len(elements_to_find) > 0 and element_scanned[elements_to_find].all()):
+            element_connected[element_scanned] = True
+            finished_cluster = True
+        else:
+            conns = element_conns[element_id][: element_n_conns[element_id]]
+            for neighbor_id in conns:
                 finished_cluster = scan_element(
                     neighbor_id,
                     neighbor_conns,
@@ -772,10 +769,9 @@ def scan_element(
                     element_connected,
                     elements_to_find,
                 )
-
-            if finished_cluster:
-                return True
-    return False
+                if finished_cluster:
+                    break
+    return finished_cluster
 
 
 @nb.njit(cache=True)
