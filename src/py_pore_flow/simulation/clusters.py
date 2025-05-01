@@ -323,12 +323,13 @@ class ReductiblePhaseConnectionChecker2(PhaseConnectionChecker2):
         if False:
             super().reset_connections()
         else:
-            if len(pore_id_list) > 0:
-                self.reverse_connections(PORE, pore_id_list[0])
-            elif len(throat_id_list) > 0:
-                self.reverse_connections(THROAT, throat_id_list[0])
+            # if len(pore_id_list) > 0:
+            #     self.reverse_connections(PORE, pore_id_list[0])
+            # elif len(throat_id_list) > 0:
+            #     self.reverse_connections(THROAT, throat_id_list[0])
+            self.reverse_connections()
 
-    def reverse_connections(self, element_type, element_id):
+    def reverse_connections(self):
         if self.phase == WATER:
             pore_has_phase = self.pn.pore.water_saturation > 0.0 + TRAP_TOLERANCE
             throat_has_phase = self.pn.throat.water_saturation > 0.0 + TRAP_TOLERANCE
@@ -340,28 +341,32 @@ class ReductiblePhaseConnectionChecker2(PhaseConnectionChecker2):
         self.pore_has_phase_old = pore_has_phase.copy()
         self.throat_has_phase_old = throat_has_phase.copy()
 
-        self.pore_old_cluster = self.pore_cluster.copy()
-        self.throat_old_cluster = self.throat_cluster.copy()
-        for pore_id in np.where(pore_has_phase_diff)[0]:
-            self.__delete_connections(PORE, pore_id)
-        for throat_id in np.where(throat_has_phase_diff)[0]:
-            self.__delete_connections(THROAT, throat_id)
+        # self.pore_old_cluster = self.pore_cluster.copy()
+        # self.throat_old_cluster = self.throat_cluster.copy()
+        # for pore_id in np.where(pore_has_phase_diff)[0]:
+        #     self.__delete_connections(PORE, pore_id)
+        # for throat_id in np.where(throat_has_phase_diff)[0]:
+        #     self.__delete_connections(THROAT, throat_id)
+        self.__delete_connections(np.where(pore_has_phase_diff)[0], np.where(throat_has_phase_diff)[0])
 
         # self.__update_element_connection()
 
-    def __delete_connections(self, element_type, element_id):
-        if element_type == PORE:
-            previous_cluster = self.pore_cluster[element_id]
+    def __delete_connections(self, pores_changed, throats_changed):
+        affected_clusters = []
+        for pore_id in pores_changed:
+            affected_clusters.append(self.pore_cluster[pore_id])
         #     # self.pore_cluster[element_id] = -1
-            remove_from_clusters(self.pore_cluster, element_id)
-        else:
-            previous_cluster = self.throat_cluster[element_id]
+            remove_from_clusters(self.pore_cluster, pore_id)
+        for throat_id in throats_changed:
+            affected_clusters.append(self.throat_cluster[throat_id])
         #     # self.throat_cluster[element_id] = -1
-            remove_from_clusters(self.throat_cluster, element_id)
+            remove_from_clusters(self.throat_cluster, throat_id)
 
-        pore_to_scan = self.pore_cluster == previous_cluster
+        affected_clusters = np.unique(affected_clusters)
+
+        pore_to_scan = np.isin(self.pore_cluster, affected_clusters)
         # pores_to_find = np.where((self.pn.pore.inlets | self.pn.pore.outlets) & pore_to_scan)[0].astype(np.int32)
-        throat_to_scan = self.throat_cluster == previous_cluster
+        throat_to_scan = np.isin(self.throat_cluster, affected_clusters)
         # throats_to_find = np.empty(0, np.int32)
 
         # if element_type == PORE:
@@ -436,8 +441,8 @@ class ReductiblePhaseConnectionChecker2(PhaseConnectionChecker2):
         new_throat_clusters = np.unique(throat_cluster[throat_to_scan])
         new_clusters = np.unique(np.concatenate((new_pore_clusters, new_throat_clusters)))
         for i in range(len(new_clusters)):
-            if i == 0:
-                new_cluster_id = previous_cluster
+            if i < len(affected_clusters):
+                new_cluster_id = affected_clusters[i]
             else:
                 self.max_cluster_id += 1
                 new_cluster_id = self.max_cluster_id
