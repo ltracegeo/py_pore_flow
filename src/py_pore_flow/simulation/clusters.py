@@ -186,11 +186,12 @@ class PhaseConnectionChecker2:
         throat_has_phase,
     ):
         self.wqupc.reset()
-        self._jit_reset_connections(
+        jit_reset_connections(
             self.wqupc.parent_array,
             self.wqupc.size_array,
-            self.wqupc.nP,
             self.wqupc.nT,
+            np.array(list(range(self.wqupc.nP))),
+            np.array(list(range(self.wqupc.nT))),
             pore_connected_to_inlet,
             pore_connected_to_outlet,
             throat_connected_to_inlet,
@@ -258,46 +259,49 @@ class PhaseConnectionChecker2:
             throat_id_list,
         )
 
-    @staticmethod
-    @nb.njit(cache=True)
-    def _jit_reset_connections(
+
+@nb.njit(cache=True)
+def jit_reset_connections(
+    parent_array,
+    size_array,
+    nT,
+    pore_ids,
+    throat_ids,
+    pore_connected_to_inlet,
+    pore_connected_to_outlet,
+    throat_connected_to_inlet,
+    throat_connected_to_outlet,
+    pore_has_phase,
+    throat_has_phase,
+    throat_conns,
+    pore_cluster,
+    throat_cluster,
+    pore_inlets,
+    pore_outlets,
+):
+    cluster_refresh_union(
         parent_array,
         size_array,
-        nP,
         nT,
+        throat_ids,
+        pore_has_phase,
+        throat_has_phase,
+        throat_conns,
+    )
+    cluster_refresh_connections(
+        parent_array,
+        nT,
+        pore_ids,
+        throat_ids,
         pore_connected_to_inlet,
         pore_connected_to_outlet,
         throat_connected_to_inlet,
         throat_connected_to_outlet,
-        pore_has_phase,
-        throat_has_phase,
-        throat_conns,
         pore_cluster,
         throat_cluster,
         pore_inlets,
         pore_outlets,
-    ):
-        cluster_refresh_union(
-            parent_array,
-            size_array,
-            nT,
-            pore_has_phase,
-            throat_has_phase,
-            throat_conns,
-        )
-        cluster_refresh_connections(
-            parent_array,
-            nP,
-            nT,
-            pore_connected_to_inlet,
-            pore_connected_to_outlet,
-            throat_connected_to_inlet,
-            throat_connected_to_outlet,
-            pore_cluster,
-            throat_cluster,
-            pore_inlets,
-            pore_outlets,
-        )
+    )
 
 
 class ReductiblePhaseConnectionChecker2(PhaseConnectionChecker2):
@@ -352,114 +356,106 @@ class ReductiblePhaseConnectionChecker2(PhaseConnectionChecker2):
         # self.__update_element_connection()
 
     def __delete_connections(self, pores_changed, throats_changed):
+        if self.phase == WATER:
+            self.max_cluster_id = self.__njit_delete_connections(
+                pores_changed,
+                throats_changed,
+                self.pore_cluster,
+                self.throat_cluster,
+                self.pn.pore.water_connected_to_inlet,
+                self.pn.pore.water_connected_to_outlet,
+                self.pn.throat.water_connected_to_inlet,
+                self.pn.throat.water_connected_to_outlet,
+                self.pn.throat.conns,
+                self.pn.pore.inlets,
+                self.pn.pore.outlets,
+                self.max_cluster_id,
+            )
+        else:
+            self.max_cluster_id = self.__njit_delete_connections(
+                pores_changed,
+                throats_changed,
+                self.pore_cluster,
+                self.throat_cluster,
+                self.pn.pore.oil_connected_to_inlet,
+                self.pn.pore.oil_connected_to_outlet,
+                self.pn.throat.oil_connected_to_inlet,
+                self.pn.throat.oil_connected_to_outlet,
+                self.pn.throat.conns,
+                self.pn.pore.inlets,
+                self.pn.pore.outlets,
+                self.max_cluster_id,
+            )
+
+    @staticmethod
+    @nb.njit(cache=True)
+    def __njit_delete_connections(
+        pores_changed,
+        throats_changed,
+        pore_cluster,
+        throat_cluster,
+        pore_connected_to_inlet,
+        pore_connected_to_outlet,
+        throat_connected_to_inlet,
+        throat_connected_to_outlet,
+        throat_conns,
+        pore_inlets,
+        pore_outlets,
+        max_cluster_id,
+    ):
         affected_clusters = []
         for pore_id in pores_changed:
-            affected_clusters.append(self.pore_cluster[pore_id])
-        #     # self.pore_cluster[element_id] = -1
-            remove_from_clusters(self.pore_cluster, pore_id)
+            affected_clusters.append(pore_cluster[pore_id])
+            remove_from_clusters(pore_cluster, pore_id)
         for throat_id in throats_changed:
-            affected_clusters.append(self.throat_cluster[throat_id])
-        #     # self.throat_cluster[element_id] = -1
-            remove_from_clusters(self.throat_cluster, throat_id)
+            affected_clusters.append(throat_cluster[throat_id])
+            remove_from_clusters(throat_cluster, throat_id)
 
-        affected_clusters = np.unique(affected_clusters)
+        affected_clusters = np.array(list(set(affected_clusters)))
+        pore_to_scan = njit_isin(pore_cluster, affected_clusters)
+        throat_to_scan = njit_isin(throat_cluster, affected_clusters)
+        pore_to_scan_ids = np.where(pore_to_scan)[0]
+        throat_to_scan_ids = np.where(throat_to_scan)[0]
 
-        pore_to_scan = np.isin(self.pore_cluster, affected_clusters)
-        # pores_to_find = np.where((self.pn.pore.inlets | self.pn.pore.outlets) & pore_to_scan)[0].astype(np.int32)
-        throat_to_scan = np.isin(self.throat_cluster, affected_clusters)
-        # throats_to_find = np.empty(0, np.int32)
+        wqupc_nP = len(pore_to_scan)
+        wqupc_nT = len(throat_to_scan)
+        wqupc_parent_array = np.arange(wqupc_nP + wqupc_nT, dtype=np.uint32)
+        wqupc_size_array = np.ones((wqupc_nP + wqupc_nT))
 
-        # if element_type == PORE:
-        #     self.max_cluster_id = reorder_clusters(
-        #         element_id,
-        #         self.pn.pore.conns,
-        #         self.pn.pore.n_conns,
-        #         pore_to_scan,
-        #         self.pore_cluster,
-        #         pores_to_find,
-        #         self.pn.throat.conns,
-        #         self.pn.throat.n_conns,
-        #         throat_to_scan,
-        #         self.throat_cluster,
-        #         throats_to_find,
-        #         self.max_cluster_id,
-        #     )
-        # else:
-        #     self.max_cluster_id = reorder_clusters(
-        #         element_id,
-        #         self.pn.throat.conns,
-        #         self.pn.throat.n_conns,
-        #         throat_to_scan,
-        #         self.throat_cluster,
-        #         throats_to_find,
-        #         self.pn.pore.conns,
-        #         self.pn.pore.n_conns,
-        #         pore_to_scan,
-        #         self.pore_cluster,
-        #         pores_to_find,
-        #         self.max_cluster_id,
-        #     )
+        pore_cluster_temp = np.empty(wqupc_nP, dtype=np.int64)
+        throat_cluster_temp = np.empty(wqupc_nT, dtype=np.int64)
 
-        # nP = pore_to_scan.sum()
-        # nT = throat_to_scan.sum()
-        # parent_array = np.arange(nP + nT, dtype=np.uint32)
-        # size_array = np.ones((nP + nT))
-        wqupc = Wqupc(len(pore_to_scan), len(throat_to_scan))
-        # if self.phase == WATER:
-        #     pore_connected_to_inlet = np.array(, dtype=np.int64)
-        # else:
-        pore_connected_to_inlet = np.empty(wqupc.nP, dtype=np.bool_)
-        pore_connected_to_outlet = np.empty(wqupc.nP, dtype=np.bool_)
-        throat_connected_to_inlet = np.empty(wqupc.nT, dtype=np.bool_)
-        throat_connected_to_outlet = np.empty(wqupc.nT, dtype=np.bool_)
-        pore_cluster = np.empty(wqupc.nP, dtype=np.int64)
-        throat_cluster = np.empty(wqupc.nT, dtype=np.int64)
-        pore_has_phase = pore_to_scan
-        throat_has_phase = throat_to_scan
-
-        throat_conns = self.pn.throat.conns
-        pore_inlets = self.pn.pore.inlets
-        pore_outlets = self.pn.pore.outlets
-        self._jit_reset_connections(
-            wqupc.parent_array,
-            wqupc.size_array,
-            wqupc.nP,
-            wqupc.nT,
+        jit_reset_connections(
+            wqupc_parent_array,
+            wqupc_size_array,
+            wqupc_nT,
+            pore_to_scan_ids,
+            throat_to_scan_ids,
             pore_connected_to_inlet,
             pore_connected_to_outlet,
             throat_connected_to_inlet,
             throat_connected_to_outlet,
-            pore_has_phase,
-            throat_has_phase,
+            pore_to_scan,
+            throat_to_scan,
             throat_conns,
-            pore_cluster,
-            throat_cluster,
+            pore_cluster_temp,
+            throat_cluster_temp,
             pore_inlets,
             pore_outlets,
         )
-        new_pore_clusters = np.unique(pore_cluster[pore_to_scan])
-        new_throat_clusters = np.unique(throat_cluster[throat_to_scan])
-        new_clusters = np.unique(np.concatenate((new_pore_clusters, new_throat_clusters)))
+        new_pore_clusters = np.array(list(set(pore_cluster_temp[pore_to_scan])))
+        new_throat_clusters = np.array(list(set(throat_cluster_temp[throat_to_scan])))
+        new_clusters = np.array(list(set(np.concatenate((new_pore_clusters, new_throat_clusters)))))
         for i in range(len(new_clusters)):
             if i < len(affected_clusters):
                 new_cluster_id = affected_clusters[i]
             else:
-                self.max_cluster_id += 1
-                new_cluster_id = self.max_cluster_id
-            self.pore_cluster[pore_to_scan][pore_cluster[pore_to_scan] == new_clusters[i]] = new_cluster_id
-            self.throat_cluster[throat_to_scan][throat_cluster[throat_to_scan] == new_clusters[i]] = new_cluster_id
+                max_cluster_id += 1
+                new_cluster_id = max_cluster_id
+            pore_cluster[pore_to_scan][pore_cluster_temp[pore_to_scan] == new_clusters[i]] = new_cluster_id
+            throat_cluster[throat_to_scan][throat_cluster_temp[throat_to_scan] == new_clusters[i]] = new_cluster_id
 
-        if self.phase == WATER:
-            self.pn.pore.water_connected_to_inlet[pore_to_scan] = pore_connected_to_inlet[pore_to_scan]
-            self.pn.pore.water_connected_to_outlet[pore_to_scan] = pore_connected_to_outlet[pore_to_scan]
-            self.pn.throat.water_connected_to_inlet[throat_to_scan] = throat_connected_to_inlet[throat_to_scan]
-            self.pn.throat.water_connected_to_outlet[throat_to_scan] = throat_connected_to_outlet[throat_to_scan]
-        else:
-            self.pn.pore.oil_connected_to_inlet[pore_to_scan] = pore_connected_to_inlet[pore_to_scan]
-            self.pn.pore.oil_connected_to_outlet[pore_to_scan] = pore_connected_to_outlet[pore_to_scan]
-            self.pn.throat.oil_connected_to_inlet[throat_to_scan] = throat_connected_to_inlet[throat_to_scan]
-            self.pn.throat.oil_connected_to_outlet[throat_to_scan] = throat_connected_to_outlet[throat_to_scan]
-
+        return max_cluster_id
 
     def __update_element_connection(self):
         if self.phase == WATER:
@@ -547,13 +543,14 @@ def cluster_refresh_union(
     parent_array,
     size_array,
     nT,
+    throat_ids,
     pore_has_phase,
     throat_has_phase,
     throat_conns,
 ):
     union = lambda p, q: wqupc_union(p, q, parent_array, size_array)
 
-    for throat in range(nT):
+    for throat in throat_ids:
         if throat_has_phase[throat]:
             pore_0, pore_1 = throat_conns[throat]
             if pore_has_phase[pore_0]:
@@ -595,8 +592,9 @@ def cluster_add_union(
 @nb.njit(cache=True)
 def cluster_refresh_connections(
     parent_array,
-    nP,
     nT,
+    pore_ids,
+    throat_ids,
     pore_connected_to_inlet,
     pore_connected_to_outlet,
     throat_connected_to_inlet,
@@ -611,7 +609,7 @@ def cluster_refresh_connections(
     inlets_clusters = set()
     outlets_clusters = set()
 
-    for pore in range(nP):
+    for pore in pore_ids:
         if pore_inlets[pore] | pore_outlets[pore]:
             cluster = find(pore + nT)
             if pore_inlets[pore]:
@@ -619,13 +617,13 @@ def cluster_refresh_connections(
             if pore_outlets[pore]:
                 outlets_clusters.add(cluster)
 
-    for throat in range(nT):
+    for throat in throat_ids:
         cluster = find(throat)
         throat_cluster[throat] = cluster
         throat_connected_to_inlet[throat] = cluster in inlets_clusters
         throat_connected_to_outlet[throat] = cluster in outlets_clusters
 
-    for pore in range(nP):
+    for pore in pore_ids:
         cluster = find(pore + nT)
         pore_cluster[pore] = cluster
         pore_connected_to_inlet[pore] = cluster in inlets_clusters
@@ -1039,5 +1037,16 @@ def isin_indexes(array_a, array_b):
         for j in range(array_b.size):
             if array_a[i] == array_b[j]:
                 result.append(i)
+                break
+    return result
+
+
+@nb.njit(cache=True)
+def njit_isin(array_a, array_b):
+    result = np.full(array_a.size, False, nb.bool_)
+    for i in range(array_a.size):
+        for j in range(array_b.size):
+            if array_a[i] == array_b[j]:
+                result[i] = True
                 break
     return result
