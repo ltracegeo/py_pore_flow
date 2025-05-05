@@ -422,7 +422,7 @@ def update_element_connection(
     wqupc_parent_array,
     wqupc_element_id_offset,
     wqupc_neighbor_id_offset,
-    element_id,
+    changed_element_id,
     element_connected_to_inlet,
     element_connected_to_outlet,
     element_cluster,
@@ -436,36 +436,37 @@ def update_element_connection(
 ):
     find = lambda p: wqupc_find(p, wqupc_parent_array)
 
-    cluster = find(element_id + wqupc_element_id_offset)
-    element_cluster[element_id] = cluster
+    cluster = find(changed_element_id + wqupc_element_id_offset)
+    element_cluster[changed_element_id] = cluster
 
-    element_in_changed_cluster = np.where(element_cluster == cluster)[0]
-    neighbor_in_changed_cluster = np.where(neighbor_cluster == cluster)[0]
+    cluster_has_inlets = cluster in inlets_clusters
+    cluster_has_outlets = cluster in outlets_clusters
 
-    inlets_in_cluster = cluster in inlets_clusters
-    outlets_in_cluster = cluster in outlets_clusters
+    for element_id in range(len(element_cluster)):
+        if element_cluster[element_id] == cluster:
+            element_connected_to_inlet[element_id] = cluster_has_inlets
+            element_connected_to_outlet[element_id] = cluster_has_outlets
+    for neighbor_id in range(len(neighbor_cluster)):
+        if neighbor_cluster[neighbor_id] == cluster:
+            neighbor_connected_to_inlet[neighbor_id] = cluster_has_inlets
+            neighbor_connected_to_outlet[neighbor_id] = cluster_has_outlets
 
-    for element_type_id in element_in_changed_cluster:
-        element_connected_to_inlet[element_type_id] = inlets_in_cluster
-        element_connected_to_outlet[element_type_id] = outlets_in_cluster
-
-    for neighbor_type_id in neighbor_in_changed_cluster:
-        neighbor_connected_to_inlet[neighbor_type_id] = inlets_in_cluster
-        neighbor_connected_to_outlet[neighbor_type_id] = outlets_in_cluster
-
-    for neighbor_id in element_conns[element_id][: element_n_conns[element_id]]:
+    for neighbor_id in element_conns[changed_element_id][: element_n_conns[changed_element_id]]:
         old_cluster = neighbor_cluster[neighbor_id]
         new_cluster = find(neighbor_id + wqupc_neighbor_id_offset)
         if new_cluster != old_cluster:
-            element_in_changed_cluster = np.where(element_cluster == old_cluster)[0]
-            element_cluster[np.where(element_cluster == old_cluster)[0]] = new_cluster
-            element_connected_to_inlet[element_in_changed_cluster] = new_cluster in inlets_clusters
-            element_connected_to_outlet[element_in_changed_cluster] = new_cluster in outlets_clusters
-
-            neighbor_in_changed_cluster = np.where(neighbor_cluster == old_cluster)[0]
-            neighbor_cluster[np.where(neighbor_cluster == old_cluster)[0]] = new_cluster
-            neighbor_connected_to_inlet[neighbor_in_changed_cluster] = new_cluster in inlets_clusters
-            neighbor_connected_to_outlet[neighbor_in_changed_cluster] = new_cluster in outlets_clusters
+            cluster_has_inlets = new_cluster in inlets_clusters
+            cluster_has_outlets = new_cluster in outlets_clusters
+            for element_id in range(len(element_cluster)):
+                if element_cluster[element_id] == old_cluster:
+                    element_cluster[element_id] = new_cluster
+                    element_connected_to_inlet[element_id] = cluster_has_inlets
+                    element_connected_to_outlet[element_id] = cluster_has_outlets
+            for neighbor_id in range(len(neighbor_cluster)):
+                if neighbor_cluster[neighbor_id] == old_cluster:
+                    neighbor_cluster[neighbor_id] = new_cluster
+                    neighbor_connected_to_inlet[neighbor_id] = cluster_has_inlets
+                    neighbor_connected_to_outlet[neighbor_id] = cluster_has_outlets
 
 
 class Wqupc:
