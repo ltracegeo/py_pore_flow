@@ -799,8 +799,10 @@ class CycleSimulation:
             throat_phase_connected_to_inlet = throat_oil_connected_to_inlet
 
         border_pore_ids = list()
-        inlets_id = np.where(pore_inlets & ~pore_phase_filled & ~pore_trapped)[0]
-        border_pore_ids.extend(inlets_id)
+        for pore_id in range(len(pore_inlets)):
+            if pore_inlets[pore_id]:
+                if not pore_phase_filled[pore_id] and not pore_trapped[pore_id]:
+                    border_pore_ids.append(pore_id)
         for pore_id in range(len(pore_phase_filled)):
             if (not pore_phase_filled[pore_id]) and not pore_trapped[pore_id]:
                 for throat_id in pore_conns[pore_id][: pore_n_conns[pore_id]]:
