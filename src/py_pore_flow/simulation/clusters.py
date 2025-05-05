@@ -443,17 +443,28 @@ class ReductiblePhaseConnectionChecker2(PhaseConnectionChecker2):
             pore_inlets,
             pore_outlets,
         )
-        new_pore_clusters = np.array(list(set(pore_cluster_temp[pore_to_scan])))
-        new_throat_clusters = np.array(list(set(throat_cluster_temp[throat_to_scan])))
-        new_clusters = np.array(list(set(np.concatenate((new_pore_clusters, new_throat_clusters)))))
-        for i in range(len(new_clusters)):
+        new_tem_pore_clusters = np.array(list(set(pore_cluster_temp[pore_to_scan])))
+        new_temp_throat_clusters = np.array(list(set(throat_cluster_temp[throat_to_scan])))
+        new_temp_clusters = np.array(list(set(np.concatenate((new_tem_pore_clusters, new_temp_throat_clusters)))))
+        new_clusters_ids = np.empty(len(new_temp_clusters), np.int32)
+
+        for i in range(len(new_temp_clusters)):
             if i < len(affected_clusters):
-                new_cluster_id = affected_clusters[i]
+                new_clusters_ids[i] = affected_clusters[i]
             else:
                 max_cluster_id += 1
-                new_cluster_id = max_cluster_id
-            pore_cluster[pore_to_scan][pore_cluster_temp[pore_to_scan] == new_clusters[i]] = new_cluster_id
-            throat_cluster[throat_to_scan][throat_cluster_temp[throat_to_scan] == new_clusters[i]] = new_cluster_id
+                new_clusters_ids[i] = max_cluster_id
+
+        for pore_id in range(len(pore_to_scan)):
+            if pore_to_scan[pore_id]:
+                for i in range(len(new_temp_clusters)):
+                    if pore_cluster_temp[pore_id] == new_temp_clusters[i]:
+                        pore_cluster[pore_id] = new_clusters_ids[i]
+        for throat_id in range(len(throat_to_scan)):
+            if throat_to_scan[throat_id]:
+                for i in range(len(new_temp_clusters)):
+                    if throat_cluster_temp[throat_id] == new_temp_clusters[i]:
+                        throat_cluster[throat_id] = new_clusters_ids[i]
 
         return max_cluster_id
 
