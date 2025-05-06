@@ -18,7 +18,7 @@ from py_pore_flow.equations.entry_pressure import calculate_imbibition_pc, PORE_
 from py_pore_flow.simulation.cycle_simulation import PORE, THROAT, CycleSimulation
 from py_pore_flow.simulation.subsequent_cycle import SubsequentCycleSimulation
 from py_pore_flow import log
-from py_pore_flow.simulation.algorithms.sorted_root_tree import SortedRootTree
+from py_pore_flow.simulation.algorithms.sorted_root_tree import DecreasingSortedRootTree
 
 
 class ImbibitionSimulation(SubsequentCycleSimulation):
@@ -84,7 +84,7 @@ class ImbibitionSimulation(SubsequentCycleSimulation):
         throat_id_list,
         throat_entry_pressure,
     ):
-        sorted_root_tree = SortedRootTree(throat_entry_pressure, pore_entry_pressure)
+        sorted_root_tree = DecreasingSortedRootTree(throat_entry_pressure, pore_entry_pressure)
         for pore_id in pore_id_list:
             sorted_root_tree.add_node(pore_entry_pressure[pore_id], pore_id + 1)
         for throat_id in throat_id_list:
