@@ -10,6 +10,7 @@ from py_pore_flow.equations.geometry import (
 )
 from py_pore_flow.output import pn_to_vtu
 from py_pore_flow.simulation.cycle_simulation import PORE, THROAT, CycleSimulation, SaturationCalculator
+from py_pore_flow.simulation.algorithms.sorted_root_tree import SortedRootTree
 
 
 class DrainageSimulation(CycleSimulation):
@@ -28,7 +29,7 @@ class DrainageSimulation(CycleSimulation):
         return element_to_fill
 
     @staticmethod
-    @nb.njit(cache=True)
+    # @nb.njit(cache=True)
     def __jit_pore_throats_element_to_fill(
         pc,
         pore_id_list,
@@ -36,26 +37,25 @@ class DrainageSimulation(CycleSimulation):
         throat_id_list,
         throat_entry_pressure,
     ):
-        min_pressure = np.inf
-        min_id = -1
-        min_type = -1
-
-        if len(pore_id_list) == 0 and len(throat_id_list) == 0:
-            return None
-
-        for id in pore_id_list:
-            pressure = pore_entry_pressure[id]
-            if pressure < min_pressure:
-                min_pressure = pressure
-                min_id = id
-                min_type = PORE
-
-        for id in throat_id_list:
-            pressure = throat_entry_pressure[id]
-            if pressure < min_pressure:
-                min_pressure = pressure
-                min_id = id
+        sorted_root_tree = SortedRootTree(throat_entry_pressure, pore_entry_pressure)
+        for pore_id in pore_id_list:
+            sorted_root_tree.add_node(pore_entry_pressure[pore_id], pore_id + 1)
+        for throat_id in throat_id_list:
+            sorted_root_tree.add_node(throat_entry_pressure[throat_id], throat_id + sorted_root_tree.pore_n + 1)
+        root_label = sorted_root_tree.get_root()
+        if root_label != 0:
+            if root_label > sorted_root_tree.pore_n:
+                min_id = root_label - sorted_root_tree.pore_n - 1
+                min_pressure = throat_entry_pressure[min_id]
                 min_type = THROAT
+            else:
+                min_id = root_label - 1
+                min_pressure = pore_entry_pressure[min_id]
+                min_type = PORE
+        else:
+            min_pressure = -np.inf
+            min_id = -1
+            min_type = -1
 
         if min_id != -1:
             return (min_type, min_id, max(min_pressure, pc))
