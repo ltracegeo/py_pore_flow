@@ -11,57 +11,34 @@ from py_pore_flow.equations.geometry import (
 from py_pore_flow.network import PORE, THROAT
 from py_pore_flow.output import pn_to_vtu
 from py_pore_flow.simulation.cycle_simulation import CycleSimulation, SaturationCalculator
+from py_pore_flow.simulation.algorithms.sorted_root_tree import SortedRootTree, _add_node, _get_root, _pop_root
 
 
 class DrainageSimulation(CycleSimulation):
     def __init__(self, network, calculate_full_conductance=False):
         super().__init__(network, OIL, calculate_full_conductance)
         self.saturation_calculator = DrainageSaturation(network)
+        self.sorted_root_tree = SortedRootTree(
+            self.network.pn_core.throat.entry_pressure,
+            self.network.pn_core.pore.entry_pressure,
+            self.network.pn_core.throat.trapped,
+            self.network.pn_core.pore.trapped,
+        )
+
+        self.initialize()
 
     def _get_element_to_fill(self, pc, border_elements):
-        element_to_fill = self.__jit_pore_throats_element_to_fill(
+        return self.sorted_root_tree.get_root_element(
             pc,
-            border_elements.get_pores_ids(),
-            self.network.pn_core.pore.entry_pressure,
-            border_elements.get_throats_ids(),
-            self.network.pn_core.throat.entry_pressure,
+            self.network.pn_core.pore.trapped,
+            self.network.pn_core.throat.trapped,
         )
-        return element_to_fill
 
-    @staticmethod
-    @nb.njit(cache=True)
-    def __jit_pore_throats_element_to_fill(
-        pc,
-        pore_id_list,
-        pore_entry_pressure,
-        throat_id_list,
-        throat_entry_pressure,
-    ):
-        min_pressure = np.inf
-        min_id = -1
-        min_type = -1
+    def _add_element_to_fill(self, pore_id_list, throat_id_list):
+        self.sorted_root_tree.add_node_list(pore_id_list, throat_id_list)
 
-        if len(pore_id_list) == 0 and len(throat_id_list) == 0:
-            return None
-
-        for id in pore_id_list:
-            pressure = pore_entry_pressure[id]
-            if pressure < min_pressure:
-                min_pressure = pressure
-                min_id = id
-                min_type = PORE
-
-        for id in throat_id_list:
-            pressure = throat_entry_pressure[id]
-            if pressure < min_pressure:
-                min_pressure = pressure
-                min_id = id
-                min_type = THROAT
-
-        if min_id != -1:
-            return (min_type, min_id, max(min_pressure, pc))
-        else:
-            return None
+    def _pop_element_to_fill(self):
+        self.sorted_root_tree.pop_root()
 
     def _can_be_filled(self, current_pc, invasion_pc):
         return current_pc >= invasion_pc

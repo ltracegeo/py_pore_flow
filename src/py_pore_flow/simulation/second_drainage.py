@@ -21,6 +21,7 @@ from py_pore_flow.equations.entry_pressure import calculate_imbibition_pc, PORE_
 from py_pore_flow.network import PORE, THROAT
 from py_pore_flow.simulation.subsequent_cycle import SubsequentCycleSimulation
 from py_pore_flow import log
+from py_pore_flow.simulation.algorithms.sorted_root_tree import SortedRootTree
 
 
 class SecondDrainageSimulation(SubsequentCycleSimulation):
@@ -32,6 +33,8 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
 
         if c.pore_fill_alg == "oren2":
             self.calculate_pore_body_filling_pc = PORE_BODY_FILLING_STRATEGY["oren1"]
+
+        self.initialize()
 
     def _can_be_filled(self, current_pc, invasion_pc):
         return current_pc >= invasion_pc
@@ -100,7 +103,7 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
             snap_off_viability[i] = corner_oil_layer[i][: n_conns[i]].any()
 
     @staticmethod
-    @nb.njit(cache=True)
+    # @nb.njit(cache=True)
     def _jit_pore_throats_element_to_fill(
         pc,
         pore_id_list,
@@ -108,26 +111,28 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
         throat_id_list,
         throat_entry_pressure,
     ):
-        min_pressure = np.inf
-        min_id = -1
-        min_type = -1
-
         if len(pore_id_list) == 0 and len(throat_id_list) == 0:
             return None
 
-        for id in pore_id_list:
-            pressure = pore_entry_pressure[id]
-            if pressure < min_pressure:
-                min_pressure = pressure
-                min_id = id
-                min_type = PORE
-
-        for id in throat_id_list:
-            pressure = throat_entry_pressure[id]
-            if pressure < min_pressure:
-                min_pressure = pressure
-                min_id = id
+        sorted_root_tree = SortedRootTree(throat_entry_pressure, pore_entry_pressure)
+        for pore_id in pore_id_list:
+            sorted_root_tree.add_node(pore_entry_pressure[pore_id], pore_id + 1)
+        for throat_id in throat_id_list:
+            sorted_root_tree.add_node(throat_entry_pressure[throat_id], throat_id + sorted_root_tree.pore_n + 1)
+        root_label = sorted_root_tree.get_root()
+        if root_label != 0:
+            if root_label > sorted_root_tree.pore_n:
+                min_id = root_label - sorted_root_tree.pore_n - 1
+                min_pressure = throat_entry_pressure[min_id]
                 min_type = THROAT
+            else:
+                min_id = root_label - 1
+                min_pressure = pore_entry_pressure[min_id]
+                min_type = PORE
+        else:
+            min_pressure = -np.inf
+            min_id = -1
+            min_type = -1
 
         return (min_type, min_id, max(min_pressure, pc))
 

@@ -600,11 +600,14 @@ class CycleSimulation:
         self.trap_checker.update_trapped_pores()
 
         self.border_elements = BorderElements()
-        self.__refresh_border_elements(True, None)
 
         self.saturation_calculator = None
 
         self.current_pc = None
+
+    def initialize(self):
+        new_pores, new_throats = self.__refresh_border_elements(True, None)
+        self._add_element_to_fill(new_pores, new_throats)
 
     def update_pc(self, pc, target_sw=None):
         invasion_pc = pc
@@ -666,6 +669,12 @@ class CycleSimulation:
     def _get_element_to_fill(self, pc, border_elements):
         pass
 
+    def _pop_element_to_fill(self):
+        pass
+
+    def _add_element_to_fill(self, pore_id_list, throat_id_list):
+        pass
+
     def _update_entry_pressures(self, pc):
         for throat_id in self.border_elements.get_throats_ids():
             self._update_throat_entry_pc(throat_id, pc)
@@ -691,6 +700,8 @@ class CycleSimulation:
             if (target_sw is not None and sw_delta >= target_sw) or not self._can_be_filled(pc, invasion_pc):
                 break
 
+            self._pop_element_to_fill()
+
             if element_type == PORE:
                 element = self.network.get_pore(element_id)
             else:
@@ -714,6 +725,7 @@ class CycleSimulation:
                 )
             else:
                 new_pores, new_throats = self.__refresh_border_elements(reached_bubble, element)
+            self._add_element_to_fill(new_pores, new_throats)
             for pore_id in new_pores:
                 self._update_element_entry_pc(self.network.get_pore(pore_id), pc)
             for throat_id in new_throats:
