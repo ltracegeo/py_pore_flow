@@ -15,6 +15,12 @@ def generate_regular_pore_network(radius=5, threshold=0.25, grid_size=(10, 10, 1
     x, y, z = np.meshgrid(np.arange(nx), np.arange(ny), np.arange(nz), indexing="ij")
     coords = np.vstack([x.ravel(), y.ravel(), z.ravel()]).T * 2 * radius
 
+    half = num_pores // 2
+    values_fixed = np.full(half, 0.09)
+    values_random = np.random.uniform(0, 0.09, num_pores - half)
+    shape_factors = np.concatenate([values_fixed, values_random])
+    np.random.shuffle(shape_factors)
+    
     pores = pd.DataFrame(
         {
             "pore.subresolution_porosity": np.ones(num_pores),
@@ -34,7 +40,7 @@ def generate_regular_pore_network(radius=5, threshold=0.25, grid_size=(10, 10, 1
             "pore.coords_1": coords[:, 1],
             "pore.coords_2": coords[:, 2],
             "pore.radius": np.ones(num_pores) * radius,
-            "pore.shape_factor": 0.09 * np.random.rand(num_pores),
+            "pore.shape_factor": shape_factors,
             "pore.effective_volume": np.ones(num_pores) * 4 * np.pi * radius**3 / 3,
         }
     )
@@ -65,6 +71,13 @@ def generate_regular_pore_network(radius=5, threshold=0.25, grid_size=(10, 10, 1
                     connections.append((index, index + 1))
 
     num_throats = len(connections)
+
+    half = num_throats // 2
+    values_fixed = np.full(half, 0.09)
+    values_random = np.random.uniform(0, 0.09, num_throats - half)
+    shape_factors = np.concatenate([values_fixed, values_random])
+    np.random.shuffle(shape_factors)
+                    
     throats = pd.DataFrame(
         {
             "throat.inscribed_diameter": np.ones(num_throats) * 2 * radius,
@@ -81,7 +94,7 @@ def generate_regular_pore_network(radius=5, threshold=0.25, grid_size=(10, 10, 1
             "throat.mid_length": np.ones(num_throats) * 4 * radius,
             "throat.phases_0": np.ones(num_throats, dtype=int),
             "throat.phases_1": np.ones(num_throats, dtype=int),
-            "throat.shape_factor": 0.09 * np.random.rand(num_throats),
+            "throat.shape_factor": shape_factors,
             "throat.volume": np.random.rand(num_throats) * np.pi * radius**2 * 4 * radius,
             "throat.subresolution_porosity": 1.0,
         }
