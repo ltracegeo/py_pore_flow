@@ -84,6 +84,9 @@ class ImbibitionSimulation(SubsequentCycleSimulation):
         throat_id_list,
         throat_entry_pressure,
     ):
+        if len(pore_id_list) == 0 and len(throat_id_list) == 0:
+            return None
+
         sorted_root_tree = DecreasingSortedRootTree(throat_entry_pressure, pore_entry_pressure)
         for pore_id in pore_id_list:
             sorted_root_tree.add_node(pore_entry_pressure[pore_id], pore_id + 1)

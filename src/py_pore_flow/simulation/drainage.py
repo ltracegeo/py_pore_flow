@@ -37,6 +37,9 @@ class DrainageSimulation(CycleSimulation):
         throat_id_list,
         throat_entry_pressure,
     ):
+        if len(pore_id_list) == 0 and len(throat_id_list) == 0:
+            return None
+
         sorted_root_tree = SortedRootTree(throat_entry_pressure, pore_entry_pressure)
         for pore_id in pore_id_list:
             sorted_root_tree.add_node(pore_entry_pressure[pore_id], pore_id + 1)
