@@ -49,13 +49,12 @@ class DrainageSimulation(CycleSimulation):
         return element_to_fill
 
     def _add_element_to_fill(self, pore_id_list, throat_id_list):
-        # for pore_id in pore_id_list:
-        #     self.sorted_root_tree.add_node(self.network.pn_core.pore.entry_pressure[pore_id], pore_id + 1)
-        # for throat_id in throat_id_list:
-        #     self.sorted_root_tree.add_node(
-        #         self.network.pn_core.throat.entry_pressure[throat_id], throat_id + self.sorted_root_tree.pore_n + 1
-        #     )
-        pass
+        for pore_id in pore_id_list:
+            self.sorted_root_tree.add_node(self.network.pn_core.pore.entry_pressure[pore_id], pore_id + 1)
+        for throat_id in throat_id_list:
+            self.sorted_root_tree.add_node(
+                self.network.pn_core.throat.entry_pressure[throat_id], throat_id + self.sorted_root_tree.pore_n + 1
+            )
 
     def _pop_element_to_fill(self):
         self.sorted_root_tree.pop_root()
@@ -72,14 +71,6 @@ class DrainageSimulation(CycleSimulation):
         throat_trapped,
         sorted_root_tree,
     ):
-        # if len(pore_id_list) == 0 and len(throat_id_list) == 0:
-        #     return None
-
-        for pore_id in pore_id_list:
-            sorted_root_tree.add_node(pore_entry_pressure[pore_id], pore_id + 1)
-        for throat_id in throat_id_list:
-            sorted_root_tree.add_node(throat_entry_pressure[throat_id], throat_id + sorted_root_tree.pore_n + 1)
-
         while True:
             root_label = sorted_root_tree.get_root()
             if root_label != 0:
