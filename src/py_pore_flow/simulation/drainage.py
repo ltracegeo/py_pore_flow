@@ -37,8 +37,10 @@ class DrainageSimulation(CycleSimulation):
             pc,
             new_pore_ids,
             self.network.pn_core.pore.entry_pressure,
+            self.network.pn_core.pore.trapped,
             new_throat_ids,
             self.network.pn_core.throat.entry_pressure,
+            self.network.pn_core.throat.trapped,
             self.sorted_root_tree,
         )
         self.previous_pore_ids = current_pores_ids.copy()
@@ -47,12 +49,13 @@ class DrainageSimulation(CycleSimulation):
         return element_to_fill
 
     def _add_element_to_fill(self, pore_id_list, throat_id_list):
-        for pore_id in pore_id_list:
-            self.sorted_root_tree.add_node(self.network.pn_core.pore.entry_pressure[pore_id], pore_id + 1)
-        for throat_id in throat_id_list:
-            self.sorted_root_tree.add_node(
-                self.network.pn_core.throat.entry_pressure[throat_id], throat_id + self.sorted_root_tree.pore_n + 1
-            )
+        # for pore_id in pore_id_list:
+        #     self.sorted_root_tree.add_node(self.network.pn_core.pore.entry_pressure[pore_id], pore_id + 1)
+        # for throat_id in throat_id_list:
+        #     self.sorted_root_tree.add_node(
+        #         self.network.pn_core.throat.entry_pressure[throat_id], throat_id + self.sorted_root_tree.pore_n + 1
+        #     )
+        pass
 
     def _pop_element_to_fill(self):
         self.sorted_root_tree.pop_root()
@@ -63,31 +66,44 @@ class DrainageSimulation(CycleSimulation):
         pc,
         pore_id_list,
         pore_entry_pressure,
+        pore_trapped,
         throat_id_list,
         throat_entry_pressure,
+        throat_trapped,
         sorted_root_tree,
     ):
         # if len(pore_id_list) == 0 and len(throat_id_list) == 0:
         #     return None
 
-        # for pore_id in pore_id_list:
-        #     sorted_root_tree.add_node(pore_entry_pressure[pore_id], pore_id + 1)
-        # for throat_id in throat_id_list:
-        #     sorted_root_tree.add_node(throat_entry_pressure[throat_id], throat_id + sorted_root_tree.pore_n + 1)
-        root_label = sorted_root_tree.get_root()
-        if root_label != 0:
-            if root_label > sorted_root_tree.pore_n:
-                min_id = root_label - sorted_root_tree.pore_n - 1
-                min_pressure = throat_entry_pressure[min_id]
-                min_type = THROAT
+        for pore_id in pore_id_list:
+            sorted_root_tree.add_node(pore_entry_pressure[pore_id], pore_id + 1)
+        for throat_id in throat_id_list:
+            sorted_root_tree.add_node(throat_entry_pressure[throat_id], throat_id + sorted_root_tree.pore_n + 1)
+
+        while True:
+            root_label = sorted_root_tree.get_root()
+            if root_label != 0:
+                if root_label > sorted_root_tree.pore_n:
+                    min_id = root_label - sorted_root_tree.pore_n - 1
+                    if throat_trapped[min_id]:
+                        sorted_root_tree.pop_root()
+                        continue
+                    min_pressure = throat_entry_pressure[min_id]
+                    min_type = THROAT
+                    break
+                else:
+                    min_id = root_label - 1
+                    if pore_trapped[min_id]:
+                        sorted_root_tree.pop_root()
+                        continue
+                    min_pressure = pore_entry_pressure[min_id]
+                    min_type = PORE
+                    break
             else:
-                min_id = root_label - 1
-                min_pressure = pore_entry_pressure[min_id]
-                min_type = PORE
-        else:
-            min_pressure = -np.inf
-            min_id = -1
-            min_type = -1
+                min_pressure = -np.inf
+                min_id = -1
+                min_type = -1
+                break
 
         if min_id != -1:
             return (min_type, min_id, max(min_pressure, pc))
