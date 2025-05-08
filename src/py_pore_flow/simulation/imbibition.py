@@ -27,6 +27,8 @@ class ImbibitionSimulation(SubsequentCycleSimulation):
         self.adversary_fluid_filled = network.pn_core.throat.oil_filled
         self.limit_contact_angle = network.pn_core.pore.advancing_contact_angle
 
+        self.initialize()
+
     def _can_be_filled(self, current_pc, invasion_pc):
         return current_pc <= invasion_pc
 

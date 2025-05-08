@@ -34,6 +34,8 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
         if c.pore_fill_alg == "oren2":
             self.calculate_pore_body_filling_pc = PORE_BODY_FILLING_STRATEGY["oren1"]
 
+        self.initialize()
+
     def _can_be_filled(self, current_pc, invasion_pc):
         return current_pc >= invasion_pc
 
