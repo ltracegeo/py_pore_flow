@@ -20,31 +20,18 @@ class DrainageSimulation(CycleSimulation):
         self.sorted_root_tree = SortedRootTree(
             self.network.pn_core.throat.entry_pressure, self.network.pn_core.pore.entry_pressure
         )
-        self.previous_pore_ids = np.array([])
-        self.previous_throat_ids = np.array([])
 
         self.initialize()
 
     def _get_element_to_fill(self, pc, border_elements):
-        current_pores_ids = border_elements.get_pores_ids()
-        current_throats_ids = border_elements.get_throats_ids()
-        if len(current_pores_ids) == 0 and len(current_throats_ids) == 0:
-            return None
-
-        new_pore_ids = np.setdiff1d(current_pores_ids, self.previous_pore_ids)
-        new_throat_ids = np.setdiff1d(current_throats_ids, self.previous_throat_ids)
         element_to_fill = self.__jit_pore_throats_element_to_fill(
             pc,
-            new_pore_ids,
             self.network.pn_core.pore.entry_pressure,
             self.network.pn_core.pore.trapped,
-            new_throat_ids,
             self.network.pn_core.throat.entry_pressure,
             self.network.pn_core.throat.trapped,
             self.sorted_root_tree,
         )
-        self.previous_pore_ids = current_pores_ids.copy()
-        self.previous_throat_ids = current_throats_ids.copy()
 
         return element_to_fill
 
@@ -63,10 +50,8 @@ class DrainageSimulation(CycleSimulation):
     # @nb.njit(cache=True)
     def __jit_pore_throats_element_to_fill(
         pc,
-        pore_id_list,
         pore_entry_pressure,
         pore_trapped,
-        throat_id_list,
         throat_entry_pressure,
         throat_trapped,
         sorted_root_tree,
