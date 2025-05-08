@@ -10,7 +10,7 @@ from py_pore_flow.equations.geometry import (
 )
 from py_pore_flow.output import pn_to_vtu
 from py_pore_flow.simulation.cycle_simulation import PORE, THROAT, CycleSimulation, SaturationCalculator
-from py_pore_flow.simulation.algorithms.sorted_root_tree import SortedRootTree
+from py_pore_flow.simulation.algorithms.sorted_root_tree import SortedRootTree, _add_node, _get_root, _pop_root
 
 
 class DrainageSimulation(CycleSimulation):
@@ -30,39 +30,76 @@ class DrainageSimulation(CycleSimulation):
             self.network.pn_core.pore.trapped,
             self.network.pn_core.throat.entry_pressure,
             self.network.pn_core.throat.trapped,
-            self.sorted_root_tree,
+            self.sorted_root_tree.pore_n,
+            self.sorted_root_tree.tree_element_label,
+            self.sorted_root_tree.tree_elements_n,
         )
 
         return element_to_fill
 
     def _add_element_to_fill(self, pore_id_list, throat_id_list):
+        self.__njit_add_element_to_fill(
+            pore_id_list,
+            throat_id_list,
+            self.network.pn_core.pore.entry_pressure,
+            self.network.pn_core.throat.entry_pressure,
+            self.sorted_root_tree.tree_element_label,
+            self.sorted_root_tree.tree_elements_n,
+            self.sorted_root_tree.pore_n,
+        )
+
+    @staticmethod
+    @nb.njit(cache=True)
+    def __njit_add_element_to_fill(
+        pore_id_list,
+        throat_id_list,
+        pore_entry_pressure,
+        throat_entry_pressure,
+        tree_element_label,
+        tree_elements_n,
+        pore_n,
+    ):
         for pore_id in pore_id_list:
-            self.sorted_root_tree.add_node(self.network.pn_core.pore.entry_pressure[pore_id], pore_id + 1)
+            _add_node(
+                pore_entry_pressure[pore_id],
+                pore_id + 1,
+                tree_element_label,
+                tree_elements_n,
+                throat_entry_pressure,
+                pore_entry_pressure,
+            )
         for throat_id in throat_id_list:
-            self.sorted_root_tree.add_node(
-                self.network.pn_core.throat.entry_pressure[throat_id], throat_id + self.sorted_root_tree.pore_n + 1
+            _add_node(
+                throat_entry_pressure[throat_id],
+                throat_id + pore_n + 1,
+                tree_element_label,
+                tree_elements_n,
+                throat_entry_pressure,
+                pore_entry_pressure,
             )
 
     def _pop_element_to_fill(self):
         self.sorted_root_tree.pop_root()
 
     @staticmethod
-    # @nb.njit(cache=True)
+    @nb.njit(cache=True)
     def __jit_pore_throats_element_to_fill(
         pc,
         pore_entry_pressure,
         pore_trapped,
         throat_entry_pressure,
         throat_trapped,
-        sorted_root_tree,
+        pore_n,
+        tree_element_label,
+        tree_elements_n,
     ):
         while True:
-            root_label = sorted_root_tree.get_root()
+            root_label = _get_root(tree_element_label)
             if root_label != 0:
-                if root_label > sorted_root_tree.pore_n:
-                    min_id = root_label - sorted_root_tree.pore_n - 1
+                if root_label > pore_n:
+                    min_id = root_label - pore_n - 1
                     if throat_trapped[min_id]:
-                        sorted_root_tree.pop_root()
+                        _pop_root(tree_element_label, tree_elements_n, throat_entry_pressure, pore_entry_pressure)
                         continue
                     min_pressure = throat_entry_pressure[min_id]
                     min_type = THROAT
@@ -70,7 +107,7 @@ class DrainageSimulation(CycleSimulation):
                 else:
                     min_id = root_label - 1
                     if pore_trapped[min_id]:
-                        sorted_root_tree.pop_root()
+                        _pop_root(tree_element_label, tree_elements_n, throat_entry_pressure, pore_entry_pressure)
                         continue
                     min_pressure = pore_entry_pressure[min_id]
                     min_type = PORE

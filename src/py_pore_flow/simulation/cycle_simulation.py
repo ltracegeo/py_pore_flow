@@ -763,13 +763,13 @@ class CycleSimulation:
             new_throats = np.setdiff1d(border_throat_ids, border_elements.get_throats_ids())
             border_elements.set_throats_ids(border_throat_ids)
         else:
-            new_throats = np.array([])
+            new_throats = np.array([], np.int64)
             border_elements.set_throats_ids(np.array([], np.int64))
         if len(border_pore_ids) > 0:
             new_pores = np.setdiff1d(border_pore_ids, border_elements.get_pores_ids())
             border_elements.set_pores_ids(border_pore_ids)
         else:
-            new_pores = np.array([])
+            new_pores = np.array([], np.int64)
             border_elements.set_pores_ids(np.array([], np.int64))
         return new_pores, new_throats
 
