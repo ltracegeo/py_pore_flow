@@ -1,11 +1,15 @@
 import numba as nb
 import numpy as np
 
+from py_pore_flow.simulation.cycle_simulation import PORE, THROAT
+
 
 class SortedRootTree:
-    def __init__(self, throat_entry_pressure, pore_entry_pressure):
+    def __init__(self, throat_entry_pressure, pore_entry_pressure, throat_trapped=None, pore_trapped=None):
         self.throat_entry_pressure = throat_entry_pressure
         self.pore_entry_pressure = pore_entry_pressure
+        self.throat_trapped = throat_trapped
+        self.pore_trapped = pore_trapped
 
         self.pore_n = len(pore_entry_pressure)
         self.throat_n = len(throat_entry_pressure)
@@ -34,8 +38,31 @@ class SortedRootTree:
             self.pore_entry_pressure,
         )
 
+    def add_node_list(self, pore_id_list, throat_id_list):
+        _add_node_list(
+            pore_id_list,
+            throat_id_list,
+            self.pore_entry_pressure,
+            self.throat_entry_pressure,
+            self.tree_element_label,
+            self.tree_elements_n,
+            self.pore_n,
+        )
+
     def get_root(self):
         return _get_root(self.tree_element_label)
+
+    def get_root_element(self, pc, pore_trapped, throat_trapped):
+        return _get_root_element(
+            pc,
+            self.pore_entry_pressure,
+            pore_trapped,
+            self.throat_entry_pressure,
+            throat_trapped,
+            self.pore_n,
+            self.tree_element_label,
+            self.tree_elements_n,
+        )
 
     def pop_root(self):
         return _pop_root(
@@ -163,9 +190,81 @@ def _add_node(
 
 
 @nb.njit(cache=True)
+def _add_node_list(
+    pore_id_list,
+    throat_id_list,
+    pore_entry_pressure,
+    throat_entry_pressure,
+    tree_element_label,
+    tree_elements_n,
+    pore_n,
+):
+    for pore_id in pore_id_list:
+        _add_node(
+            pore_entry_pressure[pore_id],
+            pore_id + 1,
+            tree_element_label,
+            tree_elements_n,
+            throat_entry_pressure,
+            pore_entry_pressure,
+        )
+    for throat_id in throat_id_list:
+        _add_node(
+            throat_entry_pressure[throat_id],
+            throat_id + pore_n + 1,
+            tree_element_label,
+            tree_elements_n,
+            throat_entry_pressure,
+            pore_entry_pressure,
+        )
+
+
+@nb.njit(cache=True)
 def _get_root(tree_element_label):
     root_label = tree_element_label[0]
     return root_label
+
+
+@nb.njit(cache=True)
+def _get_root_element(
+    pc,
+    pore_entry_pressure,
+    pore_trapped,
+    throat_entry_pressure,
+    throat_trapped,
+    pore_n,
+    tree_element_label,
+    tree_elements_n,
+):
+    while True:
+        root_label = _get_root(tree_element_label)
+        if root_label != 0:
+            if root_label > pore_n:
+                min_id = root_label - pore_n - 1
+                if throat_trapped[min_id]:
+                    _pop_root(tree_element_label, tree_elements_n, throat_entry_pressure, pore_entry_pressure)
+                    continue
+                min_pressure = throat_entry_pressure[min_id]
+                min_type = THROAT
+                break
+            else:
+                min_id = root_label - 1
+                if pore_trapped[min_id]:
+                    _pop_root(tree_element_label, tree_elements_n, throat_entry_pressure, pore_entry_pressure)
+                    continue
+                min_pressure = pore_entry_pressure[min_id]
+                min_type = PORE
+                break
+        else:
+            min_pressure = -np.inf
+            min_id = -1
+            min_type = -1
+            break
+
+    if min_id != -1:
+        return (min_type, min_id, max(min_pressure, pc))
+    else:
+        return None
 
 
 @nb.njit(cache=True)

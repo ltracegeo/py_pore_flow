@@ -18,110 +18,26 @@ class DrainageSimulation(CycleSimulation):
         super().__init__(network, OIL, calculate_full_conductance)
         self.saturation_calculator = DrainageSaturation(network)
         self.sorted_root_tree = SortedRootTree(
-            self.network.pn_core.throat.entry_pressure, self.network.pn_core.pore.entry_pressure
+            self.network.pn_core.throat.entry_pressure,
+            self.network.pn_core.pore.entry_pressure,
+            self.network.pn_core.throat.trapped,
+            self.network.pn_core.pore.trapped,
         )
 
         self.initialize()
 
     def _get_element_to_fill(self, pc, border_elements):
-        element_to_fill = self.__jit_pore_throats_element_to_fill(
+        return self.sorted_root_tree.get_root_element(
             pc,
-            self.network.pn_core.pore.entry_pressure,
             self.network.pn_core.pore.trapped,
-            self.network.pn_core.throat.entry_pressure,
             self.network.pn_core.throat.trapped,
-            self.sorted_root_tree.pore_n,
-            self.sorted_root_tree.tree_element_label,
-            self.sorted_root_tree.tree_elements_n,
         )
-
-        return element_to_fill
 
     def _add_element_to_fill(self, pore_id_list, throat_id_list):
-        self.__njit_add_element_to_fill(
-            pore_id_list,
-            throat_id_list,
-            self.network.pn_core.pore.entry_pressure,
-            self.network.pn_core.throat.entry_pressure,
-            self.sorted_root_tree.tree_element_label,
-            self.sorted_root_tree.tree_elements_n,
-            self.sorted_root_tree.pore_n,
-        )
-
-    @staticmethod
-    @nb.njit(cache=True)
-    def __njit_add_element_to_fill(
-        pore_id_list,
-        throat_id_list,
-        pore_entry_pressure,
-        throat_entry_pressure,
-        tree_element_label,
-        tree_elements_n,
-        pore_n,
-    ):
-        for pore_id in pore_id_list:
-            _add_node(
-                pore_entry_pressure[pore_id],
-                pore_id + 1,
-                tree_element_label,
-                tree_elements_n,
-                throat_entry_pressure,
-                pore_entry_pressure,
-            )
-        for throat_id in throat_id_list:
-            _add_node(
-                throat_entry_pressure[throat_id],
-                throat_id + pore_n + 1,
-                tree_element_label,
-                tree_elements_n,
-                throat_entry_pressure,
-                pore_entry_pressure,
-            )
+        self.sorted_root_tree.add_node_list(pore_id_list, throat_id_list)
 
     def _pop_element_to_fill(self):
         self.sorted_root_tree.pop_root()
-
-    @staticmethod
-    @nb.njit(cache=True)
-    def __jit_pore_throats_element_to_fill(
-        pc,
-        pore_entry_pressure,
-        pore_trapped,
-        throat_entry_pressure,
-        throat_trapped,
-        pore_n,
-        tree_element_label,
-        tree_elements_n,
-    ):
-        while True:
-            root_label = _get_root(tree_element_label)
-            if root_label != 0:
-                if root_label > pore_n:
-                    min_id = root_label - pore_n - 1
-                    if throat_trapped[min_id]:
-                        _pop_root(tree_element_label, tree_elements_n, throat_entry_pressure, pore_entry_pressure)
-                        continue
-                    min_pressure = throat_entry_pressure[min_id]
-                    min_type = THROAT
-                    break
-                else:
-                    min_id = root_label - 1
-                    if pore_trapped[min_id]:
-                        _pop_root(tree_element_label, tree_elements_n, throat_entry_pressure, pore_entry_pressure)
-                        continue
-                    min_pressure = pore_entry_pressure[min_id]
-                    min_type = PORE
-                    break
-            else:
-                min_pressure = -np.inf
-                min_id = -1
-                min_type = -1
-                break
-
-        if min_id != -1:
-            return (min_type, min_id, max(min_pressure, pc))
-        else:
-            return None
 
     def _can_be_filled(self, current_pc, invasion_pc):
         return current_pc >= invasion_pc
