@@ -102,8 +102,14 @@ class SubsequentCycleSimulation(CycleSimulation):
         pass
 
     def _update_snap_offs_pcs(self, pc):
+        previous_snap_off_pore_list = self.snap_off_pore_list
+        previous_snap_off_throat_list = self.snap_off_throat_list
         self.snap_off_pore_list = self._update_pores_snap_offs_pcs(pc)
         self.snap_off_throat_list = self._update_throats_snap_offs_pcs(pc)
+        return (
+            np.setdiff1d(previous_snap_off_pore_list, self.snap_off_pore_list),
+            np.setdiff1d(previous_snap_off_throat_list, self.snap_off_throat_list),
+        )
 
     def __update_oil_layers(self, pc):
         calculate_oil_layer_network(
@@ -139,7 +145,7 @@ class SubsequentCycleSimulation(CycleSimulation):
         )
 
     def _update_entry_pressures(self, pc):
-        self._update_snap_offs_pcs(pc)
+        new_snapoff_pores_ids, new_snapoff_throats_ids = self._update_snap_offs_pcs(pc)
 
         for throat_id in self.border_elements.get_throats_ids():
             self._update_throat_entry_pc(throat_id)

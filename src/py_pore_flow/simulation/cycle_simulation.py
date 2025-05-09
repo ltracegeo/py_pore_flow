@@ -708,11 +708,11 @@ class CycleSimulation:
             if (self.phase == OIL and element.So == 1.0) or (self.phase == WATER and element.Sw == 1.0):
                 self.trap_checker.update_trapped_pores()
             new_pores, new_throats = self._find_border_elements(self.network.pn_core, self.border_elements, self.phase)
-            self._add_element_to_fill(new_pores, new_throats)
             for pore_id in new_pores:
                 self._update_element_entry_pc(self.network.get_pore(pore_id), pc)
             for throat_id in new_throats:
                 self._update_element_entry_pc(self.network.get_throat(throat_id), pc)
+            self._add_element_to_fill(new_pores, new_throats)
         return sw_delta, invasion_pc, no_invasion_left
 
     def __fill_element(self, element, pc):
