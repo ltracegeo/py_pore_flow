@@ -707,24 +707,17 @@ class CycleSimulation:
     def _update_network_geometry(self, pc):
         self.saturation_calculator.update_saturations(pc)
 
+    @abstractmethod
     def _update_element_entry_pc(self, element, pc):
-        pass
-
-    def _update_throat_entry_pc(self, throat_id, pc):
-        pass
-
-    def _update_pore_entry_pc(self, pore_id, pc):
         pass
 
     @abstractmethod
     def _get_element_to_fill(self, pc, border_elements):
         pass
 
+    @abstractmethod
     def _update_entry_pressures(self, pc):
-        for throat_id in self.border_elements.get_throats_ids():
-            self._update_throat_entry_pc(throat_id, pc)
-        for pore_id in self.border_elements.get_pores_ids():
-            self._update_pore_entry_pc(pore_id, pc)
+        pass
 
     def _update_invasions(self, pc, target_sw=None):
         sw_delta = 0.0
