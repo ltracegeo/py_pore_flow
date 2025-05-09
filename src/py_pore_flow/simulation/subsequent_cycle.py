@@ -94,8 +94,16 @@ class SubsequentCycleSimulation(CycleSimulation):
         return np.array(snap_off_elements, dtype=np.int64)
 
     @abstractmethod
-    def _update_snap_offs_pcs(self, pc):
+    def _update_throats_snap_offs_pcs(self, pc):
         pass
+
+    @abstractmethod
+    def _update_pores_snap_offs_pcs(self, pc):
+        pass
+
+    def _update_snap_offs_pcs(self, pc):
+        self.snap_off_pore_list = self._update_pores_snap_offs_pcs(pc)
+        self.snap_off_throat_list = self._update_throats_snap_offs_pcs(pc)
 
     def __update_oil_layers(self, pc):
         calculate_oil_layer_network(
@@ -132,13 +140,17 @@ class SubsequentCycleSimulation(CycleSimulation):
 
     def _update_entry_pressures(self, pc):
         self._update_snap_offs_pcs(pc)
-        super()._update_entry_pressures(pc)
+
+        for throat_id in self.border_elements.get_throats_ids():
+            self._update_throat_entry_pc(throat_id)
+        for pore_id in self.border_elements.get_pores_ids():
+            self._update_pore_entry_pc(pore_id, pc)
 
     def _update_element_entry_pc(self, element, pc):
         if element.is_pore():
             self._update_pore_entry_pc(element.get_id(), pc)
         else:
-            self._update_throat_entry_pc(element.get_id(), pc)
+            self._update_throat_entry_pc(element.get_id())
 
     def _update_pore_entry_pc(self, pore_id, pc):
         K = self.krel_calculator.get_absolute_permeability()
@@ -162,7 +174,7 @@ class SubsequentCycleSimulation(CycleSimulation):
         )
         self.network.pn_core.pore.entry_pressure[pore_id] = element_pc
 
-    def _update_throat_entry_pc(self, throat_id, pc):
+    def _update_throat_entry_pc(self, throat_id):
         self.network.pn_core.throat.entry_pressure[throat_id] = self.network.pn_core.throat.piston_like_pressure[
             throat_id
         ]
