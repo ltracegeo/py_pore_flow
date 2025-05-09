@@ -513,6 +513,8 @@ class SaturationCalculator:
         if should_update:
             element_data.water_saturation[id] = sw
             element_data.oil_saturation[id] = so
+            if sw > 0 and so > 0:
+                element_data.is_multiphase[id] = True
 
         if self.phase == OIL:
             return element_data.oil_saturation[id] * element_data.volume[id] / self.total_volume
