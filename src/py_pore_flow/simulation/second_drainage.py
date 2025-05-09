@@ -34,6 +34,13 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
         if c.pore_fill_alg == "oren2":
             self.calculate_pore_body_filling_pc = PORE_BODY_FILLING_STRATEGY["oren1"]
 
+        self.sorted_root_tree = SortedRootTree(
+            self.network.pn_core.throat.entry_pressure,
+            self.network.pn_core.pore.entry_pressure,
+            self.network.pn_core.throat.trapped,
+            self.network.pn_core.pore.trapped,
+        )
+
         self.initialize()
 
     def _can_be_filled(self, current_pc, invasion_pc):

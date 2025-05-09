@@ -725,6 +725,7 @@ class CycleSimulation:
                 self._update_element_entry_pc(self.network.get_pore(pore_id), pc)
             for throat_id in new_throats:
                 self._update_element_entry_pc(self.network.get_throat(throat_id), pc)
+            self._add_element_to_fill(new_pores, new_throats)
         return sw_delta, invasion_pc, no_invasion_left
 
     def __check_for_bubble(self, element):

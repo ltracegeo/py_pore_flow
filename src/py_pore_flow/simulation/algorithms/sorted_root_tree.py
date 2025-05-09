@@ -49,6 +49,17 @@ class SortedRootTree:
             self.pore_n,
         )
 
+    def add_node_list_if_not_present(self, pore_id_list, throat_id_list):
+        return _add_node_list_if_not_present(
+            pore_id_list,
+            throat_id_list,
+            self.pore_entry_pressure,
+            self.throat_entry_pressure,
+            self.tree_element_label,
+            self.tree_elements_n,
+            self.pore_n,
+        )
+
     def get_root(self):
         return _get_root(self.tree_element_label)
 
@@ -102,6 +113,40 @@ class DecreasingSortedRootTree(SortedRootTree):
             self.tree_elements_n,
             self.throat_entry_pressure,
             self.pore_entry_pressure,
+        )
+
+    def add_node_list(self, pore_id_list, throat_id_list):
+        _dec_add_node_list(
+            pore_id_list,
+            throat_id_list,
+            self.pore_entry_pressure,
+            self.throat_entry_pressure,
+            self.tree_element_label,
+            self.tree_elements_n,
+            self.pore_n,
+        )
+
+    def add_node_list_if_not_present(self, pore_id_list, throat_id_list):
+        return _dec_add_node_list_if_not_present(
+            pore_id_list,
+            throat_id_list,
+            self.pore_entry_pressure,
+            self.throat_entry_pressure,
+            self.tree_element_label,
+            self.tree_elements_n,
+            self.pore_n,
+        )
+
+    def get_root_element(self, pc, pore_trapped, throat_trapped):
+        return _dec_get_root_element(
+            pc,
+            self.pore_entry_pressure,
+            pore_trapped,
+            self.throat_entry_pressure,
+            throat_trapped,
+            self.pore_n,
+            self.tree_element_label,
+            self.tree_elements_n,
         )
 
     def pop_root(self):
@@ -317,8 +362,6 @@ def _pop_root(
     else:
         changed = False
     while changed is True:
-        if center_n == 0:
-            changed = False
         parent_n = (center_n + 1) // 2 - 1
         parent_label = tree_element_label[parent_n]
         parent_pressure = get_pressure(parent_label)
@@ -327,10 +370,10 @@ def _pop_root(
             tree_element_label[parent_n] = center_label
             center_n = parent_n
             changed = True
-            continue
+            if center_n == 0:
+                changed = False
         else:  # moved_element_pressure >= parent_pressure:
             changed = False
-            continue
 
     tree_elements_n[0] -= 1
     return root_label
@@ -382,6 +425,53 @@ def _check_tree(
 
 
 @nb.njit(cache=True)
+def _add_node_list_if_not_present(
+    pore_id_list,
+    throat_id_list,
+    pore_entry_pressure,
+    throat_entry_pressure,
+    tree_element_label,
+    tree_elements_n,
+    pore_n,
+):
+    element_already_exists = False
+    for pore_id in pore_id_list:
+        if _is_present(pore_id + 1, tree_element_label, tree_elements_n):
+            element_already_exists = True
+        else:
+            _add_node(
+                pore_entry_pressure[pore_id],
+                pore_id + 1,
+                tree_element_label,
+                tree_elements_n,
+                throat_entry_pressure,
+                pore_entry_pressure,
+            )
+    for throat_id in throat_id_list:
+        if _is_present(throat_id + pore_n + 1, tree_element_label, tree_elements_n):
+            element_already_exists = True
+        else:
+            _add_node(
+                throat_entry_pressure[throat_id],
+                throat_id + pore_n + 1,
+                tree_element_label,
+                tree_elements_n,
+                throat_entry_pressure,
+                pore_entry_pressure,
+            )
+    return element_already_exists
+
+
+@nb.njit(cache=True)
+def _is_present(element_label, tree_element_label, tree_elements_n):
+    new_n = tree_elements_n[0]
+    for i in range(new_n):
+        if tree_element_label[i] == element_label:
+            return True
+    return False
+
+
+@nb.njit(cache=True)
 def _dec_add_node(
     new_element_pressure,
     new_element_label,
@@ -415,6 +505,36 @@ def _dec_add_node(
 
 
 @nb.njit(cache=True)
+def _dec_add_node_list(
+    pore_id_list,
+    throat_id_list,
+    pore_entry_pressure,
+    throat_entry_pressure,
+    tree_element_label,
+    tree_elements_n,
+    pore_n,
+):
+    for pore_id in pore_id_list:
+        _dec_add_node(
+            pore_entry_pressure[pore_id],
+            pore_id + 1,
+            tree_element_label,
+            tree_elements_n,
+            throat_entry_pressure,
+            pore_entry_pressure,
+        )
+    for throat_id in throat_id_list:
+        _dec_add_node(
+            throat_entry_pressure[throat_id],
+            throat_id + pore_n + 1,
+            tree_element_label,
+            tree_elements_n,
+            throat_entry_pressure,
+            pore_entry_pressure,
+        )
+
+
+@nb.njit(cache=True)
 def _dec_pop_root(
     tree_element_label,
     tree_elements_n,
@@ -436,7 +556,7 @@ def _dec_pop_root(
 
     while left_node != 0:
         if right_node != 0:
-            if get_pressure(left_node) < get_pressure(right_node):
+            if get_pressure(left_node) > get_pressure(right_node):
                 tree_element_label[center_n] = left_node
                 tree_element_label[left_n] = 0
                 center_n = left_n
@@ -464,8 +584,6 @@ def _dec_pop_root(
     else:
         changed = False
     while changed is True:
-        if center_n == 0:
-            changed = False
         parent_n = (center_n + 1) // 2 - 1
         parent_label = tree_element_label[parent_n]
         parent_pressure = get_pressure(parent_label)
@@ -474,10 +592,10 @@ def _dec_pop_root(
             tree_element_label[parent_n] = center_label
             center_n = parent_n
             changed = True
-            continue
+            if center_n == 0:
+                changed = False
         else:  # moved_element_pressure >= parent_pressure:
             changed = False
-            continue
 
     tree_elements_n[0] -= 1
     return root_label
@@ -526,3 +644,83 @@ def _dec_check_tree(
         if parent_pressure < center_pressure:
             return False
     return True
+
+
+@nb.njit(cache=True)
+def _dec_add_node_list_if_not_present(
+    pore_id_list,
+    throat_id_list,
+    pore_entry_pressure,
+    throat_entry_pressure,
+    tree_element_label,
+    tree_elements_n,
+    pore_n,
+):
+    element_already_exists = False
+    for pore_id in pore_id_list:
+        if _is_present(pore_id + 1, tree_element_label, tree_elements_n):
+            element_already_exists = True
+        else:
+            _dec_add_node(
+                pore_entry_pressure[pore_id],
+                pore_id + 1,
+                tree_element_label,
+                tree_elements_n,
+                throat_entry_pressure,
+                pore_entry_pressure,
+            )
+    for throat_id in throat_id_list:
+        if _is_present(throat_id + pore_n + 1, tree_element_label, tree_elements_n):
+            element_already_exists = True
+        else:
+            _dec_add_node(
+                throat_entry_pressure[throat_id],
+                throat_id + pore_n + 1,
+                tree_element_label,
+                tree_elements_n,
+                throat_entry_pressure,
+                pore_entry_pressure,
+            )
+    return element_already_exists
+
+
+@nb.njit(cache=True)
+def _dec_get_root_element(
+    pc,
+    pore_entry_pressure,
+    pore_trapped,
+    throat_entry_pressure,
+    throat_trapped,
+    pore_n,
+    tree_element_label,
+    tree_elements_n,
+):
+    while True:
+        root_label = _get_root(tree_element_label)
+        if root_label != 0:
+            if root_label > pore_n:
+                max_id = root_label - pore_n - 1
+                if throat_trapped[max_id]:
+                    _dec_pop_root(tree_element_label, tree_elements_n, throat_entry_pressure, pore_entry_pressure)
+                    continue
+                max_pressure = throat_entry_pressure[max_id]
+                max_type = THROAT
+                break
+            else:
+                max_id = root_label - 1
+                if pore_trapped[max_id]:
+                    _dec_pop_root(tree_element_label, tree_elements_n, throat_entry_pressure, pore_entry_pressure)
+                    continue
+                max_pressure = pore_entry_pressure[max_id]
+                max_type = PORE
+                break
+        else:
+            max_pressure = -np.inf
+            max_id = -1
+            max_type = -1
+            break
+
+    if max_id != -1:
+        return (max_type, max_id, min(max_pressure, pc))
+    else:
+        return None

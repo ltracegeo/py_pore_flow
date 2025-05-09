@@ -26,6 +26,12 @@ class ImbibitionSimulation(SubsequentCycleSimulation):
         super().__init__(network, pc_max, WATER, calculate_full_conductance)
         self.adversary_fluid_filled = network.pn_core.throat.oil_filled
         self.limit_contact_angle = network.pn_core.pore.advancing_contact_angle
+        self.sorted_root_tree = DecreasingSortedRootTree(
+            self.network.pn_core.throat.entry_pressure,
+            self.network.pn_core.pore.entry_pressure,
+            self.network.pn_core.throat.trapped_evacuation,
+            self.network.pn_core.pore.trapped_evacuation,
+        )
 
         self.initialize()
 

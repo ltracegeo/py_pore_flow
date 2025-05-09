@@ -35,8 +35,8 @@ class SubsequentCycleSimulation(CycleSimulation):
 
         self.calculate_pore_body_filling_pc = PORE_BODY_FILLING_STRATEGY[c.pore_fill_alg]
 
-        self.snap_off_throat_list = []
-        self.snap_off_pore_list = []
+        self.snap_off_throat_list = np.empty(0, np.int64)
+        self.snap_off_pore_list = np.empty(0, np.int64)
 
     def _update_invasions(self, pc, target_sw=None):
         invaded_pc = super()._update_invasions(pc, target_sw)
@@ -103,8 +103,14 @@ class SubsequentCycleSimulation(CycleSimulation):
         pass
 
     def _update_snap_offs_pcs(self, pc):
+        previous_snap_off_pore_list = self.snap_off_pore_list
+        previous_snap_off_throat_list = self.snap_off_throat_list
         self.snap_off_pore_list = self._update_pores_snap_offs_pcs(pc)
         self.snap_off_throat_list = self._update_throats_snap_offs_pcs(pc)
+        return (
+            np.setdiff1d(previous_snap_off_pore_list, self.snap_off_pore_list),
+            np.setdiff1d(previous_snap_off_throat_list, self.snap_off_throat_list),
+        )
 
     def __update_oil_layers(self, pc):
         calculate_oil_layer_network(
@@ -140,12 +146,15 @@ class SubsequentCycleSimulation(CycleSimulation):
         )
 
     def _update_entry_pressures(self, pc):
-        self._update_snap_offs_pcs(pc)
+        new_snapoff_pores_ids, new_snapoff_throats_ids = self._update_snap_offs_pcs(pc)
+        self.sorted_root_tree.add_node_list_if_not_present(new_snapoff_pores_ids, new_snapoff_throats_ids)
 
         for throat_id in self.border_elements.get_throats_ids():
             self._update_throat_entry_pc(throat_id)
         for pore_id in self.border_elements.get_pores_ids():
             self._update_pore_entry_pc(pore_id, pc)
+
+        self.sorted_root_tree.reorder_tree()
 
     def _update_element_entry_pc(self, element, pc):
         if element.is_pore():
@@ -181,18 +190,11 @@ class SubsequentCycleSimulation(CycleSimulation):
         ]
 
     def _get_element_to_fill(self, pc, border_elements):
-        self.__clear_snapoff_lists()
-        pore_id_list = np.concatenate((border_elements.get_pores_ids(), self.snap_off_pore_list))
-        throat_id_list = np.concatenate((border_elements.get_throats_ids(), self.snap_off_throat_list))
-        element_to_fill = self._jit_pore_throats_element_to_fill(
+        return self.sorted_root_tree.get_root_element(
             pc,
-            pore_id_list,
-            self.network.pn_core.pore.entry_pressure,
-            throat_id_list,
-            self.network.pn_core.throat.entry_pressure,
+            self.network.pn_core.pore.trapped_evacuation,
+            self.network.pn_core.throat.trapped_evacuation,
         )
-
-        return element_to_fill
 
     @abstractmethod
     def _can_be_filled(self, current_pc, invasion_pc):
@@ -322,6 +324,14 @@ class SubsequentCycleSimulation(CycleSimulation):
             self.network.pn_core.throat.hinging_contact_angle,
             self.network.pn_core.throat.trapped_evacuation,
         )
+
+    def _add_element_to_fill(self, pore_id_list, throat_id_list):
+        element_already_exists = self.sorted_root_tree.add_node_list_if_not_present(pore_id_list, throat_id_list)
+        if element_already_exists:
+            self.sorted_root_tree.reorder_tree()
+
+    def _pop_element_to_fill(self):
+        self.sorted_root_tree.pop_root()
 
 
 class SubsequentSaturation(SaturationCalculator):
