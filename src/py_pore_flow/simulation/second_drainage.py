@@ -62,14 +62,14 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
     def _can_be_filled(self, current_pc, invasion_pc):
         return current_pc >= invasion_pc
 
-    def _update_snap_offs_pcs(self, pc):
+    def _update_throats_snap_offs_pcs(self, pc):
         throat_snap_off_viability = np.empty(len(self.network.pn.throats()), np.bool_)
         self.__set_snap_off_viability(
             throat_snap_off_viability,
             self.network.pn_core.throat.corner_oil_layer,
             self.network.pn_core.throat.n_conns,
         )
-        self.snap_off_throat_list = self._snap_off(
+        return self._snap_off(
             self.network.pn_core.throat.imminent_snap_off,
             self.network.pn.throats(),
             self.network.pn_core.throat.n_corners,
@@ -92,13 +92,14 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
             is_throats=True,
         )
 
+    def _update_pores_snap_offs_pcs(self, pc):
         pore_snap_off_viability = np.empty(len(self.network.pn.pores()), np.bool_)
         self.__set_snap_off_viability(
             pore_snap_off_viability,
             self.network.pn_core.pore.corner_oil_layer,
             self.network.pn_core.pore.n_conns,
         )
-        self.snap_off_pore_list = self._snap_off(
+        return self._snap_off(
             self.network.pn_core.pore.imminent_snap_off,
             self.network.pn.pores(),
             self.network.pn_core.pore.n_corners,
