@@ -621,9 +621,6 @@ class CycleSimulation:
                 invasion_target_sw = target_sw - total_sw_delta
             invaded_pc = invasion_pc
             sw_delta, invasion_pc, no_invasion_left = self._update_invasions(invasion_pc, invasion_target_sw)
-            if invaded_pc * old_pc < 0:
-                # It is necessary to recalculate geometry when pressure change signal
-                self._update_network_geometry(invaded_pc)
             self._update_multiphase_mask(invaded_pc, old_pc)
             old_pc = invaded_pc
             total_sw_delta += sw_delta
