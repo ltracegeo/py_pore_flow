@@ -600,6 +600,10 @@ class CycleSimulation:
 
         self.border_elements = BorderElements()
         self._find_border_elements(self.network.pn_core, self.border_elements, phase)
+        self.network.pn_core.pore.in_border[:] = False
+        self.network.pn_core.throat.in_border[:] = False
+        self.network.pn_core.pore.in_border[self.border_elements.get_pores_ids()] = True
+        self.network.pn_core.throat.in_border[self.border_elements.get_throats_ids()] = True
 
         self.saturation_calculator = None
 
@@ -738,27 +742,44 @@ class CycleSimulation:
             return False
 
     def __update_border_elements(self, reached_bubble, filled_element):
-        if reached_bubble:
-            new_pores, new_throats = self._find_border_elements(self.network.pn_core, self.border_elements, self.phase)
+        # if reached_bubble:
+        new_pores, new_throats = self._find_border_elements(self.network.pn_core, self.border_elements, self.phase)
+        # else:
+        if filled_element.type_name == "pore":
+            element_data = self.network.pn_core.pore
+            neighbor_data = self.network.pn_core.throat
         else:
-            if filled_element.type_name == "pore":
-                element_data = self.network.pn_core.pore
-                neighbor_data = self.network.pn_core.throat
-            else:
-                element_data = self.network.pn_core.throat
-                neighbor_data = self.network.pn_core.pore
+            element_data = self.network.pn_core.throat
+            neighbor_data = self.network.pn_core.pore
 
-            if self.phase == WATER:
-                neighbor_filled = neighbor_data.water_filled
-            else:
-                neighbor_filled = neighbor_data.oil_filled
+        if self.phase == WATER:
+            neighbor_filled = neighbor_data.water_filled
+        else:
+            neighbor_filled = neighbor_data.oil_filled
 
-            neighbor_ids = element_data.conns[id][: element_data.n_conns[id]]
+        neighbor_ids = element_data.conns[filled_element.id][: element_data.n_conns[filled_element.id]]
+        new_border_neighbors = neighbor_ids[~neighbor_filled[neighbor_ids] & ~neighbor_data.trapped[neighbor_ids]]
 
-            if filled_element.type_name == "pore":
-                self.border_elements.add_throats_ids(neighbor_ids[~neighbor_filled[neighbor_ids]])
-            else:
-                self.border_elements.add_pores_ids(neighbor_ids[~neighbor_filled[neighbor_ids]])
+        if filled_element.type_name == "pore":
+            new_pores2 = np.array([], np.int32)
+            new_throats2 = new_border_neighbors[~neighbor_data.in_border[new_border_neighbors]]
+            # self.border_elements.add_throats_ids(new_throats)
+            neighbor_data.in_border[new_throats2] = True
+        else:
+            new_pores2 = new_border_neighbors[~neighbor_data.in_border[new_border_neighbors]]
+            new_throats2 = np.array([], np.int32)
+            # self.border_elements.add_pores_ids(new_pores)
+            neighbor_data.in_border[new_pores2] = True
+
+        if not np.array_equal(new_pores, new_pores2) or not np.array_equal(new_throats, new_throats2):
+            print("reached_bubble", reached_bubble)
+            print("new_pores1", new_pores)
+            print("new_pores2", new_pores2)
+            print("new_throats1", new_throats)
+            print("new_throats2", new_throats2)
+            print("")
+            exit()
+        # print("")
 
         return new_pores, new_throats
 
@@ -813,6 +834,7 @@ class CycleSimulation:
         else:
             new_pores = np.array([])
             border_elements.set_pores_ids(np.array([], np.int64))
+
         return new_pores, new_throats
 
     @staticmethod
