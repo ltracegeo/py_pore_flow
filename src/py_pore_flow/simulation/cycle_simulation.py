@@ -570,6 +570,18 @@ class BorderElements:
     def get_pores_ids(self):
         return self.pores_ids
 
+    def add_throats_ids(self, throats_ids):
+        self.throats_ids = np.concatenate((self.throats_ids, throats_ids))
+
+    def add_pores_ids(self, pores_ids):
+        self.pores_ids = np.concatenate((self.pores_ids, pores_ids))
+
+    def remove_throats_ids(self, throat_ids):
+        self.throats_ids = np.delete(self.throats_ids, np.isin(self.throats_ids, throat_ids))
+
+    def remove_pores_ids(self, pore_ids):
+        self.pores_ids = np.delete(self.pores_ids, np.isin(self.pores_ids, pore_ids))
+
 
 class CycleSimulation:
     def __init__(self, network, phase, calculate_full_conductance=False):
@@ -588,7 +600,7 @@ class CycleSimulation:
         self.trap_checker.update_trapped_pores()
 
         self.border_elements = BorderElements()
-        self._find_border_elements(self.network.pn_core, self.border_elements, phase)
+        self.__refresh_border_elements(True, None)
 
         self.saturation_calculator = None
 
@@ -690,18 +702,57 @@ class CycleSimulation:
 
             self.__fill_element(element, invasion_pc)
             sw_delta += self._update_element_filled_geometry(invasion_pc, element)
+            reached_bubble = self.__check_for_bubble(element)
             if element.is_pore():
                 self.phase_connection_checker.update_phase_connections(PORE, element.id)
             else:
                 self.phase_connection_checker.update_phase_connections(THROAT, element.id)
             if (self.phase == OIL and element.So == 1.0) or (self.phase == WATER and element.Sw == 1.0):
                 self.trap_checker.update_trapped_pores()
-            new_pores, new_throats = self._find_border_elements(self.network.pn_core, self.border_elements, self.phase)
+
+            new_pores, new_throats = self.__refresh_border_elements(reached_bubble, element)
             for pore_id in new_pores:
                 self._update_element_entry_pc(self.network.get_pore(pore_id), pc)
             for throat_id in new_throats:
                 self._update_element_entry_pc(self.network.get_throat(throat_id), pc)
         return sw_delta, invasion_pc, no_invasion_left
+
+    def __check_for_bubble(self, element):
+        id = element.id
+
+        if element.type == PORE:
+            element_data = self.network.pn_core.pore
+            neighbor_data = self.network.pn_core.throat
+        else:
+            element_data = self.network.pn_core.throat
+            neighbor_data = self.network.pn_core.pore
+
+        if self.phase == WATER:
+            neighbor_filled = neighbor_data.water_filled
+            has_phase = neighbor_data.water_saturation > 0
+            connected_to_inlet = neighbor_data.water_connected_to_inlet
+        else:
+            neighbor_filled = neighbor_data.oil_filled
+            has_phase = neighbor_data.oil_saturation > 0
+            connected_to_inlet = neighbor_data.oil_connected_to_inlet
+
+        neighbor_ids = element_data.conns[id][: element_data.n_conns[id]]
+        if (has_phase[neighbor_ids] & ~connected_to_inlet[neighbor_ids]).any():
+            return True
+        else:
+            return False
+
+    def __refresh_border_elements(self, reached_bubble, filled_element):
+        if reached_bubble:
+            new_pores, new_throats = self.__reset_border_elements(
+                self.network.pn_core, self.border_elements, self.phase
+            )
+        else:
+            new_pores, new_throats = self.__update_border_elements(
+                self.network.pn_core, self.border_elements, self.phase, filled_element
+            )
+
+        return new_pores, new_throats
 
     def __fill_element(self, element, pc):
         element.set_filled(self.phase, True)
@@ -728,8 +779,8 @@ class CycleSimulation:
         )
 
     @staticmethod
-    def _find_border_elements(pn, border_elements, phase):
-        border_pore_ids, border_throat_ids = CycleSimulation.__find_border_elements(
+    def __reset_border_elements(pn, border_elements, phase):
+        border_pore_ids, border_throat_ids = CycleSimulation.__njit_reset_border_elements(
             phase,
             pn.pore.water_filled,
             pn.pore.oil_filled,
@@ -752,19 +803,131 @@ class CycleSimulation:
             new_throats = np.setdiff1d(border_throat_ids, border_elements.get_throats_ids())
             border_elements.set_throats_ids(border_throat_ids)
         else:
-            new_throats = np.array([])
+            new_throats = np.array([], np.int64)
             border_elements.set_throats_ids(np.array([], np.int64))
         if len(border_pore_ids) > 0:
             new_pores = np.setdiff1d(border_pore_ids, border_elements.get_pores_ids())
             border_elements.set_pores_ids(border_pore_ids)
         else:
-            new_pores = np.array([])
+            new_pores = np.array([], np.int64)
             border_elements.set_pores_ids(np.array([], np.int64))
+
+        pn.pore.in_border[:] = False
+        pn.throat.in_border[:] = False
+        pn.pore.in_border[border_elements.get_pores_ids()] = True
+        pn.throat.in_border[border_elements.get_throats_ids()] = True
+
+        return new_pores, new_throats
+
+    @staticmethod
+    def __update_border_elements(pn, border_elements, phase, filled_element):
+        new_pores, new_throats, old_pores, old_throats = CycleSimulation.__njit_update_border_elements(
+            phase,
+            filled_element.type,
+            filled_element.id,
+            pn.pore.trapped,
+            pn.pore.conns,
+            pn.pore.n_conns,
+            pn.pore.water_filled,
+            pn.pore.oil_filled,
+            pn.pore.in_border,
+            pn.throat.trapped,
+            pn.throat.conns,
+            pn.throat.n_conns,
+            pn.throat.water_filled,
+            pn.throat.oil_filled,
+            pn.throat.in_border,
+        )
+
+        border_elements.add_pores_ids(new_pores)
+        border_elements.add_throats_ids(new_throats)
+        border_elements.remove_pores_ids(old_pores)
+        border_elements.remove_throats_ids(old_throats)
+        border_elements.get_pores_ids().sort()
+        border_elements.get_throats_ids().sort()
+
+        pn.pore.in_border[old_pores] = False
+        pn.throat.in_border[old_throats] = False
+        pn.pore.in_border[new_pores] = True
+        pn.throat.in_border[new_throats] = True
+
         return new_pores, new_throats
 
     @staticmethod
     @nb.njit(cache=True)
-    def __find_border_elements(
+    def __njit_update_border_elements(
+        phase,
+        filled_element_type,
+        filled_element_id,
+        pore_trapped,
+        pore_conns,
+        pore_n_conns,
+        pore_water_filled,
+        pore_oil_filled,
+        pore_in_border,
+        throat_trapped,
+        throat_conns,
+        throat_n_conns,
+        throat_water_filled,
+        throat_oil_filled,
+        throat_in_border,
+    ):
+        # setup
+        if filled_element_type == PORE:
+            element_conns = pore_conns
+            element_n_conns = pore_n_conns
+            neighbor_trapped = throat_trapped
+            neighbor_water_filled = throat_water_filled
+            neighbor_oil_filled = throat_oil_filled
+            neighbor_in_border = throat_in_border
+        else:
+            element_conns = throat_conns
+            element_n_conns = throat_n_conns
+            neighbor_trapped = pore_trapped
+            neighbor_water_filled = pore_water_filled
+            neighbor_oil_filled = pore_oil_filled
+            neighbor_in_border = pore_in_border
+
+        if phase == WATER:
+            neighbor_filled = neighbor_water_filled
+        else:
+            neighbor_filled = neighbor_oil_filled
+
+        # pores to add
+        neighbor_ids = element_conns[filled_element_id][: element_n_conns[filled_element_id]].astype(np.int64)
+        new_border_neighbors = list()
+        for id in neighbor_ids:
+            if not neighbor_filled[id] and not neighbor_trapped[id] and not neighbor_in_border[id]:
+                new_border_neighbors.append(id)
+
+        if filled_element_type == PORE:
+            new_pores = np.empty(0, np.int64)
+            new_throats = np.array(new_border_neighbors, np.int64)
+        else:
+            new_pores = np.array(new_border_neighbors, np.int64)
+            new_throats = np.empty(0, np.int64)
+
+        # pores to remove
+        old_pores = list()
+        for pore_id in range(len(pore_trapped)):
+            if pore_trapped[pore_id] and pore_in_border[pore_id]:
+                old_pores.append(pore_id)
+        old_throats = list()
+        for throat_id in range(len(throat_trapped)):
+            if throat_trapped[throat_id] and throat_in_border[throat_id]:
+                old_throats.append(throat_id)
+        if filled_element_type == PORE:
+            if pore_in_border[filled_element_id]:
+                old_pores.append(filled_element_id)
+        else:
+            if throat_in_border[filled_element_id]:
+                old_throats.append(filled_element_id)
+
+        return new_pores, new_throats, np.array(old_pores, np.int64), np.array(old_throats, np.int64)
+
+    @staticmethod
+    @nb.njit(cache=True)
+    def __njit_reset_border_elements(
         phase,
         pore_water_filled,
         pore_oil_filled,
