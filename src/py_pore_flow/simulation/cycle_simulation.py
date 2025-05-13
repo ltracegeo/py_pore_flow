@@ -575,6 +575,12 @@ class BorderElements:
     def get_pores_ids(self):
         return self.pores_ids
 
+    def add_throats_ids(self, throats_ids):
+        self.throats_ids = np.concatenate((self.throats_ids, throats_ids))
+
+    def add_pores_ids(self, pores_ids):
+        self.pores_ids = np.concatenate((self.pores_ids, pores_ids))
+
 
 class CycleSimulation:
     def __init__(self, network, phase, calculate_full_conductance=False):
@@ -701,19 +707,67 @@ class CycleSimulation:
 
             self.__fill_element(element, invasion_pc)
             sw_delta += self._update_element_filled_geometry(invasion_pc, element)
+            reached_bubble = self.__check_for_bubble(element)
             if element.is_pore():
                 self.phase_connection_checker.update_phase_connections(PORE, element.id)
             else:
                 self.phase_connection_checker.update_phase_connections(THROAT, element.id)
             if (self.phase == OIL and element.So == 1.0) or (self.phase == WATER and element.Sw == 1.0):
                 self.trap_checker.update_trapped_pores()
-            new_pores, new_throats = self._find_border_elements(self.network.pn_core, self.border_elements, self.phase)
+
+            new_pores, new_throats = self.__update_border_elements(reached_bubble, element)
             for pore_id in new_pores:
                 self._update_element_entry_pc(self.network.get_pore(pore_id), pc)
             for throat_id in new_throats:
                 self._update_element_entry_pc(self.network.get_throat(throat_id), pc)
             self._add_element_to_fill(new_pores, new_throats)
         return sw_delta, invasion_pc, no_invasion_left
+
+    def __check_for_bubble(self, element):
+        id = element.id
+
+        if element.type_name == "pore":
+            element_data = self.network.pn_core.pore
+            neighbor_data = self.network.pn_core.throat
+        else:
+            element_data = self.network.pn_core.throat
+            neighbor_data = self.network.pn_core.pore
+
+        if self.phase == WATER:
+            neighbor_filled = neighbor_data.water_filled
+        else:
+            neighbor_filled = neighbor_data.oil_filled
+
+        neighbor_ids = element_data.conns[id][: element_data.n_conns[id]]
+        if (neighbor_filled[neighbor_ids] & neighbor_data.trapped[neighbor_ids]).any():
+            return True
+        else:
+            return False
+
+    def __update_border_elements(self, reached_bubble, filled_element):
+        if reached_bubble:
+            new_pores, new_throats = self._find_border_elements(self.network.pn_core, self.border_elements, self.phase)
+        else:
+            if filled_element.type_name == "pore":
+                element_data = self.network.pn_core.pore
+                neighbor_data = self.network.pn_core.throat
+            else:
+                element_data = self.network.pn_core.throat
+                neighbor_data = self.network.pn_core.pore
+
+            if self.phase == WATER:
+                neighbor_filled = neighbor_data.water_filled
+            else:
+                neighbor_filled = neighbor_data.oil_filled
+
+            neighbor_ids = element_data.conns[id][: element_data.n_conns[id]]
+
+            if filled_element.type_name == "pore":
+                self.border_elements.add_throats_ids(neighbor_ids[~neighbor_filled[neighbor_ids]])
+            else:
+                self.border_elements.add_pores_ids(neighbor_ids[~neighbor_filled[neighbor_ids]])
+
+        return new_pores, new_throats
 
     def __fill_element(self, element, pc):
         element.set_filled(self.phase, True)
