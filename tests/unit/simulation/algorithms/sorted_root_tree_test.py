@@ -94,6 +94,8 @@ class SortRootTreeTest(unittest.TestCase):
             self.throat_trapped,
             self.pore_trapped,
         )
+
+        # Add elements
         pore_id = 5
         pore_pressure = sorted_root_tree.get_pressure(pore_id + 1)
         assert_almost_equal(pore_pressure, 0.15599452033620265)
@@ -104,9 +106,36 @@ class SortRootTreeTest(unittest.TestCase):
         assert_almost_equal(throat_pressure, 0.3663618432936917)
         sorted_root_tree.add_node(throat_pressure, throat_id + sorted_root_tree.pore_n + 1)
 
+        throat_id = 7
+        throat_pressure = sorted_root_tree.get_pressure(throat_id + sorted_root_tree.pore_n + 1)
+        assert_almost_equal(throat_pressure, 0.5142344384136116)
+        sorted_root_tree.add_node(throat_pressure, throat_id + sorted_root_tree.pore_n + 1)
+
         element_type, element_id, pressure = sorted_root_tree.get_root_element(
             1000, self.pore_trapped, self.throat_trapped
         )
         assert_equal(element_type, 1)
-        assert_equal(element_id, 3)
-        assert_almost_equal(pressure, 0.3663618432936917)
+        assert_equal(element_id, 7)
+        assert_almost_equal(pressure, 0.5142344384136116)
+
+        # Change pressure
+        self.throat_entry_pressure[7] = 0.14
+        self.throat_entry_pressure[3] = 0.13
+        sorted_root_tree.reorder_tree()
+        assert(sorted_root_tree.check_tree())
+
+        element_type, element_id, pressure = sorted_root_tree.get_root_element(
+            1000, self.pore_trapped, self.throat_trapped
+        )
+        assert_equal(element_type, 0)
+        assert_equal(element_id, 5)
+        assert_almost_equal(pressure, 0.15599452033620265)
+        sorted_root_tree.pop_root()
+        assert(sorted_root_tree.check_tree())
+
+        element_type, element_id, pressure = sorted_root_tree.get_root_element(
+            1000, self.pore_trapped, self.throat_trapped
+        )
+        assert_equal(element_type, 1)
+        assert_equal(element_id, 7)
+        assert_almost_equal(pressure, 0.14)
