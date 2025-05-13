@@ -122,7 +122,7 @@ class SortRootTreeTest(unittest.TestCase):
         self.throat_entry_pressure[7] = 0.14
         self.throat_entry_pressure[3] = 0.13
         sorted_root_tree.reorder_tree()
-        assert(sorted_root_tree.check_tree())
+        assert sorted_root_tree.check_tree()
 
         element_type, element_id, pressure = sorted_root_tree.get_root_element(
             1000, self.pore_trapped, self.throat_trapped
@@ -131,7 +131,7 @@ class SortRootTreeTest(unittest.TestCase):
         assert_equal(element_id, 5)
         assert_almost_equal(pressure, 0.15599452033620265)
         sorted_root_tree.pop_root()
-        assert(sorted_root_tree.check_tree())
+        assert sorted_root_tree.check_tree()
 
         element_type, element_id, pressure = sorted_root_tree.get_root_element(
             1000, self.pore_trapped, self.throat_trapped
