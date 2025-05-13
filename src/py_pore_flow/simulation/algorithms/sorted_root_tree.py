@@ -558,7 +558,7 @@ def _dec_pop_root(
 
     while left_node != 0:
         if right_node != 0:
-            if get_pressure(left_node) < get_pressure(right_node):
+            if get_pressure(left_node) > get_pressure(right_node):
                 tree_element_label[center_n] = left_node
                 tree_element_label[left_n] = 0
                 center_n = left_n
