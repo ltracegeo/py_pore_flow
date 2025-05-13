@@ -78,6 +78,7 @@ def initialize_pn(pn):
         if f"{element_type}.N" not in pn:
             pn[f"{element_type}.N"] = 1
         pn[f"{element_type}.changed_wettability"] = False
+        pn[f"{element_type}.in_border"] = False
 
     pn["throat.oil_singlephase_conductance"] = 0.0
     pn["throat.water_singlephase_conductance"] = 0.0
@@ -541,6 +542,7 @@ class PoresNetwork(ElementNetwork):
         self.id = pn["pore.id"]
         self.N = pn["pore.N"]
         self.changed_wettability = pn["pore.changed_wettability"]
+        self.in_border = pn["pore.in_border"]
 
 
 class ThroatsNetwork(ElementNetwork):
@@ -605,6 +607,7 @@ class ThroatsNetwork(ElementNetwork):
         self.id = pn["throat.id"]
         self.N = pn["throat.N"]
         self.changed_wettability = pn["throat.changed_wettability"]
+        self.in_border = pn["throat.in_border"]
 
 
 class NetworkCore:
