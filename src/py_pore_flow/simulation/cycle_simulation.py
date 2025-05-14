@@ -581,6 +581,12 @@ class BorderElements:
     def add_pores_ids(self, pores_ids):
         self.pores_ids = np.concatenate((self.pores_ids, pores_ids))
 
+    def remove_throat_id(self, throat_id):
+        self.throats_ids = self.throats_ids[self.throats_ids != throat_id]
+
+    def remove_pore_id(self, pore_id):
+        self.pores_ids = self.pores_ids[self.pores_ids != pore_id]
+
 
 class CycleSimulation:
     def __init__(self, network, phase, calculate_full_conductance=False):
@@ -599,6 +605,7 @@ class CycleSimulation:
         self.trap_checker.update_trapped_pores()
 
         self.border_elements = BorderElements()
+        self.border_elements2 = BorderElements()
         self._find_border_elements(self.network.pn_core, self.border_elements, phase)
         self.network.pn_core.pore.in_border[:] = False
         self.network.pn_core.throat.in_border[:] = False
@@ -746,54 +753,26 @@ class CycleSimulation:
             return False
 
     def __update_border_elements(self, reached_bubble, filled_element):
-        # if reached_bubble:
-        new_pores, new_throats = self._find_border_elements(self.network.pn_core, self.border_elements, self.phase)
-        # else:
-        if filled_element.type_name == "pore":
-            element_data = self.network.pn_core.pore
-            neighbor_data = self.network.pn_core.throat
-        else:
-            element_data = self.network.pn_core.throat
-            neighbor_data = self.network.pn_core.pore
-
-        if self.phase == WATER:
-            neighbor_filled = neighbor_data.water_filled
-        else:
-            neighbor_filled = neighbor_data.oil_filled
-
-        neighbor_ids = element_data.conns[filled_element.id][: element_data.n_conns[filled_element.id]]
-        new_border_neighbors = neighbor_ids[~neighbor_filled[neighbor_ids] & ~neighbor_data.trapped[neighbor_ids]]
-
-        if filled_element.type_name == "pore":
-            new_pores2 = np.array([], np.int32)
-            new_throats2 = new_border_neighbors[~neighbor_data.in_border[new_border_neighbors]]
-            # self.border_elements.add_throats_ids(new_throats)
-            new_throats2 = new_throats2[~neighbor_data.in_border[new_throats2]]
-            neighbor_data.in_border[new_throats2] = True
-        else:
-            new_pores2 = new_border_neighbors[~neighbor_data.in_border[new_border_neighbors]]
-            new_throats2 = np.array([], np.int32)
-            # self.border_elements.add_pores_ids(new_pores)
-            new_pores2 = new_pores2[~neighbor_data.in_border[new_pores2]]
-            neighbor_data.in_border[new_pores2] = True
-
-        if (
-            not np.array_equal(new_pores, new_pores2) or not np.array_equal(new_throats, new_throats2)
-        ) and not reached_bubble:
-            print("reached_bubble", reached_bubble, "filled id", filled_element.type_name, filled_element.id)
-            print("new_pores1", new_pores)
-            print("new_pores2", new_pores2)
-            print("new_throats1", new_throats)
-            print("new_throats2", new_throats2)
-            print("")
-            exit()
-        elif reached_bubble:
-            print("unnecessary")
-
         if reached_bubble:
-            self.network.pn_core.pore.in_border[new_pores] = True
-            self.network.pn_core.throat.in_border[new_throats] = True
-        # print("")
+            new_pores, new_throats = self._find_border_elements(self.network.pn_core, self.border_elements, self.phase)
+        else:
+            new_pores, new_throats = self._update_border_elements(
+                self.network.pn_core, self.border_elements, self.phase, filled_element
+            )
+
+        self.network.pn_core.pore.in_border[new_pores] = True
+        self.network.pn_core.throat.in_border[new_throats] = True
+
+        # if (
+        #     not np.array_equal(new_pores, new_pores2) or not np.array_equal(new_throats, new_throats2)
+        # ) and not reached_bubble:
+        #     print("reached_bubble", reached_bubble, "filled id", filled_element.type_name, filled_element.id)
+        #     print("new_pores1", new_pores)
+        #     print("new_pores2", new_pores2)
+        #     print("new_throats1", new_throats)
+        #     print("new_throats2", new_throats2)
+        #     print("")
+        #     exit()
 
         return new_pores, new_throats
 
@@ -852,6 +831,38 @@ class CycleSimulation:
         return new_pores, new_throats
 
     @staticmethod
+    def _update_border_elements(pn, border_elements, phase, filled_element):
+        if filled_element.type_name == "pore":
+            border_elements.remove_pore_id(filled_element.id)
+            element_data = pn.pore
+            neighbor_data = pn.throat
+        else:
+            border_elements.remove_throat_id(filled_element.id)
+            element_data = pn.throat
+            neighbor_data = pn.pore
+
+        if phase == WATER:
+            neighbor_filled = neighbor_data.water_filled
+        else:
+            neighbor_filled = neighbor_data.oil_filled
+
+        neighbor_ids = element_data.conns[filled_element.id][: element_data.n_conns[filled_element.id]]
+        new_border_neighbors = neighbor_ids[~neighbor_filled[neighbor_ids] & ~neighbor_data.trapped[neighbor_ids]]
+
+        if filled_element.type_name == "pore":
+            new_pores = np.array([], np.int64)
+            new_throats = new_border_neighbors[~neighbor_data.in_border[new_border_neighbors]]
+            new_throats = new_throats[~neighbor_data.in_border[new_throats]]
+            border_elements.add_throats_ids(new_throats)
+        else:
+            new_pores = new_border_neighbors[~neighbor_data.in_border[new_border_neighbors]]
+            new_throats = np.array([], np.int64)
+            new_pores = new_pores[~neighbor_data.in_border[new_pores]]
+            border_elements.add_pores_ids(new_pores)
+
+        return new_pores, new_throats
+
+    @staticmethod
     @nb.njit(cache=True)
     def __find_border_elements(
         phase,
@@ -903,9 +914,6 @@ class CycleSimulation:
 
         border_pore_ids = np.unique(np.array(border_pore_ids, dtype=np.int64))
         border_throat_ids = np.unique(np.array(border_throat_ids, dtype=np.int64))
-
-        # print("P conn_to_in", pore_phase_connected_to_inlet[1031], "filled", pore_phase_filled[1031], "trapp", pore_trapped[1031], "check", 1031 in border_pore_ids, "inlet:", pore_inlets[1031])
-        # print("T conn_to_in", throat_phase_connected_to_inlet[2350], "filled", throat_phase_filled[2350], "trapp", throat_trapped[2350], "check", 2350 in border_throat_ids)
 
         return border_pore_ids, border_throat_ids
 
