@@ -582,10 +582,12 @@ class BorderElements:
         self.pores_ids = np.concatenate((self.pores_ids, pores_ids))
 
     def remove_throat_id(self, throat_id):
-        self.throats_ids = self.throats_ids[self.throats_ids != throat_id]
+        # self.throats_ids = self.throats_ids[self.throats_ids != throat_id]
+        self.throats_ids = np.delete(self.throats_ids, np.where(self.throats_ids == throat_id)[0])
 
     def remove_pore_id(self, pore_id):
-        self.pores_ids = self.pores_ids[self.pores_ids != pore_id]
+        # self.pores_ids = self.pores_ids[self.pores_ids != pore_id]
+        self.pores_ids = np.delete(self.pores_ids, np.where(self.pores_ids == pore_id)[0])
 
 
 class CycleSimulation:
@@ -760,8 +762,10 @@ class CycleSimulation:
                 self.network.pn_core, self.border_elements, self.phase, filled_element
             )
 
-        self.network.pn_core.pore.in_border[new_pores] = True
-        self.network.pn_core.throat.in_border[new_throats] = True
+        self.network.pn_core.pore.in_border[:] = False
+        self.network.pn_core.throat.in_border[:] = False
+        self.network.pn_core.pore.in_border[self.border_elements.get_pores_ids()] = True
+        self.network.pn_core.throat.in_border[self.border_elements.get_throats_ids()] = True
 
         # if (
         #     not np.array_equal(new_pores, new_pores2) or not np.array_equal(new_throats, new_throats2)
@@ -859,6 +863,23 @@ class CycleSimulation:
             new_throats = np.array([], np.int64)
             new_pores = new_pores[~neighbor_data.in_border[new_pores]]
             border_elements.add_pores_ids(new_pores)
+
+
+
+        if phase == WATER:
+            pore_connected_to_outlet = pn.pore.oil_connected_to_outlet
+            throat_connected_to_outlet = pn.throat.oil_connected_to_outlet
+            pore_filled = pn.pore.water_filled
+            throat_filled = pn.throat.water_filled
+        else:
+            pore_connected_to_outlet = pn.pore.water_connected_to_outlet
+            throat_connected_to_outlet = pn.throat.water_connected_to_outlet
+            pore_filled = pn.pore.oil_filled
+            throat_filled = pn.throat.oil_filled
+        for pore_id in np.where(pn.pore.trapped)[0]:
+            border_elements.remove_pore_id(pore_id)
+        for throat_id in np.where(pn.throat.trapped)[0]:
+            border_elements.remove_throat_id(throat_id)
 
         return new_pores, new_throats
 
