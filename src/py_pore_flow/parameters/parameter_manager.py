@@ -46,6 +46,7 @@ DEFAULT_PARAMETERS = {
     "pc_step_max": 1000,
     "drainage_sw_step": 0.005,
     "imbibition_sw_step": 0.005,
+    "use_pore_fill": True,
     "pore_fill_algorithm": "oren2",
     "pore_fill_weight_a1": 0.0,
     "pore_fill_weight_a2": 0.5,
@@ -79,6 +80,7 @@ class ParameterManager:
         constants.miw = self.parameters_dict["water_viscosity"]
         constants.mio = self.parameters_dict["oil_viscosity"]
 
+        constants.use_pore_fill = self.parameters_dict["use_pore_fill"]
         constants.pore_fill_alg = self.parameters_dict["pore_fill_algorithm"]
         constants.pore_fill_weights[0] = self.parameters_dict["pore_fill_weight_a1"]
         constants.pore_fill_weights[1] = self.parameters_dict["pore_fill_weight_a2"]

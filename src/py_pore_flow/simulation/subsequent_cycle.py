@@ -33,6 +33,7 @@ class SubsequentCycleSimulation(CycleSimulation):
 
         self.Rmin = calculate_r(pc_max, 100000)
 
+        self.use_pore_body_filling = c.use_pore_fill
         self.calculate_pore_body_filling_pc = PORE_BODY_FILLING_STRATEGY[c.pore_fill_alg]
 
         self.snap_off_throat_list = []
@@ -133,25 +134,28 @@ class SubsequentCycleSimulation(CycleSimulation):
             self._update_throat_entry_pc(element.get_id(), pc)
 
     def _update_pore_entry_pc(self, pore_id, pc):
-        K = self.krel_calculator.get_absolute_permeability()
+        if self.use_pore_body_filling:
+            K = self.krel_calculator.get_absolute_permeability()
 
-        neighbors = self.network.get_neighbor_throats_ids(pore_id)
-        mask = self.adversary_fluid_filled[neighbors]
-        filled_neighbors = neighbors[mask]
-        number_of_filled_neighbors = filled_neighbors.size
-        throats_radii = self.network.pn_core.throat.radius[filled_neighbors]
+            neighbors = self.network.get_neighbor_throats_ids(pore_id)
+            mask = self.adversary_fluid_filled[neighbors]
+            filled_neighbors = neighbors[mask]
+            number_of_filled_neighbors = filled_neighbors.size
+            throats_radii = self.network.pn_core.throat.radius[filled_neighbors]
 
-        element_pc = calculate_imbibition_pc(
-            self.calculate_pore_body_filling_pc,
-            self.network.pn_core.pore.piston_like_pressure[pore_id],
-            self.network.pn_core.pore.radius[pore_id],
-            self.limit_contact_angle[pore_id],
-            pc,
-            number_of_filled_neighbors,
-            throats_radii,
-            self.network.pn_core.pore.shape_factor[pore_id],
-            K,
-        )
+            element_pc = calculate_imbibition_pc(
+                self.calculate_pore_body_filling_pc,
+                self.network.pn_core.pore.piston_like_pressure[pore_id],
+                self.network.pn_core.pore.radius[pore_id],
+                self.limit_contact_angle[pore_id],
+                pc,
+                number_of_filled_neighbors,
+                throats_radii,
+                self.network.pn_core.pore.shape_factor[pore_id],
+                K,
+            )
+        else:
+            element_pc = self.network.pn_core.pore.piston_like_pressure[pore_id]
 
         replace_pressure = False
         if self.network.pn_core.pore.imminent_snap_off[pore_id]:
