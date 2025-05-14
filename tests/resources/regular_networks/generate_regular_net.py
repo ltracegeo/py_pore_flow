@@ -20,7 +20,7 @@ def generate_regular_pore_network(radius=5, threshold=0.25, grid_size=(10, 10, 1
     values_random = np.random.uniform(0, 0.09, num_pores - half)
     shape_factors = np.concatenate([values_fixed, values_random])
     np.random.shuffle(shape_factors)
-    
+
     pores = pd.DataFrame(
         {
             "pore.subresolution_porosity": np.ones(num_pores),
@@ -39,6 +39,15 @@ def generate_regular_pore_network(radius=5, threshold=0.25, grid_size=(10, 10, 1
             "pore.coords_0": coords[:, 0],
             "pore.coords_1": coords[:, 1],
             "pore.coords_2": coords[:, 2],
+            "pore.local_peak_0": coords[:, 0],
+            "pore.local_peak_1": coords[:, 1],
+            "pore.local_peak_2": coords[:, 2],
+            "pore.global_peak_0": coords[:, 0],
+            "pore.global_peak_1": coords[:, 1],
+            "pore.global_peak_2": coords[:, 2],
+            "pore.geometric_centroid_0": coords[:, 0],
+            "pore.geometric_centroid_1": coords[:, 1],
+            "pore.geometric_centroid_2": coords[:, 2],
             "pore.radius": np.ones(num_pores) * radius,
             "pore.shape_factor": shape_factors,
             "pore.effective_volume": np.ones(num_pores) * 4 * np.pi * radius**3 / 3,
@@ -77,7 +86,7 @@ def generate_regular_pore_network(radius=5, threshold=0.25, grid_size=(10, 10, 1
     values_random = np.random.uniform(0, 0.09, num_throats - half)
     shape_factors = np.concatenate([values_fixed, values_random])
     np.random.shuffle(shape_factors)
-                    
+
     throats = pd.DataFrame(
         {
             "throat.inscribed_diameter": np.ones(num_throats) * 2 * radius,
@@ -94,6 +103,9 @@ def generate_regular_pore_network(radius=5, threshold=0.25, grid_size=(10, 10, 1
             "throat.mid_length": np.ones(num_throats) * 4 * radius,
             "throat.phases_0": np.ones(num_throats, dtype=int),
             "throat.phases_1": np.ones(num_throats, dtype=int),
+            "throat.global_peak_0": np.ones(num_throats),
+            "throat.global_peak_1": np.ones(num_throats),
+            "throat.global_peak_2": np.ones(num_throats),
             "throat.shape_factor": shape_factors,
             "throat.volume": np.random.rand(num_throats) * np.pi * radius**2 * 4 * radius,
             "throat.subresolution_porosity": 1.0,
@@ -103,9 +115,9 @@ def generate_regular_pore_network(radius=5, threshold=0.25, grid_size=(10, 10, 1
     return pores, throats
 
 
-for num_pores in 128, 256, 512, 1024, 2048, 4096, 8192, 16384:
+for num_pores in 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072:
     particles_in_side = int(num_pores ** (1.0 / 3.0))
-    pores, throats = generate_regular_pore_network(
+    pores, throats = generate_regular_pore_network(  # no pnflow, raio tem que ser menor 0.1
         radius=5, threshold=1.0 / particles_in_side, grid_size=(particles_in_side,) * 3
     )
 
