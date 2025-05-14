@@ -732,11 +732,15 @@ class CycleSimulation:
 
         if self.phase == WATER:
             neighbor_filled = neighbor_data.water_filled
+            has_phase = neighbor_data.water_saturation > 0
+            connected_to_inlet = neighbor_data.water_connected_to_inlet
         else:
             neighbor_filled = neighbor_data.oil_filled
+            has_phase = neighbor_data.oil_saturation > 0
+            connected_to_inlet = neighbor_data.oil_connected_to_inlet
 
         neighbor_ids = element_data.conns[id][: element_data.n_conns[id]]
-        if (neighbor_filled[neighbor_ids] & neighbor_data.trapped[neighbor_ids]).any():
+        if (has_phase[neighbor_ids] & ~connected_to_inlet[neighbor_ids]).any():
             return True
         else:
             return False
@@ -764,21 +768,27 @@ class CycleSimulation:
             new_pores2 = np.array([], np.int32)
             new_throats2 = new_border_neighbors[~neighbor_data.in_border[new_border_neighbors]]
             # self.border_elements.add_throats_ids(new_throats)
+            new_throats2 = new_throats2[~neighbor_data.in_border[new_throats2]]
             neighbor_data.in_border[new_throats2] = True
         else:
             new_pores2 = new_border_neighbors[~neighbor_data.in_border[new_border_neighbors]]
             new_throats2 = np.array([], np.int32)
             # self.border_elements.add_pores_ids(new_pores)
+            new_pores2 = new_pores2[~neighbor_data.in_border[new_pores2]]
             neighbor_data.in_border[new_pores2] = True
 
-        if not np.array_equal(new_pores, new_pores2) or not np.array_equal(new_throats, new_throats2):
-            print("reached_bubble", reached_bubble)
+        if (
+            not np.array_equal(new_pores, new_pores2) or not np.array_equal(new_throats, new_throats2)
+        ) and not reached_bubble:
+            print("reached_bubble", reached_bubble, "filled id", filled_element.type_name, filled_element.id)
             print("new_pores1", new_pores)
             print("new_pores2", new_pores2)
             print("new_throats1", new_throats)
             print("new_throats2", new_throats2)
             print("")
             exit()
+        elif reached_bubble:
+            print("unnecessary")
         # print("")
 
         return new_pores, new_throats
@@ -889,6 +899,9 @@ class CycleSimulation:
 
         border_pore_ids = np.unique(np.array(border_pore_ids, dtype=np.int64))
         border_throat_ids = np.unique(np.array(border_throat_ids, dtype=np.int64))
+
+        # print("P conn_to_in", pore_phase_connected_to_inlet[1031], "filled", pore_phase_filled[1031], "trapp", pore_trapped[1031], "check", 1031 in border_pore_ids, "inlet:", pore_inlets[1031])
+        # print("T conn_to_in", throat_phase_connected_to_inlet[2350], "filled", throat_phase_filled[2350], "trapp", throat_trapped[2350], "check", 2350 in border_throat_ids)
 
         return border_pore_ids, border_throat_ids
 
