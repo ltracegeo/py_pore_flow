@@ -362,8 +362,6 @@ def _pop_root(
     else:
         changed = False
     while changed is True:
-        if center_n == 0:
-            changed = False
         parent_n = (center_n + 1) // 2 - 1
         parent_label = tree_element_label[parent_n]
         parent_pressure = get_pressure(parent_label)
@@ -372,10 +370,10 @@ def _pop_root(
             tree_element_label[parent_n] = center_label
             center_n = parent_n
             changed = True
-            continue
+            if center_n == 0:
+                changed = False
         else:  # moved_element_pressure >= parent_pressure:
             changed = False
-            continue
 
     tree_elements_n[0] -= 1
     return root_label
@@ -586,8 +584,6 @@ def _dec_pop_root(
     else:
         changed = False
     while changed is True:
-        if center_n == 0:
-            changed = False
         parent_n = (center_n + 1) // 2 - 1
         parent_label = tree_element_label[parent_n]
         parent_pressure = get_pressure(parent_label)
@@ -596,10 +592,10 @@ def _dec_pop_root(
             tree_element_label[parent_n] = center_label
             center_n = parent_n
             changed = True
-            continue
+            if center_n == 0:
+                changed = False
         else:  # moved_element_pressure >= parent_pressure:
             changed = False
-            continue
 
     tree_elements_n[0] -= 1
     return root_label
