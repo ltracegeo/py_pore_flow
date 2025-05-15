@@ -767,11 +767,6 @@ class CycleSimulation:
                 self.network.pn_core, self.border_elements, self.phase, filled_element
             )
 
-        self.network.pn_core.pore.in_border[:] = False
-        self.network.pn_core.throat.in_border[:] = False
-        self.network.pn_core.pore.in_border[self.border_elements.get_pores_ids()] = True
-        self.network.pn_core.throat.in_border[self.border_elements.get_throats_ids()] = True
-
         return new_pores, new_throats
 
     def __fill_element(self, element, pc):
@@ -826,6 +821,11 @@ class CycleSimulation:
             new_pores = np.array([], np.int64)
             border_elements.set_pores_ids(np.array([], np.int64))
 
+        pn.pore.in_border[:] = False
+        pn.throat.in_border[:] = False
+        pn.pore.in_border[border_elements.get_pores_ids()] = True
+        pn.throat.in_border[border_elements.get_throats_ids()] = True
+
         return new_pores, new_throats
 
     @staticmethod
@@ -857,6 +857,11 @@ class CycleSimulation:
         border_elements.get_pores_ids().sort()
         border_elements.get_throats_ids().sort()
 
+        pn.pore.in_border[old_pores] = False
+        pn.throat.in_border[old_throats] = False
+        pn.pore.in_border[new_pores] = True
+        pn.throat.in_border[new_throats] = True
+
         return new_pores, new_throats
 
     @staticmethod
@@ -880,6 +885,7 @@ class CycleSimulation:
         throat_oil_filled,
         throat_in_border,
     ):
+        # setup
         if filled_element_type == "pore":
             element_conns = pore_conns
             element_n_conns = pore_n_conns
@@ -900,14 +906,16 @@ class CycleSimulation:
         else:
             neighbor_filled = neighbor_oil_filled
 
+        # pores to add
         neighbor_ids = element_conns[filled_element_id][: element_n_conns[filled_element_id]].astype(np.int64)
-        new_border_neighbors = neighbor_ids[
-            ~neighbor_filled[neighbor_ids] & ~neighbor_trapped[neighbor_ids] & ~neighbor_in_border[neighbor_ids]
-        ]
-        # new_border_neighbors = np.empty(0, np.int64)
-        # for id in neighbor_ids:
-        #     if not neighbor_filled[id] and not neighbor_trapped[id]:
-        #         np.append(new_border_neighbors, id)
+        new_border_neighbors_temp = []
+        for id in neighbor_ids:
+            if not neighbor_filled[id] and not neighbor_trapped[id] and not neighbor_in_border[id]:
+                new_border_neighbors_temp.append(id)
+
+        new_border_neighbors = np.empty(len(new_border_neighbors_temp), np.int64)
+        for i in range(len(new_border_neighbors)):
+            new_border_neighbors[i] = new_border_neighbors_temp[i]
 
         if filled_element_type == "pore":
             new_pores = np.empty(0, np.int64)
@@ -916,21 +924,19 @@ class CycleSimulation:
             new_pores = new_border_neighbors
             new_throats = np.empty(0, np.int64)
 
-        old_pores_raw = np.where(pore_trapped)[0]
-        old_throats_raw = np.where(throat_trapped)[0]
-        if filled_element_type == "pore":
-            old_pores_raw = np.append(old_pores_raw, filled_element_id)
-        else:
-            old_throats_raw = np.append(old_throats_raw, filled_element_id)
-
+        # pores to remove
         old_pores = []
-        for old_pore_id in old_pores_raw:
-            if old_pore_id in border_pores_ids:
-                old_pores.append(old_pore_id)
+        for pore_id in range(len(pore_trapped)):
+            if pore_trapped[pore_id] and (pore_id in border_pores_ids):
+                old_pores.append(pore_id)
         old_throats = []
-        for old_throat_id in old_throats_raw:
-            if old_throat_id in border_throats_ids:
-                old_throats.append(old_throat_id)
+        for throat_id in range(len(throat_trapped)):
+            if throat_trapped[throat_id] and (throat_id in border_throats_ids):
+                old_throats.append(throat_id)
+        if filled_element_type == "pore":
+            old_pores.append(filled_element_id)
+        else:
+            old_throats.append(filled_element_id)
 
         return new_pores, new_throats, old_pores, old_throats
 
