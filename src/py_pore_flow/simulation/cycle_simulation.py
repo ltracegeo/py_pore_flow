@@ -830,38 +830,25 @@ class CycleSimulation:
 
     @staticmethod
     def __update_border_elements(pn, border_elements, phase, filled_element):
-        if filled_element.type_name == "pore":
-            element_data = pn.pore
-            neighbor_data = pn.throat
-        else:
-            element_data = pn.throat
-            neighbor_data = pn.pore
-
-        if phase == WATER:
-            neighbor_filled = neighbor_data.water_filled
-        else:
-            neighbor_filled = neighbor_data.oil_filled
-
-        neighbor_ids = element_data.conns[filled_element.id][: element_data.n_conns[filled_element.id]]
-        new_border_neighbors = neighbor_ids[~neighbor_filled[neighbor_ids] & ~neighbor_data.trapped[neighbor_ids]]
-
-        if filled_element.type_name == "pore":
-            new_pores = np.array([], np.int64)
-            new_throats = new_border_neighbors[~neighbor_data.in_border[new_border_neighbors]]
-            new_throats = new_throats[~neighbor_data.in_border[new_throats]]
-        else:
-            new_pores = new_border_neighbors[~neighbor_data.in_border[new_border_neighbors]]
-            new_throats = np.array([], np.int64)
-            new_pores = new_pores[~neighbor_data.in_border[new_pores]]
-
-        old_pores = np.where(pn.pore.trapped)[0]
-        old_throats = np.where(pn.throat.trapped)[0]
-        if filled_element.type_name == "pore":
-            old_pores = np.append(old_pores, filled_element.id)
-        else:
-            old_throats = np.append(old_throats, filled_element.id)
-        old_pores = old_pores[np.isin(old_pores, border_elements.get_pores_ids())]
-        old_throats = old_throats[np.isin(old_throats, border_elements.get_throats_ids())]
+        new_pores, new_throats, old_pores, old_throats = CycleSimulation.__njit_update_border_elements(
+            phase,
+            filled_element.type_name,
+            filled_element.id,
+            border_elements.get_pores_ids(),
+            border_elements.get_throats_ids(),
+            pn.pore.trapped,
+            pn.pore.conns,
+            pn.pore.n_conns,
+            pn.pore.water_filled,
+            pn.pore.oil_filled,
+            pn.pore.in_border,
+            pn.throat.trapped,
+            pn.throat.conns,
+            pn.throat.n_conns,
+            pn.throat.water_filled,
+            pn.throat.oil_filled,
+            pn.throat.in_border,
+        )
 
         border_elements.add_pores_ids(new_pores)
         border_elements.add_throats_ids(new_throats)
@@ -871,6 +858,77 @@ class CycleSimulation:
         border_elements.get_throats_ids().sort()
 
         return new_pores, new_throats
+
+    @staticmethod
+    # @nb.njit(cache=True)
+    def __njit_update_border_elements(
+        phase,
+        filled_element_type,
+        filled_element_id,
+        border_pores_ids,
+        border_throats_ids,
+        pore_trapped,
+        pore_conns,
+        pore_n_conns,
+        pore_water_filled,
+        pore_oil_filled,
+        pore_in_border,
+        throat_trapped,
+        throat_conns,
+        throat_n_conns,
+        throat_water_filled,
+        throat_oil_filled,
+        throat_in_border,
+    ):
+        if filled_element_type == "pore":
+            element_conns = pore_conns
+            element_n_conns = pore_n_conns
+            neighbor_trapped = throat_trapped
+            neighbor_water_filled = throat_water_filled
+            neighbor_oil_filled = throat_oil_filled
+            neighbor_in_border = throat_in_border
+        else:
+            element_conns = throat_conns
+            element_n_conns = throat_n_conns
+            neighbor_trapped = pore_trapped
+            neighbor_water_filled = pore_water_filled
+            neighbor_oil_filled = pore_oil_filled
+            neighbor_in_border = pore_in_border
+
+        if phase == WATER:
+            neighbor_filled = neighbor_water_filled
+        else:
+            neighbor_filled = neighbor_oil_filled
+
+        neighbor_ids = element_conns[filled_element_id][: element_n_conns[filled_element_id]]
+        new_border_neighbors = neighbor_ids[~neighbor_filled[neighbor_ids] & ~neighbor_trapped[neighbor_ids]]
+
+        if filled_element_type == "pore":
+            new_pores = np.array([], np.int64)
+            new_throats = new_border_neighbors[~neighbor_in_border[new_border_neighbors]]
+            new_throats = new_throats[~neighbor_in_border[new_throats]]
+        else:
+            new_pores = new_border_neighbors[~neighbor_in_border[new_border_neighbors]]
+            new_throats = np.array([], np.int64)
+            new_pores = new_pores[~neighbor_in_border[new_pores]]
+
+        old_pores = np.where(pore_trapped)[0]
+        old_throats = np.where(throat_trapped)[0]
+        if filled_element_type == "pore":
+            old_pores = np.append(old_pores, filled_element_id)
+        else:
+            old_throats = np.append(old_throats, filled_element_id)
+        old_pores = old_pores[np.isin(old_pores, border_pores_ids)]
+        old_throats = old_throats[np.isin(old_throats, border_throats_ids)]
+
+        # border_elements.add_pores_ids(new_pores)
+        # border_elements.add_throats_ids(new_throats)
+        # border_elements.remove_pores_ids(old_pores)
+        # border_elements.remove_throats_ids(old_throats)
+        # border_elements.get_pores_ids().sort()
+        # border_elements.get_throats_ids().sort()
+
+        return new_pores, new_throats, old_pores, old_throats
 
     @staticmethod
     @nb.njit(cache=True)
