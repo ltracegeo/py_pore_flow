@@ -860,7 +860,7 @@ class CycleSimulation:
         return new_pores, new_throats
 
     @staticmethod
-    # @nb.njit(cache=True)
+    @nb.njit(cache=True)
     def __njit_update_border_elements(
         phase,
         filled_element_type,
@@ -900,33 +900,33 @@ class CycleSimulation:
         else:
             neighbor_filled = neighbor_oil_filled
 
-        neighbor_ids = element_conns[filled_element_id][: element_n_conns[filled_element_id]]
+        neighbor_ids = element_conns[filled_element_id][: element_n_conns[filled_element_id]].astype(np.int64)
         new_border_neighbors = neighbor_ids[~neighbor_filled[neighbor_ids] & ~neighbor_trapped[neighbor_ids]]
 
         if filled_element_type == "pore":
-            new_pores = np.array([], np.int64)
+            new_pores = np.empty(0, np.int64)
             new_throats = new_border_neighbors[~neighbor_in_border[new_border_neighbors]]
             new_throats = new_throats[~neighbor_in_border[new_throats]]
         else:
             new_pores = new_border_neighbors[~neighbor_in_border[new_border_neighbors]]
-            new_throats = np.array([], np.int64)
+            new_throats = np.empty(0, np.int64)
             new_pores = new_pores[~neighbor_in_border[new_pores]]
 
-        old_pores = np.where(pore_trapped)[0]
-        old_throats = np.where(throat_trapped)[0]
+        old_pores_raw = np.where(pore_trapped)[0]
+        old_throats_raw = np.where(throat_trapped)[0]
         if filled_element_type == "pore":
-            old_pores = np.append(old_pores, filled_element_id)
+            old_pores_raw = np.append(old_pores_raw, filled_element_id)
         else:
-            old_throats = np.append(old_throats, filled_element_id)
-        old_pores = old_pores[np.isin(old_pores, border_pores_ids)]
-        old_throats = old_throats[np.isin(old_throats, border_throats_ids)]
+            old_throats_raw = np.append(old_throats_raw, filled_element_id)
 
-        # border_elements.add_pores_ids(new_pores)
-        # border_elements.add_throats_ids(new_throats)
-        # border_elements.remove_pores_ids(old_pores)
-        # border_elements.remove_throats_ids(old_throats)
-        # border_elements.get_pores_ids().sort()
-        # border_elements.get_throats_ids().sort()
+        old_pores = []
+        for old_pore_id in old_pores_raw:
+            if old_pore_id in border_pores_ids:
+                old_pores.append(old_pore_id)
+        old_throats = []
+        for old_throat_id in old_throats_raw:
+            if old_throat_id in border_throats_ids:
+                old_throats.append(old_throat_id)
 
         return new_pores, new_throats, old_pores, old_throats
 
