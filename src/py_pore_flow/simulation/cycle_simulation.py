@@ -615,16 +615,7 @@ class CycleSimulation:
         self.trap_checker.update_trapped_pores()
 
         self.border_elements = BorderElements()
-        self.border_elements2 = BorderElements()
-        new_pores, new_throats, _, _, _, _ = self._find_border_elements(
-            self.network.pn_core, self.border_elements, phase
-        )
-        self.border_elements.set_pores_ids(new_pores)
-        self.border_elements.set_throats_ids(new_throats)
-        self.network.pn_core.pore.in_border[:] = False
-        self.network.pn_core.throat.in_border[:] = False
-        self.network.pn_core.pore.in_border[self.border_elements.get_pores_ids()] = True
-        self.network.pn_core.throat.in_border[self.border_elements.get_throats_ids()] = True
+        self.__refresh_border_elements(True, None)
 
         self.saturation_calculator = None
 
@@ -734,7 +725,7 @@ class CycleSimulation:
             if (self.phase == OIL and element.So == 1.0) or (self.phase == WATER and element.Sw == 1.0):
                 self.trap_checker.update_trapped_pores()
 
-            new_pores, new_throats = self.__update_border_elements(reached_bubble, element)
+            new_pores, new_throats = self.__refresh_border_elements(reached_bubble, element)
             for pore_id in new_pores:
                 self._update_element_entry_pc(self.network.get_pore(pore_id), pc)
             for throat_id in new_throats:
@@ -766,58 +757,15 @@ class CycleSimulation:
         else:
             return False
 
-    def __update_border_elements(self, reached_bubble, filled_element):
-        # if reached_bubble:
-        new_pores, new_throats, old_pores, old_throats, border_pore_ids, border_throat_ids = self._find_border_elements(
-            self.network.pn_core, self.border_elements, self.phase
-        )
-        # else:
-        new_pores2, new_throats2, old_pores2, old_throats2 = self._update_border_elements(
-            self.network.pn_core, self.border_elements, self.phase, filled_element
-        )
-
-        if (
-            not np.array_equal(new_pores, new_pores2) or not np.array_equal(new_throats, new_throats2)
-        ) and not reached_bubble:
-            print("reached_bubble", reached_bubble, "filled id", filled_element.type_name, filled_element.id)
-            print("new_pores1", new_pores)
-            print("new_pores2", new_pores2)
-            print("new_throats1", new_throats)
-            print("new_throats2", new_throats2)
-            print("")
-            exit()
-
-        old_pores2.sort()
-        old_throats2.sort()
-        if (
-            not np.array_equal(old_pores, old_pores2) or not np.array_equal(old_throats, old_throats2)
-        ) and not reached_bubble:
-            # print("pore 1036 trapped:", self.network.pn_core.pore.trapped[1036], "in:", 1036 in self.border_elements.get_pores_ids())
-            # print("pore 350 trapped:", self.network.pn_core.pore.trapped[350], "in:", 350 in self.border_elements.get_pores_ids())
-            # print("throat 188 trapped:", self.network.pn_core.throat.trapped[188], "in:", 188 in self.border_elements.get_throats_ids())
-            # print("throat 191 trapped:", self.network.pn_core.throat.trapped[191], "in:", 191 in self.border_elements.get_throats_ids())
-            # print("throat 317 trapped:", self.network.pn_core.throat.trapped[317], "in:", 317 in self.border_elements.get_throats_ids())
-            print(
-                "throat 2167 trapped:",
-                self.network.pn_core.throat.trapped[2167],
-                "in:",
-                2167 in self.border_elements.get_throats_ids(),
+    def __refresh_border_elements(self, reached_bubble, filled_element):
+        if reached_bubble:
+            new_pores, new_throats = self.__reset_border_elements(
+                self.network.pn_core, self.border_elements, self.phase
             )
-            print("reached_bubble", reached_bubble, "filled id", filled_element.type_name, filled_element.id)
-            print("old_pores1", old_pores)
-            print("old_pores2", old_pores2)
-            print("old_throats1", old_throats)
-            print("old_throats2", old_throats2)
-            print("")
-            exit()
-
-        self.border_elements.add_pores_ids(new_pores)
-        self.border_elements.add_throats_ids(new_throats)
-        self.border_elements.remove_pores_ids(old_pores)
-        self.border_elements.remove_throats_ids(old_throats)
-
-        self.border_elements.get_pores_ids().sort()
-        self.border_elements.get_throats_ids().sort()
+        else:
+            new_pores, new_throats = self.__update_border_elements(
+                self.network.pn_core, self.border_elements, self.phase, filled_element
+            )
 
         self.network.pn_core.pore.in_border[:] = False
         self.network.pn_core.throat.in_border[:] = False
@@ -845,8 +793,8 @@ class CycleSimulation:
         )
 
     @staticmethod
-    def _find_border_elements(pn, border_elements, phase):
-        border_pore_ids, border_throat_ids = CycleSimulation.__find_border_elements(
+    def __reset_border_elements(pn, border_elements, phase):
+        border_pore_ids, border_throat_ids = CycleSimulation.__njit_reset_border_elements(
             phase,
             pn.pore.water_filled,
             pn.pore.oil_filled,
@@ -867,25 +815,21 @@ class CycleSimulation:
 
         if len(border_throat_ids) > 0:
             new_throats = np.setdiff1d(border_throat_ids, border_elements.get_throats_ids())
-            old_throats = np.setdiff1d(border_elements.get_throats_ids(), border_throat_ids)
-            # border_elements.set_throats_ids(border_throat_ids)
+            border_elements.set_throats_ids(border_throat_ids)
         else:
             new_throats = np.array([], np.int64)
-            old_throats = border_elements.get_throats_ids()
-            # border_elements.set_throats_ids(np.array([], np.int64))
+            border_elements.set_throats_ids(np.array([], np.int64))
         if len(border_pore_ids) > 0:
             new_pores = np.setdiff1d(border_pore_ids, border_elements.get_pores_ids())
-            old_pores = np.setdiff1d(border_elements.get_pores_ids(), border_pore_ids)
-            # border_elements.set_pores_ids(border_pore_ids)
+            border_elements.set_pores_ids(border_pore_ids)
         else:
             new_pores = np.array([], np.int64)
-            old_pores = border_elements.get_pores_ids()
-            # border_elements.set_pores_ids(np.array([], np.int64))
+            border_elements.set_pores_ids(np.array([], np.int64))
 
-        return new_pores, new_throats, old_pores, old_throats, border_pore_ids, border_throat_ids
+        return new_pores, new_throats
 
     @staticmethod
-    def _update_border_elements(pn, border_elements, phase, filled_element):
+    def __update_border_elements(pn, border_elements, phase, filled_element):
         if filled_element.type_name == "pore":
             element_data = pn.pore
             neighbor_data = pn.throat
@@ -919,11 +863,18 @@ class CycleSimulation:
         old_pores = old_pores[np.isin(old_pores, border_elements.get_pores_ids())]
         old_throats = old_throats[np.isin(old_throats, border_elements.get_throats_ids())]
 
-        return new_pores, new_throats, old_pores, old_throats
+        border_elements.add_pores_ids(new_pores)
+        border_elements.add_throats_ids(new_throats)
+        border_elements.remove_pores_ids(old_pores)
+        border_elements.remove_throats_ids(old_throats)
+        border_elements.get_pores_ids().sort()
+        border_elements.get_throats_ids().sort()
+
+        return new_pores, new_throats
 
     @staticmethod
     @nb.njit(cache=True)
-    def __find_border_elements(
+    def __njit_reset_border_elements(
         phase,
         pore_water_filled,
         pore_oil_filled,
