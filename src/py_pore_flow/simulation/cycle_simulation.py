@@ -901,16 +901,20 @@ class CycleSimulation:
             neighbor_filled = neighbor_oil_filled
 
         neighbor_ids = element_conns[filled_element_id][: element_n_conns[filled_element_id]].astype(np.int64)
-        new_border_neighbors = neighbor_ids[~neighbor_filled[neighbor_ids] & ~neighbor_trapped[neighbor_ids]]
+        new_border_neighbors = neighbor_ids[
+            ~neighbor_filled[neighbor_ids] & ~neighbor_trapped[neighbor_ids] & ~neighbor_in_border[neighbor_ids]
+        ]
+        # new_border_neighbors = np.empty(0, np.int64)
+        # for id in neighbor_ids:
+        #     if not neighbor_filled[id] and not neighbor_trapped[id]:
+        #         np.append(new_border_neighbors, id)
 
         if filled_element_type == "pore":
             new_pores = np.empty(0, np.int64)
-            new_throats = new_border_neighbors[~neighbor_in_border[new_border_neighbors]]
-            new_throats = new_throats[~neighbor_in_border[new_throats]]
+            new_throats = new_border_neighbors
         else:
-            new_pores = new_border_neighbors[~neighbor_in_border[new_border_neighbors]]
+            new_pores = new_border_neighbors
             new_throats = np.empty(0, np.int64)
-            new_pores = new_pores[~neighbor_in_border[new_pores]]
 
         old_pores_raw = np.where(pore_trapped)[0]
         old_throats_raw = np.where(throat_trapped)[0]
