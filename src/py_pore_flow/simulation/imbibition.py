@@ -112,22 +112,22 @@ class ImbibitionSimulation(SubsequentCycleSimulation):
         return (max_type, max_id, min(max_pressure, pc))
 
     def _update_element_filled_geometry(self, pc, element):
-        self.__update_element_pinned_hinging_contact_angles(element.type_name, element.id, pc)
-        self.__update_element_pinned_b(element.type_name, element.id, pc)
+        self.__update_element_pinned_hinging_contact_angles(element.type, element.id, pc)
+        self.__update_element_pinned_b(element.type, element.id, pc)
         element.corner_oil_layer = calculate_oil_layer(
             element.advancing_contact_angle, element.beta, element.n_corners, pc
         )
-        self.__update_oil_layer_element(element.type_name, element.id, pc)
+        self.__update_oil_layer_element(element.type, element.id, pc)
 
-        self.__update_element_bo(element.type_name, element.id, pc)
-        self.__check_water_layer(element.type_name, element.id)
-        self._update_element_hinging_contact_angles(element.type_name, element.id, pc)
-        self.__update_element_b(element.type_name, element.id, pc)
+        self.__update_element_bo(element.type, element.id, pc)
+        self.__check_water_layer(element.type, element.id)
+        self._update_element_hinging_contact_angles(element.type, element.id, pc)
+        self.__update_element_b(element.type, element.id, pc)
 
         return super()._update_element_filled_geometry(pc, element)
 
     def __update_element_pinned_b(self, element_type, id, pc):
-        if element_type == "pore":
+        if element_type == PORE:
             element = self.network.pn_core.pore
         else:
             element = self.network.pn_core.throat
@@ -147,7 +147,7 @@ class ImbibitionSimulation(SubsequentCycleSimulation):
         )
 
     def __update_element_bo(self, element_type, id, pc):
-        if element_type == "pore":
+        if element_type == PORE:
             element = self.network.pn_core.pore
         else:
             element = self.network.pn_core.throat
@@ -162,7 +162,7 @@ class ImbibitionSimulation(SubsequentCycleSimulation):
         )
 
     def __update_oil_layer_element(self, element_type, id, pc):
-        if element_type == "pore":
+        if element_type == PORE:
             element = self.network.pn_core.pore
         else:
             element = self.network.pn_core.throat
@@ -176,7 +176,7 @@ class ImbibitionSimulation(SubsequentCycleSimulation):
         )
 
     def __check_water_layer(self, element_type, id):
-        if element_type == "pore":
+        if element_type == PORE:
             element = self.network.pn_core.pore
         else:
             element = self.network.pn_core.throat
@@ -187,7 +187,7 @@ class ImbibitionSimulation(SubsequentCycleSimulation):
         )
 
     def __update_element_pinned_hinging_contact_angles(self, element_type, id, pc):
-        if element_type == "pore":
+        if element_type == PORE:
             element_data = self.network.pn_core.pore
         else:
             element_data = self.network.pn_core.throat
@@ -202,7 +202,7 @@ class ImbibitionSimulation(SubsequentCycleSimulation):
         )
 
     def __update_element_b(self, element_type, id, pc):
-        if element_type == "pore":
+        if element_type == PORE:
             element = self.network.pn_core.pore
         else:
             element = self.network.pn_core.throat
