@@ -728,16 +728,14 @@ class CycleSimulation:
             neighbor_data = self.network.pn_core.pore
 
         if self.phase == WATER:
-            neighbor_filled = neighbor_data.water_filled
-            has_phase = neighbor_data.water_saturation > 0
+            phase_saturation = neighbor_data.water_saturation
             connected_to_inlet = neighbor_data.water_connected_to_inlet
         else:
-            neighbor_filled = neighbor_data.oil_filled
-            has_phase = neighbor_data.oil_saturation > 0
+            phase_saturation = neighbor_data.oil_saturation
             connected_to_inlet = neighbor_data.oil_connected_to_inlet
 
         neighbor_ids = element_data.conns[id][: element_data.n_conns[id]]
-        if (has_phase[neighbor_ids] & ~connected_to_inlet[neighbor_ids]).any():
+        if ((phase_saturation[neighbor_ids] > 0) & ~connected_to_inlet[neighbor_ids]).any():
             return True
         else:
             return False
@@ -843,11 +841,6 @@ class CycleSimulation:
         border_elements.get_pores_ids().sort()
         border_elements.get_throats_ids().sort()
 
-        pn.pore.in_border[old_pores] = False
-        pn.throat.in_border[old_throats] = False
-        pn.pore.in_border[new_pores] = True
-        pn.throat.in_border[new_throats] = True
-
         return new_pores, new_throats
 
     @staticmethod
@@ -896,6 +889,7 @@ class CycleSimulation:
         for id in neighbor_ids:
             if not neighbor_filled[id] and not neighbor_trapped[id] and not neighbor_in_border[id]:
                 new_border_neighbors.append(id)
+                neighbor_in_border[id] = True
 
         if filled_element_type == PORE:
             new_pores = np.empty(0, np.int64)
@@ -909,16 +903,20 @@ class CycleSimulation:
         for pore_id in range(len(pore_trapped)):
             if pore_trapped[pore_id] and pore_in_border[pore_id]:
                 old_pores.append(pore_id)
+                pore_in_border[pore_id] = False
         old_throats = list()
         for throat_id in range(len(throat_trapped)):
             if throat_trapped[throat_id] and throat_in_border[throat_id]:
                 old_throats.append(throat_id)
+                throat_in_border[throat_id] = False
         if filled_element_type == PORE:
             if pore_in_border[filled_element_id]:
                 old_pores.append(filled_element_id)
+                pore_in_border[filled_element_id] = False
         else:
             if throat_in_border[filled_element_id]:
                 old_throats.append(filled_element_id)
+                throat_in_border[filled_element_id] = False
 
         return new_pores, new_throats, np.array(old_pores, np.int64), np.array(old_throats, np.int64)
 
