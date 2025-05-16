@@ -130,7 +130,7 @@ class SubsequentCycleSimulation(CycleSimulation):
             self._update_throat_entry_pc(element.get_id(), pc)
 
     def _update_pore_entry_pc(self, pore_id, pc):
-        if self.use_pore_body_filling:
+        if self.use_pore_body_filling and pc > 0:
             K = self.krel_calculator.get_absolute_permeability()
 
             neighbors = self.network.get_neighbor_throats_ids(pore_id)
