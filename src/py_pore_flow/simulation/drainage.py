@@ -8,8 +8,9 @@ from py_pore_flow.equations.geometry import (
     calculate_drainage_element_saturation,
     calculate_drainage_network_saturation,
 )
+from py_pore_flow.network import PORE, THROAT
 from py_pore_flow.output import pn_to_vtu
-from py_pore_flow.simulation.cycle_simulation import PORE, THROAT, CycleSimulation, SaturationCalculator
+from py_pore_flow.simulation.cycle_simulation import CycleSimulation, SaturationCalculator
 
 
 class DrainageSimulation(CycleSimulation):
@@ -92,8 +93,8 @@ class DrainageSaturation(SaturationCalculator):
             self.network.pn_core.throat.oil_filled,
         )
 
-    def _get_element_saturations(self, type_name, id, pc):
-        if type_name == "pore":
+    def _get_element_saturations(self, element_type, id, pc):
+        if element_type == PORE:
             element_data = self.network.pn_core.pore
             area = self.network.pn_core.pore.area[id]
         else:
