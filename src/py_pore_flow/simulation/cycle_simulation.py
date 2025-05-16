@@ -790,6 +790,7 @@ class CycleSimulation:
             pn.pore.inlets,
             pn.pore.conns,
             pn.pore.n_conns,
+            pn.pore.in_border,
             pn.throat.water_filled,
             pn.throat.oil_filled,
             pn.throat.water_connected_to_inlet,
@@ -797,6 +798,7 @@ class CycleSimulation:
             pn.throat.trapped,
             pn.throat.conns,
             pn.throat.n_conns,
+            pn.throat.in_border,
         )
 
         if len(border_throat_ids) > 0:
@@ -811,11 +813,6 @@ class CycleSimulation:
         else:
             new_pores = np.array([], np.int64)
             border_elements.set_pores_ids(np.array([], np.int64))
-
-        pn.pore.in_border[:] = False
-        pn.throat.in_border[:] = False
-        pn.pore.in_border[border_elements.get_pores_ids()] = True
-        pn.throat.in_border[border_elements.get_throats_ids()] = True
 
         return new_pores, new_throats
 
@@ -937,6 +934,7 @@ class CycleSimulation:
         pore_inlets,
         pore_conns,
         pore_n_conns,
+        pore_in_border,
         throat_water_filled,
         throat_oil_filled,
         throat_water_connected_to_inlet,
@@ -944,6 +942,7 @@ class CycleSimulation:
         throat_trapped,
         throat_conns,
         throat_n_conns,
+        throat_in_border,
     ):
         if phase == WATER:
             pore_phase_filled = pore_water_filled
@@ -956,24 +955,34 @@ class CycleSimulation:
             pore_phase_connected_to_inlet = pore_oil_connected_to_inlet
             throat_phase_connected_to_inlet = throat_oil_connected_to_inlet
 
+        # Normal border elements
         border_pore_ids = list()
-        for pore_id in range(len(pore_inlets)):
-            if pore_inlets[pore_id]:
-                if not pore_phase_filled[pore_id] and not pore_trapped[pore_id]:
-                    border_pore_ids.append(pore_id)
         for pore_id in range(len(pore_phase_filled)):
+            is_in_border = False
             if (not pore_phase_filled[pore_id]) and not pore_trapped[pore_id]:
                 for throat_id in pore_conns[pore_id][: pore_n_conns[pore_id]]:
                     if throat_phase_connected_to_inlet[throat_id] and throat_phase_filled[throat_id]:
                         border_pore_ids.append(pore_id)
+                        is_in_border = True
                         break
+            pore_in_border[pore_id] = is_in_border
         border_throat_ids = list()
         for throat_id in range(len(throat_phase_filled)):
+            is_in_border = False
             if (not throat_phase_filled[throat_id]) and not throat_trapped[throat_id]:
                 for pore_id in throat_conns[throat_id][: throat_n_conns[throat_id]]:
                     if pore_phase_connected_to_inlet[pore_id] and pore_phase_filled[pore_id]:
                         border_throat_ids.append(throat_id)
+                        is_in_border = True
                         break
+            throat_in_border[throat_id] = is_in_border
+
+        # inlets
+        for pore_id in range(len(pore_inlets)):
+            if pore_inlets[pore_id]:
+                if not pore_phase_filled[pore_id] and not pore_trapped[pore_id]:
+                    border_pore_ids.append(pore_id)
+                    pore_in_border[pore_id] = True
 
         border_pore_ids = np.unique(np.array(border_pore_ids, dtype=np.int64))
         border_throat_ids = np.unique(np.array(border_throat_ids, dtype=np.int64))
