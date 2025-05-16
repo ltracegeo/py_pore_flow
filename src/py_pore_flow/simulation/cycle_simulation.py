@@ -705,9 +705,12 @@ class CycleSimulation:
             else:
                 self.phase_connection_checker.update_phase_connections(THROAT, element.id)
             if (self.phase == OIL and element.So == 1.0) or (self.phase == WATER and element.Sw == 1.0):
-                self.trap_checker.update_trapped_pores()
-
-            new_pores, new_throats = self.__refresh_border_elements(reached_bubble, element)
+                new_trapped_pores, new_trapped_throats = self.trap_checker.update_trapped_pores()
+                new_pores, new_throats = self.__refresh_border_elements(
+                    reached_bubble, element, new_trapped_pores, new_trapped_throats
+                )
+            else:
+                new_pores, new_throats = self.__refresh_border_elements(reached_bubble, element)
             for pore_id in new_pores:
                 self._update_element_entry_pc(self.network.get_pore(pore_id), pc)
             for throat_id in new_throats:
@@ -737,14 +740,25 @@ class CycleSimulation:
         else:
             return False
 
-    def __refresh_border_elements(self, reached_bubble, filled_element):
+    def __refresh_border_elements(
+        self,
+        reached_bubble,
+        filled_element,
+        new_trapped_pores=np.empty(0, np.int64),
+        new_trapped_throats=np.empty(0, np.int64),
+    ):
         if reached_bubble:
             new_pores, new_throats = self.__reset_border_elements(
                 self.network.pn_core, self.border_elements, self.phase
             )
         else:
             new_pores, new_throats = self.__update_border_elements(
-                self.network.pn_core, self.border_elements, self.phase, filled_element
+                self.network.pn_core,
+                self.border_elements,
+                self.phase,
+                filled_element,
+                new_trapped_pores,
+                new_trapped_throats,
             )
 
         return new_pores, new_throats
@@ -812,7 +826,7 @@ class CycleSimulation:
         return new_pores, new_throats
 
     @staticmethod
-    def __update_border_elements(pn, border_elements, phase, filled_element):
+    def __update_border_elements(pn, border_elements, phase, filled_element, new_trapped_pores, new_trapped_throats):
         new_pores, new_throats, old_pores, old_throats = CycleSimulation.__njit_update_border_elements(
             phase,
             filled_element.type,
@@ -829,6 +843,8 @@ class CycleSimulation:
             pn.throat.water_filled,
             pn.throat.oil_filled,
             pn.throat.in_border,
+            new_trapped_pores,
+            new_trapped_throats,
         )
 
         border_elements.add_pores_ids(new_pores)
@@ -858,6 +874,8 @@ class CycleSimulation:
         throat_water_filled,
         throat_oil_filled,
         throat_in_border,
+        new_trapped_pores,
+        new_trapped_throats,
     ):
         # setup
         if filled_element_type == PORE:
@@ -897,13 +915,13 @@ class CycleSimulation:
 
         # pores to remove
         old_pores = list()
-        for pore_id in range(len(pore_trapped)):
-            if pore_trapped[pore_id] and pore_in_border[pore_id]:
+        for pore_id in new_trapped_pores:
+            if pore_in_border[pore_id]:
                 old_pores.append(pore_id)
                 pore_in_border[pore_id] = False
         old_throats = list()
-        for throat_id in range(len(throat_trapped)):
-            if throat_trapped[throat_id] and throat_in_border[throat_id]:
+        for throat_id in new_trapped_throats:
+            if throat_in_border[throat_id]:
                 old_throats.append(throat_id)
                 throat_in_border[throat_id] = False
         if filled_element_type == PORE:
@@ -1038,31 +1056,55 @@ class TrapChecker:
 
     def update_trapped_pores(self):
         if self.phase == WATER:
-            self.network.pn_core["pore.trapped"] = (
-                self.network.pn_core.pore.oil_filled & ~self.network.pn_core.pore.oil_connected_to_outlet
+            new_trapped_pores = self.__njit_update_trapped_elements(
+                self.network.pn_core.pore.trapped,
+                self.network.pn_core.pore.trapped_evacuation,
+                self.network.pn_core.pore.oil_filled,
+                self.network.pn_core.pore.oil_connected_to_outlet,
+                self.network.pn_core.pore.water_connected_to_inlet,
             )
-            self.network.pn_core["throat.trapped"] = (
-                self.network.pn_core.throat.oil_filled & ~self.network.pn_core.throat.oil_connected_to_outlet
-            )
-            self.network.pn_core["pore.trapped_evacuation"] = (
-                self.network.pn_core.pore.trapped | ~self.network.pn_core.pore.water_connected_to_inlet
-            )
-            self.network.pn_core["throat.trapped_evacuation"] = (
-                self.network.pn_core.throat.trapped | ~self.network.pn_core.throat.water_connected_to_inlet
+            new_trapped_throats = self.__njit_update_trapped_elements(
+                self.network.pn_core.throat.trapped,
+                self.network.pn_core.throat.trapped_evacuation,
+                self.network.pn_core.throat.oil_filled,
+                self.network.pn_core.throat.oil_connected_to_outlet,
+                self.network.pn_core.throat.water_connected_to_inlet,
             )
         else:
-            self.network.pn_core["pore.trapped"] = (
-                self.network.pn_core.pore.water_filled & ~self.network.pn_core.pore.water_connected_to_outlet
+            new_trapped_pores = self.__njit_update_trapped_elements(
+                self.network.pn_core.pore.trapped,
+                self.network.pn_core.pore.trapped_evacuation,
+                self.network.pn_core.pore.water_filled,
+                self.network.pn_core.pore.water_connected_to_outlet,
+                self.network.pn_core.pore.oil_connected_to_inlet,
             )
-            self.network.pn_core["throat.trapped"] = (
-                self.network.pn_core.throat.water_filled & ~self.network.pn_core.throat.water_connected_to_outlet
+            new_trapped_throats = self.__njit_update_trapped_elements(
+                self.network.pn_core.throat.trapped,
+                self.network.pn_core.throat.trapped_evacuation,
+                self.network.pn_core.throat.water_filled,
+                self.network.pn_core.throat.water_connected_to_outlet,
+                self.network.pn_core.throat.oil_connected_to_inlet,
             )
-            self.network.pn_core["pore.trapped_evacuation"] = (
-                self.network.pn_core.pore.trapped | ~self.network.pn_core.pore.oil_connected_to_inlet
+        return new_trapped_pores, new_trapped_throats
+
+    @staticmethod
+    @nb.njit(cache=True)
+    def __njit_update_trapped_elements(
+        element_trapped,
+        element_trapped_evacuation,
+        evading_filled,
+        evading_connected_to_outlet,
+        invading_connected_to_inlet,
+    ):
+        new_trapped_elements = list()
+        for element_id in range(len(element_trapped)):
+            element_trapped[element_id] = evading_filled[element_id] and not evading_connected_to_outlet[element_id]
+            if element_trapped[element_id]:
+                new_trapped_elements.append(element_id)
+            element_trapped_evacuation[element_id] = (
+                element_trapped[element_id] or not invading_connected_to_inlet[element_id]
             )
-            self.network.pn_core["throat.trapped_evacuation"] = (
-                self.network.pn_core.throat.trapped | ~self.network.pn_core.throat.oil_connected_to_inlet
-            )
+        return np.array(new_trapped_elements, np.int64)
 
 
 spec = [
