@@ -110,6 +110,6 @@ class ImbibitionSimulation(SubsequentCycleSimulation):
         element.corner_oil_layer = calculate_oil_layer(
             element.advancing_contact_angle, element.beta, element.n_corners, pc
         )
-        self._update_element_b(element.type_name, element.id, pc)
+        self._update_element_b(element.type, element.id, pc)
 
         return super()._update_element_filled_geometry(pc, element)
