@@ -18,7 +18,7 @@ from py_pore_flow.equations.geometry import (
 )
 import py_pore_flow.constants as c
 from py_pore_flow.equations.entry_pressure import calculate_imbibition_pc, PORE_BODY_FILLING_STRATEGY
-from py_pore_flow.simulation.cycle_simulation import PORE, THROAT
+from py_pore_flow.network import PORE, THROAT
 from py_pore_flow.simulation.subsequent_cycle import SubsequentCycleSimulation
 from py_pore_flow import log
 
@@ -137,13 +137,13 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
         element.corner_oil_layer = False
         element.bo = 0.0
         element.corner_water_layer = check_water_layer(element.corner_oil_layer, element.oil_filled)
-        self.__update_element_pinned_b(element.type_name, element.id, pc)
-        self._update_element_hinging_contact_angles(element.type_name, element.id, pc)
-        self.__update_element_b(element.type_name, element.id, pc)
+        self.__update_element_pinned_b(element.type, element.id, pc)
+        self._update_element_hinging_contact_angles(element.type, element.id, pc)
+        self.__update_element_b(element.type, element.id, pc)
         return super()._update_element_filled_geometry(pc, element)
 
     def __update_element_pinned_b(self, element_type, id, pc):
-        if element_type == "pore":
+        if element_type == PORE:
             element = self.network.pn_core.pore
         else:
             element = self.network.pn_core.throat
@@ -163,7 +163,7 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
         )
 
     def __update_element_b(self, element_type, id, pc):
-        if element_type == "pore":
+        if element_type == PORE:
             element = self.network.pn_core.pore
         else:
             element = self.network.pn_core.throat

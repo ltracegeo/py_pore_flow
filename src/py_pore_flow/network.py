@@ -14,6 +14,11 @@ from py_pore_flow.equations.geometry import (
 )
 
 
+# Constants
+PORE = 0
+THROAT = 1
+
+
 def initialize_pn(pn):
     for element_type in ["pore", "throat"]:
         number_of_elements = len(pn[f"{element_type}.all"])
@@ -181,9 +186,13 @@ class Network:
 
 
 class PnElement:
-    def __init__(self, element, type_name, id):
+    def __init__(self, element, element_type, id):
         self.element = element
-        self.type_name = type_name
+        self.type = element_type
+        if self.type == PORE:
+            self.type_name = "pore"
+        else:
+            self.type_name = "throat"
         self.id = id
 
     @property
@@ -426,7 +435,7 @@ class PnElement:
 
 class Pore(PnElement):
     def __init__(self, element, id):
-        super().__init__(element, "pore", id)
+        super().__init__(element, PORE, id)
 
     @property
     def A(self):
@@ -445,7 +454,7 @@ class Pore(PnElement):
 
 class Throat(PnElement):
     def __init__(self, element, id):
-        super().__init__(element, "throat", id)
+        super().__init__(element, THROAT, id)
         self._L = None
 
     @property

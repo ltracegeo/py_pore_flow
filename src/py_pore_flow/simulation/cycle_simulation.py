@@ -22,7 +22,7 @@ from py_pore_flow.equations.conductance import (
     calculate_network_multiphase_conductivity,
     calculate_network_singlephase_conductivity,
 )
-from py_pore_flow.network import Network
+from py_pore_flow.network import Network, PORE, THROAT
 from py_pore_flow.simulation.clusters import PhaseConnectionChecker
 
 
@@ -33,11 +33,6 @@ USE_OPENPNM_TRAPCHECKER = False
 ENABLE_TRAPPING_FROM_INLET = True
 
 TRAP_TOLERANCE = 0.0
-
-
-# Constants
-PORE = 0
-THROAT = 1
 
 
 class ConductanceCalculator:
@@ -500,16 +495,16 @@ class SaturationCalculator:
         pass
 
     @abstractmethod
-    def _get_element_saturations(self, type_name, id, pc):
+    def _get_element_saturations(self, element_type, id, pc):
         pass
 
-    def update_element_saturations(self, type_name, id, pc):
-        if type_name == "pore":
+    def update_element_saturations(self, element_type, id, pc):
+        if element_type == PORE:
             element_data = self.network.pn_core.pore
         else:
             element_data = self.network.pn_core.throat
 
-        sw, so = self._get_element_saturations(type_name, id, pc)
+        sw, so = self._get_element_saturations(element_type, id, pc)
         if self.phase == WATER:
             should_update = sw > element_data.water_saturation[id]
         else:
@@ -637,8 +632,8 @@ class CycleSimulation:
         pass
 
     def _update_element_filled_geometry(self, pc, element):
-        self._update_element_hinging_contact_angles(element.type_name, element.id, pc)
-        return self.saturation_calculator.update_element_saturations(element.type_name, element.id, pc)
+        self._update_element_hinging_contact_angles(element.type, element.id, pc)
+        return self.saturation_calculator.update_element_saturations(element.type, element.id, pc)
 
     def _update_network_geometry(self, pc):
         self.saturation_calculator.update_saturations(pc)
@@ -707,15 +702,15 @@ class CycleSimulation:
 
     def __fill_element(self, element, pc):
         element.set_filled(self.phase, True)
-        if element.type_name == "pore":
+        if element.type == PORE:
             self.network.pn_core.pore.trapped[element.id] = False
             self.network.pn_core.pore.trapped_evacuation[element.id] = False
         else:
             self.network.pn_core.throat.trapped[element.id] = False
             self.network.pn_core.throat.trapped_evacuation[element.id] = False
 
-    def _update_element_hinging_contact_angles(self, type_name, id, pc):
-        if type_name == "pore":
+    def _update_element_hinging_contact_angles(self, element_type, id, pc):
+        if element_type == PORE:
             element_data = self.network.pn_core.pore
         else:
             element_data = self.network.pn_core.throat
