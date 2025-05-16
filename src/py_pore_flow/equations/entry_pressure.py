@@ -14,6 +14,7 @@ def cot(x):
 
 @njit(cache=True)
 def calculate_pc(shape_factor, radius, theta, shape, beta, n_corners):
+    
     G = shape_factor
     r = radius
 
@@ -24,6 +25,12 @@ def calculate_pc(shape_factor, radius, theta, shape, beta, n_corners):
         S2 = 0
         S3 = 0
         for i in range(n_corners):
+            # Since we consider simulation to start at Pc = 0, this conditional
+            # guarantees that a meniscii only forms at R > 0, with oil in center
+            # and water on edge. Othewise, a menisci would form with oil on edge,
+            # and water on the center, at a negative Pc. In the present model, at
+            # Rc <= 0, we consider that, at invasion, the corner is completelly
+            # filled with oil.
             if beta[i] < pi / 2 - theta:
                 S1 += calculate_corner_C(theta, beta[i])
                 S2 += cos(theta + beta[i]) / sin(beta[i])
@@ -34,6 +41,47 @@ def calculate_pc(shape_factor, radius, theta, shape, beta, n_corners):
 
     Pc = c.sigma * cos(theta) / r * (1 + 2 * sqrt(pi * G)) * Fd
     return Pc
+
+
+#@njit(cache=True)
+def calculate_pc_inplace(shape_factor, radius, theta, beta, pc_array, sigma):
+    
+    G = shape_factor
+    r = radius
+    number_of_elements = pc_array.size
+
+    for i in range(number_of_elements):
+        if G[i] == 0:
+            continue
+        if G[i] > c.SQUARE_THRESHOLD: # is cirlce
+            shape = "circle"
+            D = 0
+            Fd = 1
+        elif G[i] > c.TRIANGLE_THRESHOLD: # is square
+            shape = "square"
+            D = calculate_corner_C(theta[i], c.HALF_RIGHT_ANGLE) #S1
+            D -= 2 * cos(theta[i] + c.HALF_RIGHT_ANGLE) / sin(c.HALF_RIGHT_ANGLE) * cos(c.HALF_RIGHT_ANGLE) #S2
+            D += 2 * (pi / 2 - theta[i] - c.HALF_RIGHT_ANGLE) #S3
+            D *= 4
+            Fd = (1 + sqrt(1 + (4 * G[i] * D / cos(theta[i]) ** 2))) / (1 + 2 * sqrt(pi * G[i]))
+        else: # is triangle
+            shape = "triangle"
+            D = 0
+            for corner in range(3):
+                # Since we consider simulation to start at Pc = 0, this conditional
+                # guarantees that a meniscii only forms at R > 0, with oil in center
+                # and water on edge. Othewise, a menisci would form with oil on edge,
+                # and water on the center, at a negative Pc. In the present model, at
+                # Rc <= 0, we consider that, at invasion, the corner is completelly
+                # filled with oil.
+                if beta[i, corner] < pi / 2 - theta[i]:
+                    D += calculate_corner_C(theta[i], beta[i, corner]) #S1
+                    D -= 2 * cos(theta[i] + beta[i, corner]) / sin(beta[i,corner]) * cos(theta[i]) #S2
+                    D += 2* (pi / 2 - theta[i] - beta[i, corner]) #S3
+            Fd = (1 + sqrt(1 + (4 * G[i] * D / cos(theta[i]) ** 2))) / (1 + 2 * sqrt(pi * G[i]))
+
+        Pc = sigma * cos(theta[i]) / r[i] * (1 + 2 * sqrt(pi * G[i])) * Fd
+        pc_array[i] = Pc
 
 
 @njit(cache=True)

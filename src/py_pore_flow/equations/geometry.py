@@ -1,4 +1,4 @@
-from math import acos, asin, atan, cos, pi, sin, sqrt, tan
+from numpy import arccos, arcsin, arctan, cos, pi, sin, sqrt, tan
 
 from numba import njit
 import numpy as np
@@ -13,6 +13,8 @@ WATER = 0
 OIL = 1
 
 MAX_NUMBER_OF_CORNERS = 4
+
+
 
 
 @njit(cache=True)
@@ -141,10 +143,10 @@ def calculate_beta(G, shape):
     beta = np.full(MAX_NUMBER_OF_CORNERS, 0, dtype=np.float64)
 
     if shape == TRIANGLE:
-        b2_min = atan(2 / sqrt(3) * cos(acos(-12 * sqrt(3) * G) / 3 + 4 * pi / 3))
-        b2_max = atan(2 / sqrt(3) * cos(acos(-12 * sqrt(3) * G) / 3))
+        b2_min = arctan(2 / sqrt(3) * cos(arccos(-12 * sqrt(3) * G) / 3 + 4 * pi / 3))
+        b2_max = arctan(2 / sqrt(3) * cos(arccos(-12 * sqrt(3) * G) / 3))
         b2 = np.random.uniform(b2_min, b2_max)
-        b1 = -b2 / 2 + (1 / 2) * asin(((tan(b2) + 4 * G) / (tan(b2) - 4 * G)) * sin(b2))
+        b1 = -b2 / 2 + (1 / 2) * arcsin(((tan(b2) + 4 * G) / (tan(b2) - 4 * G)) * sin(b2))
         b3 = pi / 2 - b1 - b2
 
         beta[0] = b1
@@ -155,6 +157,27 @@ def calculate_beta(G, shape):
             beta[i] = pi / 4
 
     return beta
+
+@njit(cache=True)
+def calculate_beta_inplace(G, beta_array):
+
+    for i in range(G.size):
+        if G[i] == 0:
+            continue
+        if G[i] <= c.TRIANGLE_THRESHOLD:
+            b2_min = arctan(2 / sqrt(3) * cos(arccos(-12 * sqrt(3) * G[i]) / 3 + 4 * pi / 3))
+            b2_max = arctan(2 / sqrt(3) * cos(arccos(-12 * sqrt(3) * G[i]) / 3))
+            b2 = np.random.uniform(b2_min, b2_max)
+            b1 = -b2 / 2 + (1 / 2) * arcsin(((tan(b2) + 4 * G[i]) / (tan(b2) - 4 * G[i])) * sin(b2))
+            b3 = pi / 2 - b1 - b2
+
+            beta_array[i, 0] = b1
+            beta_array[i, 1] = b2
+            beta_array[i, 2] = b3
+
+        elif G[i] <= c.SQUARE_THRESHOLD:
+            beta_array[i, 0] = pi / 4
+
 
 
 @njit(cache=True)
@@ -254,7 +277,7 @@ def calculate_hinging_contact_angle(Pc, beta, b, n_corners, theta_r, theta_a, th
                     x = 1
                 elif x < -1:
                     x = -1
-                theta_hi[i] = acos(x) - beta[i]
+                theta_hi[i] = arccos(x) - beta[i]
     theta_hi[:] = np.clip(theta_hi, theta_r, theta_a)
 
 
@@ -410,7 +433,7 @@ def check_water_layer_network(corner_water_layer, trapped, corner_oil_layer, fil
 
 @njit(cache=True)
 def calculate_oil_layer_collapse_pc(beta, theta_a, b):
-    Pc = c.sigma * cos(acos(2 * sin(beta) + cos(theta_a)) + beta) / (b * sin(beta))
+    Pc = c.sigma * cos(arccos(2 * sin(beta) + cos(theta_a)) + beta) / (b * sin(beta))
     return Pc
 
 
@@ -456,6 +479,7 @@ def calculate_dimensionless_layer_area(b_tilde, beta, theta_i, theta_o):
 
 @njit(cache=True)
 def calculate_corner_C(theta, beta):
+    # Area of corner meniscus
     return cos(theta) * (cos(theta + beta) / sin(beta)) - (pi / 2 - theta - beta)
 
 
@@ -478,9 +502,9 @@ def calculate_oil_layer_collapse_pc_element(oil_layer_collapse_pc, beta, theta_a
 def calculate_oil_layer_collapse_pc_corner(beta, theta_a, theta_r, Rmin):
     if theta_a > pi / 2 + beta:
         if 2 * sin(beta) + cos(theta_a) > 1:
-            Pc = c.sigma * cos(acos(1) + beta) / (Rmin * cos(theta_r + beta))
+            Pc = c.sigma * cos(arccos(1) + beta) / (Rmin * cos(theta_r + beta))
         else:
-            Pc = c.sigma * cos(acos(2 * sin(beta) + cos(theta_a)) + beta) / (Rmin * cos(theta_r + beta))
+            Pc = c.sigma * cos(arccos(2 * sin(beta) + cos(theta_a)) + beta) / (Rmin * cos(theta_r + beta))
     else:
         Pc = 0
     return Pc
@@ -519,7 +543,7 @@ def calculate_outter_hinging_contact_angle(Pc, beta, b, n_corners, theta_r, thet
                 x = 1
             elif x < -1:
                 x = -1
-            theta_ho[i] = acos(x) + beta[i]
+            theta_ho[i] = arccos(x) + beta[i]
     theta_ho[:] = np.clip(theta_ho, theta_r, theta_a)
 
 
