@@ -101,10 +101,13 @@ def initialize_pn(pn):
         pore_conns_list[pore_id] = neighbor_throats_list
 
     max_n_conns = max(pore_n_conns_list)
-    pn["pore.conns"] = np.empty((number_of_pores, max_n_conns), np.int32)
+    pn["pore.conns"] = np.empty((number_of_pores, max_n_conns), np.int64)
     for pore_id in pn.pores():
         pn["pore.n_conns"][pore_id] = pore_n_conns_list[pore_id]
         pn["pore.conns"][pore_id] = np.resize(pore_conns_list[pore_id], max_n_conns)
+
+    # Required to maintain compatibility between windows and linux:
+    pn["throat.conns"] = pn["throat.conns"].astype(np.int64)
 
 
 class Network:
