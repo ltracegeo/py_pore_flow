@@ -698,8 +698,8 @@ class CycleSimulation:
             )
 
             self.__fill_element(element, invasion_pc)
-            sw_delta += self._update_element_filled_geometry(invasion_pc, element)
             reached_bubble = self.__check_for_bubble(element)
+            sw_delta += self._update_element_filled_geometry(invasion_pc, element)
             if element.is_pore():
                 self.phase_connection_checker.update_phase_connections(PORE, element.id)
             else:
@@ -718,7 +718,7 @@ class CycleSimulation:
         return sw_delta, invasion_pc, no_invasion_left
 
     def __check_for_bubble(self, element):
-        id = element.id
+        element_id = element.id
 
         if element.type == PORE:
             element_data = self.network.pn_core.pore
@@ -728,14 +728,19 @@ class CycleSimulation:
             neighbor_data = self.network.pn_core.pore
 
         if self.phase == WATER:
-            phase_saturation = neighbor_data.water_saturation
+            element_saturation = element_data.water_saturation
+            neighbor_saturation = neighbor_data.water_saturation
             connected_to_inlet = neighbor_data.water_connected_to_inlet
         else:
-            phase_saturation = neighbor_data.oil_saturation
+            element_saturation = element_data.oil_saturation
+            neighbor_saturation = neighbor_data.oil_saturation
             connected_to_inlet = neighbor_data.oil_connected_to_inlet
 
-        neighbor_ids = element_data.conns[id][: element_data.n_conns[id]]
-        if ((phase_saturation[neighbor_ids] > 0) & ~connected_to_inlet[neighbor_ids]).any():
+        if element_saturation[element_id] > 0:
+            return False
+
+        neighbor_ids = element_data.conns[element_id][: element_data.n_conns[element_id]]
+        if ((neighbor_saturation[neighbor_ids] > 0) & ~connected_to_inlet[neighbor_ids]).any():
             return True
         else:
             return False
