@@ -21,7 +21,8 @@ from py_pore_flow.equations.geometry import (
 )
 import py_pore_flow.constants as c
 from py_pore_flow.equations.entry_pressure import calculate_imbibition_pc, PORE_BODY_FILLING_STRATEGY
-from py_pore_flow.simulation.cycle_simulation import PORE, THROAT, CycleSimulation, SaturationCalculator
+from py_pore_flow.network import PORE, THROAT
+from py_pore_flow.simulation.cycle_simulation import CycleSimulation, SaturationCalculator
 from py_pore_flow import log
 
 
@@ -317,8 +318,8 @@ class SubsequentSaturation(SaturationCalculator):
             self.network.pn_core.throat.corner_oil_layer,
         )
 
-    def _get_element_saturations(self, type_name, id, pc):
-        if type_name == "pore":
+    def _get_element_saturations(self, element_type, id, pc):
+        if element_type == PORE:
             element_data = self.network.pn_core.pore
             area = self.network.pn_core.pore.area[id]
         else:
