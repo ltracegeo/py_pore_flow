@@ -42,25 +42,6 @@ def calculate_drainage_pc(shape_factor, radius, receding_contact_angle, shape, b
     return calculate_pc(shape_factor, radius, theta, shape, beta, n_corners)
 
 
-def calculate_imbibition_pc(
-    calculate_pore_body_filling_pc,
-    piston_like_displacement_pc,
-    radius,
-    advancing_contact_angle,
-    pc,
-    number_of_oil_filled_neighbors,
-    throats_radii,
-    G,
-    K,
-):
-    if number_of_oil_filled_neighbors > 1 and pc > 0:
-        return calculate_pore_body_filling_pc(
-            radius, advancing_contact_angle, K, number_of_oil_filled_neighbors, throats_radii, G, 0
-        )
-    else:
-        return piston_like_displacement_pc
-
-
 @njit(cache=True)
 def calculate_imbibition_piston_like_displacement_pc_network(
     shape_factor, r, b, theta_a, theta_r, shape, beta, n_corners, Rmin
@@ -127,7 +108,7 @@ def calculate_imbibition_piston_like_displacement_pc_element(
 
 
 @njit(cache=True)
-def calculate_pore_body_filling_blunt1_pc(r, theta_a, K, oil_filled_throats_n, throats_radii, G, h):
+def calculate_pore_body_filling_blunt1_pc(r, theta_a, oil_filled_throats_n, throats_radii, G):
     x = np.random.uniform(0, 1, oil_filled_throats_n)
 
     lambda_sum = 0
@@ -143,7 +124,7 @@ def calculate_pore_body_filling_blunt1_pc(r, theta_a, K, oil_filled_throats_n, t
 
 
 @njit(cache=True)
-def calculate_pore_body_filling_blunt2_pc(r, theta_a, K, oil_filled_throats_n, throats_radii, G, h):
+def calculate_pore_body_filling_blunt2_pc(r, theta_a, oil_filled_throats_n, throats_radii, G):
     x = np.random.uniform(0, 1, oil_filled_throats_n)
 
     lambda_sum = 0
@@ -159,7 +140,7 @@ def calculate_pore_body_filling_blunt2_pc(r, theta_a, K, oil_filled_throats_n, t
 
 
 @njit(cache=True)
-def calculate_pore_body_filling_oren1_pc(r, theta_a, K, oil_filled_throats_n, throats_radii, G, h):
+def calculate_pore_body_filling_oren1_pc(r, theta_a, oil_filled_throats_n, throats_radii, G):
     x = np.random.uniform(0, 1, oil_filled_throats_n)
 
     lambda_sum = 0
@@ -175,7 +156,7 @@ def calculate_pore_body_filling_oren1_pc(r, theta_a, K, oil_filled_throats_n, th
 
 
 @njit(cache=True)
-def calculate_pore_body_filling_oren2_pc(r, theta_a, K, oil_filled_throats_n, throats_radii, G, h):
+def calculate_pore_body_filling_oren2_pc(r, theta_a, oil_filled_throats_n, throats_radii, G):
     x = np.random.uniform(0, 1, oil_filled_throats_n)
 
     lambda_sum = 0
