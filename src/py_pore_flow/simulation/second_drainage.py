@@ -17,7 +17,7 @@ from py_pore_flow.equations.geometry import (
     check_water_layer_network,
 )
 import py_pore_flow.constants as c
-from py_pore_flow.equations.entry_pressure import calculate_imbibition_pc, PORE_BODY_FILLING_STRATEGY
+from py_pore_flow.equations.entry_pressure import PORE_BODY_FILLING_STRATEGY
 from py_pore_flow.network import PORE, THROAT
 from py_pore_flow.simulation.subsequent_cycle import SubsequentCycleSimulation
 from py_pore_flow import log
