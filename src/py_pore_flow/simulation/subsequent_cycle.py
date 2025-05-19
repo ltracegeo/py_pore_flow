@@ -20,7 +20,7 @@ from py_pore_flow.equations.geometry import (
     check_water_layer_network,
 )
 import py_pore_flow.constants as c
-from py_pore_flow.equations.entry_pressure import calculate_imbibition_pc, PORE_BODY_FILLING_STRATEGY
+from py_pore_flow.equations.entry_pressure import PORE_BODY_FILLING_STRATEGY
 from py_pore_flow.network import PORE, THROAT
 from py_pore_flow.simulation.cycle_simulation import CycleSimulation, SaturationCalculator
 from py_pore_flow import log
@@ -43,7 +43,7 @@ class SubsequentCycleSimulation(CycleSimulation):
         invaded_pc = super()._update_invasions(pc, target_sw)
         return invaded_pc
 
-    def calculate_pore_body_filling_pc(self, r, theta_a, K, oil_filled_throats_n, throats_radii, G, h):
+    def calculate_pore_body_filling_pc(self, r, theta_a, oil_filled_throats_n, throats_radii, G):
         pass
 
     @staticmethod
@@ -134,28 +134,30 @@ class SubsequentCycleSimulation(CycleSimulation):
             self._update_throat_entry_pc(element.get_id(), pc)
 
     def _update_pore_entry_pc(self, pore_id, pc):
-        if self.use_pore_body_filling and pc > 0:
-            K = self.krel_calculator.get_absolute_permeability()
-
-            neighbors = self.network.get_neighbor_throats_ids(pore_id)
-            mask = self.adversary_fluid_filled[neighbors]
-            filled_neighbors = neighbors[mask]
-            number_of_filled_neighbors = filled_neighbors.size
-            throats_radii = self.network.pn_core.throat.radius[filled_neighbors]
-
-            element_pc = calculate_imbibition_pc(
-                self.calculate_pore_body_filling_pc,
-                self.network.pn_core.pore.piston_like_pressure[pore_id],
-                self.network.pn_core.pore.radius[pore_id],
-                self.limit_contact_angle[pore_id],
-                pc,
-                number_of_filled_neighbors,
-                throats_radii,
-                self.network.pn_core.pore.shape_factor[pore_id],
-                K,
-            )
-        else:
+        if not self.use_pore_body_filling or pc <= 0:
             element_pc = self.network.pn_core.pore.piston_like_pressure[pore_id]
+            self.network.pn_core.pore.entry_pressure[pore_id] = element_pc
+            return
+
+        neighbors = self.network.get_neighbor_throats_ids(pore_id)
+        number_of_filled_neighbors = neighbors.size
+
+        if number_of_filled_neighbors <= 1:
+            element_pc = self.network.pn_core.pore.piston_like_pressure[pore_id]
+            self.network.pn_core.pore.entry_pressure[pore_id] = element_pc
+            return
+
+        mask = self.adversary_fluid_filled[neighbors]
+        filled_neighbors = neighbors[mask]
+        throats_radii = self.network.pn_core.throat.radius[filled_neighbors]
+
+        element_pc = self.calculate_pore_body_filling_pc(
+            self.network.pn_core.pore.radius[pore_id],
+            self.limit_contact_angle[pore_id],
+            number_of_filled_neighbors,
+            throats_radii,
+            self.network.pn_core.pore.shape_factor[pore_id],
+        )
 
         replace_pressure = False
         if self.network.pn_core.pore.imminent_snap_off[pore_id]:
