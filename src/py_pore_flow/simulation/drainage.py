@@ -7,16 +7,33 @@ from py_pore_flow.equations.geometry import (
     check_water_layer,
     calculate_drainage_element_saturation,
     calculate_drainage_network_saturation,
+    calculate_multiphase_mask_drainage,
 )
 from py_pore_flow.network import PORE, THROAT
 from py_pore_flow.output import pn_to_vtu
 from py_pore_flow.simulation.cycle_simulation import CycleSimulation, SaturationCalculator
+
+from numba import njit
 
 
 class DrainageSimulation(CycleSimulation):
     def __init__(self, network, calculate_full_conductance=False):
         super().__init__(network, OIL, calculate_full_conductance)
         self.saturation_calculator = DrainageSaturation(network)
+
+    def _update_multiphase_mask(self, pc, pc_old):
+        calculate_multiphase_mask_drainage(
+            self.network.pn_core.pore.is_multiphase,
+            self.network.pn_core.pore.n_corners,
+            self.network.pn_core.pore.b,
+            self.network.pn_core.pore.oil_filled,
+        )
+        calculate_multiphase_mask_drainage(
+            self.network.pn_core.throat.is_multiphase,
+            self.network.pn_core.throat.n_corners,
+            self.network.pn_core.throat.b,
+            self.network.pn_core.throat.oil_filled,
+        )
 
     def _get_element_to_fill(self, pc, border_elements):
         element_to_fill = self.__jit_pore_throats_element_to_fill(
