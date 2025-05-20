@@ -5,6 +5,7 @@ from py_pore_flow.equations.geometry import (
     CIRCLE,
     OIL,
     check_water_layer,
+    calculate_multiphase_mask_2nd_drainage,
     calculate_2nd_drainage_element_b,
     calculate_imbibition_network_b,
     calculate_2nd_drainage_network_b,
@@ -32,6 +33,30 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
 
         if c.pore_fill_alg == "oren2":
             self.calculate_pore_body_filling_pc = PORE_BODY_FILLING_STRATEGY["oren1"]
+
+    def _update_multiphase_mask(self, pc, pc_old):
+        calculate_multiphase_mask_2nd_drainage(
+            self.network.pn_core.pore.is_multiphase,
+            self.network.pn_core.pore.b,
+            self.network.pn_core.pore.bo,
+            self.network.pn_core.pore.n_corners,
+            self.network.pn_core.pore.corner_oil_layer,
+            self.network.pn_core.pore.water_filled,
+            self.network.pn_core.pore.oil_filled,
+            self.network.pn_core.pore.trapped_evacuation,
+            pc,
+        )
+        calculate_multiphase_mask_2nd_drainage(
+            self.network.pn_core.throat.is_multiphase,
+            self.network.pn_core.throat.b,
+            self.network.pn_core.throat.bo,
+            self.network.pn_core.throat.n_corners,
+            self.network.pn_core.throat.corner_oil_layer,
+            self.network.pn_core.throat.water_filled,
+            self.network.pn_core.throat.oil_filled,
+            self.network.pn_core.throat.trapped_evacuation,
+            pc,
+        )
 
     def _can_be_filled(self, current_pc, invasion_pc):
         return current_pc >= invasion_pc
