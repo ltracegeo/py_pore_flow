@@ -48,6 +48,7 @@ class SubsequentCycleSimulation(CycleSimulation):
     @staticmethod
     @nb.njit(cache=True)
     def _snap_off(
+        element_imminent_snap_off,
         element_id_list,
         element_n_corners,
         element_conns,
@@ -76,21 +77,11 @@ class SubsequentCycleSimulation(CycleSimulation):
                 and element_shape[element_id] != CIRCLE
                 and not element_trapped[element_id]
             ):
-                if False:  # Which has best performance?
-                    if is_throats:
-                        if element_id in border_elements.get_throats_ids():
-                            continue
-                    else:
-                        if element_id in border_elements.get_pores_ids():
-                            continue
-                else:
-                    for i in range(element_n_conns[element_id]):
-                        pore_id = element_conns[element_id][i]
-                        if neighbor_filled[pore_id]:
-                            continue
-
                 entry_pressure[element_id] = element_snap_off_pc[element_id]
                 snap_off_elements.append(element_id)
+                element_imminent_snap_off[element_id] = True
+            else:
+                element_imminent_snap_off[element_id] = False
 
         return np.array(snap_off_elements, dtype=np.int64)
 
@@ -173,7 +164,19 @@ class SubsequentCycleSimulation(CycleSimulation):
             self.network.pn_core.pore.shape_factor[pore_id],
             K,
         )
-        self.network.pn_core.pore.entry_pressure[pore_id] = element_pc
+
+        replace_pressure = False
+        if self.network.pn_core.pore.imminent_snap_off[pore_id]:
+            if self.phase == WATER:
+                if element_pc > self.network.pn_core.pore.entry_pressure[pore_id]:
+                    replace_pressure = True
+            else:
+                if element_pc < self.network.pn_core.pore.entry_pressure[pore_id]:
+                    replace_pressure = True
+        else:
+            replace_pressure = True
+        if replace_pressure:
+            self.network.pn_core.pore.entry_pressure[pore_id] = element_pc
 
     def _update_throat_entry_pc(self, throat_id):
         self.network.pn_core.throat.entry_pressure[throat_id] = self.network.pn_core.throat.piston_like_pressure[
