@@ -57,6 +57,7 @@ class ImbibitionSimulation(SubsequentCycleSimulation):
 
     def _update_throats_snap_offs_pcs(self, pc):
         return self._snap_off(
+            self.network.pn_core.throat.imminent_snap_off,
             self.network.pn.throats(),
             self.network.pn_core.throat.n_corners,
             self.network.pn_core.throat.conns,
@@ -80,6 +81,7 @@ class ImbibitionSimulation(SubsequentCycleSimulation):
 
     def _update_pores_snap_offs_pcs(self, pc):
         return self._snap_off(
+            self.network.pn_core.pore.imminent_snap_off,
             self.network.pn.pores(),
             self.network.pn_core.pore.n_corners,
             self.network.pn_core.pore.conns,

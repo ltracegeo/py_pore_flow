@@ -70,6 +70,7 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
             self.network.pn_core.throat.n_conns,
         )
         return self._snap_off(
+            self.network.pn_core.throat.imminent_snap_off,
             self.network.pn.throats(),
             self.network.pn_core.throat.n_corners,
             self.network.pn_core.throat.conns,
@@ -99,6 +100,7 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
             self.network.pn_core.pore.n_conns,
         )
         return self._snap_off(
+            self.network.pn_core.pore.imminent_snap_off,
             self.network.pn.pores(),
             self.network.pn_core.pore.n_corners,
             self.network.pn_core.pore.conns,
