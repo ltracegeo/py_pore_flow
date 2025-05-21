@@ -83,7 +83,10 @@ def calculate_imbibition_element_saturation(A, oil_filled, theta_a, theta_h, bet
     else:
         Ao = calculate_element_oil_layer_area(theta_a, theta_h, beta, bi, bo, n_corners, has_oil_layer)
         if Ao < 0:
-            So = 0
+            if has_oil_layer[:n_corners].any():
+                So = 1e-3
+            else:
+                So = 0
         elif Ao < A:
             So = Ao / A
         else:
