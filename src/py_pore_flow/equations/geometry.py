@@ -572,8 +572,8 @@ def calculate_multiphase_mask_imbibition(
     is_multiphase, b, n_corners, has_oil_layer, oil_collapse_pc, water_filled, oil_filled, trapped_evacuation, pc
 ):
     for i in range(len(is_multiphase)):
-        # if trapped_evacuation[i]:
-        #     continue
+        if is_multiphase[i] and trapped_evacuation[i]:
+            continue
         if water_filled[i]:
             if np.all(pc < oil_collapse_pc[i][: n_corners[i]]):
                 is_multiphase[i] = False
@@ -592,8 +592,8 @@ def calculate_multiphase_mask_2nd_drainage(
     is_multiphase, b, bo, n_corners, has_oil_layer, water_filled, oil_filled, trapped_evacuation, pc
 ):
     for i in range(len(is_multiphase)):
-        # if trapped_evacuation[i]:
-        #     continue
+        if is_multiphase[i] and trapped_evacuation[i]:
+            continue
         if oil_filled[i] and np.any(b[i][: n_corners[i]] > 0):
             is_multiphase[i] = True
         elif water_filled[i] and np.any(has_oil_layer[i][: n_corners[i]]):
