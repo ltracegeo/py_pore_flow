@@ -620,7 +620,6 @@ class CycleSimulation:
         while True:
             invaded_pc = invasion_pc
             sw_delta, invasion_pc, no_invasion_left = self.__update_invasions(invasion_pc)
-            self._update_network_geometry(invaded_pc)
             self._update_multiphase_mask(invaded_pc, old_pc)
             old_pc = invaded_pc
             total_sw_delta += sw_delta
@@ -633,57 +632,7 @@ class CycleSimulation:
         return total_sw_delta, invaded_pc, invasion_pc, no_invasion_left
 
     def _update_multiphase_mask(self, pc, pc_old):
-        self.network.pn_core.pore.is_multiphase[:] = (self.network.pn_core.pore.water_saturation > 0) & (
-            self.network.pn_core.pore.oil_saturation > 0
-        )
-        self.network.pn_core.throat.is_multiphase[:] = (self.network.pn_core.throat.water_saturation > 0) & (
-            self.network.pn_core.throat.oil_saturation > 0
-        )
-        element_type = PORE
-        error_booleans = self.network.pn_core.pore.is_multiphase2 != self.network.pn_core.pore.is_multiphase
-        error_sum = error_booleans.sum()
-        element_data = self.network.pn_core.pore
-        if error_sum == 0:
-            element_type = THROAT
-            error_booleans = self.network.pn_core.throat.is_multiphase2 != self.network.pn_core.throat.is_multiphase
-            error_sum = error_booleans.sum()
-            element_data = self.network.pn_core.throat
-        if error_sum > 0:
-            print("ERROR", error_sum)
-            error_id = np.where(error_booleans)[0][0]
-            print("Error id", "pore" if element_type == PORE else "throat", error_id)
-            print("multiphase2:", element_data.is_multiphase2[error_id])
-            print(
-                "sw:",
-                element_data.water_saturation[error_id],
-                "multiphase:",
-                element_data.is_multiphase[error_id],
-                "water:",
-                element_data.water_filled[error_id],
-                "b:",
-                element_data.b[error_id][: element_data.n_corners[error_id]],
-                "bo:",
-                element_data.bo[error_id][: element_data.n_corners[error_id]],
-                "n_corners:",
-                element_data.n_corners[error_id],
-                "collapse:",
-                element_data.oil_layer_collapse_pressure[error_id][: element_data.n_corners[error_id]],
-                "oil_layer:",
-                element_data.corner_oil_layer[error_id][: element_data.n_corners[error_id]],
-                "trapp:",
-                element_data.trapped[error_id],
-                "trapp_evac:",
-                element_data.trapped_evacuation[error_id],
-                "snap_off_pressure:",
-                element_data.snap_off_pressure[error_id],
-                "entry_pressure:",
-                element_data.entry_pressure[error_id],
-                "theta_r:",
-                element_data.receding_contact_angle[error_id],
-                "beta:",
-                element_data.corner_half_angle[error_id][: element_data.n_corners[error_id]],
-            )
-            exit()
+        pass
 
     def calculate_sw_total(self):
         return self.saturation_calculator.calculate_sw_total()
