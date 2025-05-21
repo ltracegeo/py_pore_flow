@@ -36,7 +36,7 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
 
     def _update_multiphase_mask(self, pc, pc_old):
         calculate_multiphase_mask_2nd_drainage(
-            self.network.pn_core.pore.is_multiphase2,
+            self.network.pn_core.pore.is_multiphase,
             self.network.pn_core.pore.b,
             self.network.pn_core.pore.bo,
             self.network.pn_core.pore.n_corners,
@@ -47,7 +47,7 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
             pc,
         )
         calculate_multiphase_mask_2nd_drainage(
-            self.network.pn_core.throat.is_multiphase2,
+            self.network.pn_core.throat.is_multiphase,
             self.network.pn_core.throat.b,
             self.network.pn_core.throat.bo,
             self.network.pn_core.throat.n_corners,

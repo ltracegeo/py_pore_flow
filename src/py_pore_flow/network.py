@@ -83,7 +83,6 @@ def initialize_pn(pn):
         pn[f"{element_type}.changed_wettability"] = False
         pn[f"{element_type}.in_border"] = False
         pn[f"{element_type}.is_multiphase"] = False
-        pn[f"{element_type}.is_multiphase2"] = False
         pn[f"{element_type}.imminent_snap_off"] = False
 
     pn["throat.oil_singlephase_conductance"] = 0.0
@@ -553,7 +552,6 @@ class PoresNetwork(ElementNetwork):
         self.changed_wettability = pn["pore.changed_wettability"]
         self.in_border = pn["pore.in_border"]
         self.is_multiphase = pn["pore.is_multiphase"]
-        self.is_multiphase2 = pn["pore.is_multiphase2"]
         self.water_corner_collapse_pressure = pn["pore.water_corner_collapse_pressure"]
         self.imminent_snap_off = pn["pore.imminent_snap_off"]
 
@@ -622,7 +620,6 @@ class ThroatsNetwork(ElementNetwork):
         self.changed_wettability = pn["throat.changed_wettability"]
         self.in_border = pn["throat.in_border"]
         self.is_multiphase = pn["throat.is_multiphase"]
-        self.is_multiphase2 = pn["throat.is_multiphase2"]
         self.water_corner_collapse_pressure = pn["throat.water_corner_collapse_pressure"]
         self.imminent_snap_off = pn["throat.imminent_snap_off"]
 
