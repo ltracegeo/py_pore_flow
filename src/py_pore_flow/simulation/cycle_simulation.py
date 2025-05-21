@@ -642,6 +642,42 @@ class CycleSimulation:
         self.network.pn_core.throat.is_multiphase[:] = (self.network.pn_core.throat.water_saturation > 0) & (
             self.network.pn_core.throat.oil_saturation > 0
         )
+        error_booleans = self.network.pn_core.pore.is_multiphase2 != self.network.pn_core.pore.is_multiphase
+        error_sum = error_booleans.sum()
+        if error_sum > 0:
+            print("ERROR", error_sum)
+            error_id = np.where(error_booleans)[0][0]
+            print("Error id:", error_id)
+            print("multiphase2:", self.network.pn_core.pore.is_multiphase2[error_id])
+            print(
+                "sw:",
+                self.network.pn_core.pore.water_saturation[error_id],
+                "multiphase:",
+                self.network.pn_core.pore.is_multiphase[error_id],
+                "water:",
+                self.network.pn_core.pore.water_filled[error_id],
+                "b:",
+                self.network.pn_core.pore.b[error_id][: self.network.pn_core.pore.n_corners[error_id]],
+                "bo:",
+                self.network.pn_core.pore.bo[error_id][: self.network.pn_core.pore.n_corners[error_id]],
+                "n_corners:",
+                self.network.pn_core.pore.n_corners[error_id],
+                "collapse:",
+                self.network.pn_core.pore.oil_layer_collapse_pressure[error_id][
+                    : self.network.pn_core.pore.n_corners[error_id]
+                ],
+                "oil_layer:",
+                self.network.pn_core.pore.corner_oil_layer[error_id][: self.network.pn_core.pore.n_corners[error_id]],
+                "trapp:",
+                self.network.pn_core.pore.trapped[error_id],
+                "trapp_evac:",
+                self.network.pn_core.pore.trapped_evacuation[error_id],
+                "snap_off_pressure:",
+                self.network.pn_core.pore.snap_off_pressure[error_id],
+                "entry_pressure:",
+                self.network.pn_core.pore.entry_pressure[error_id],
+            )
+            exit()
 
     def calculate_sw_total(self):
         return self.saturation_calculator.calculate_sw_total()

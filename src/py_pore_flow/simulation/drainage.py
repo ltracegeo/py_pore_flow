@@ -23,17 +23,18 @@ class DrainageSimulation(CycleSimulation):
 
     def _update_multiphase_mask(self, pc, pc_old):
         calculate_multiphase_mask_drainage(
-            self.network.pn_core.pore.is_multiphase,
+            self.network.pn_core.pore.is_multiphase2,
             self.network.pn_core.pore.n_corners,
             self.network.pn_core.pore.b,
             self.network.pn_core.pore.oil_filled,
         )
         calculate_multiphase_mask_drainage(
-            self.network.pn_core.throat.is_multiphase,
+            self.network.pn_core.throat.is_multiphase2,
             self.network.pn_core.throat.n_corners,
             self.network.pn_core.throat.b,
             self.network.pn_core.throat.oil_filled,
         )
+        super()._update_multiphase_mask(pc, pc_old)
 
     def _get_element_to_fill(self, pc, border_elements):
         element_to_fill = self.__jit_pore_throats_element_to_fill(
