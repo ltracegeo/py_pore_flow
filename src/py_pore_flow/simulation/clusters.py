@@ -54,40 +54,6 @@ class PhaseConnectionChecker:
         self.invasion_connections.update_connections(pore_id_list, throat_id_list)
         self.evasion_connections.update_connections(pore_id_list, throat_id_list)
 
-        water_connected_inlet = (
-            self.network.pn_core.pore.water_connected_to_inlet.sum()
-            + self.network.pn_core.throat.water_connected_to_inlet.sum()
-        )
-        water_connected_water = (
-            self.network.pn_core.pore.water_connected_to_outlet.sum()
-            + self.network.pn_core.throat.water_connected_to_outlet.sum()
-        )
-        oil_connected_inlet = (
-            self.network.pn_core.pore.oil_connected_to_inlet.sum()
-            + self.network.pn_core.throat.oil_connected_to_inlet.sum()
-        )
-        oil_connected_oil = (
-            self.network.pn_core.pore.oil_connected_to_outlet.sum()
-            + self.network.pn_core.throat.oil_connected_to_outlet.sum()
-        )
-
-        from collections import Counter
-
-        counter = Counter(self.evasion_connections.pore_cluster)
-        pores_filtered = {k: v for k, v in counter.items() if v > 1}
-        counter = Counter(self.evasion_connections.throat_cluster)
-        throats_filtered = {k: v for k, v in counter.items() if v > 1}
-
-        # inlets_clusters, outlets_clusters = get_inlet_outlet_clusters(self.evasion_connections.pore_cluster, self.network.pn_core.pore.inlets, self.network.pn_core.pore.outlets)
-        # print("inlets_clusters", inlets_clusters, "outlets_clusters", outlets_clusters, pores_filtered, throats_filtered)
-
-        # print(
-        #     f"water(in{water_connected_inlet},out{water_connected_water})|oil(in{oil_connected_inlet},out{oil_connected_oil}) |",
-        #     pores_filtered,
-        #     throats_filtered,
-        # )
-        # print(pores_filtered, throats_filtered)
-
 
 class PhaseConnectionChecker2:
     def __init__(self, pn, phase):
@@ -403,13 +369,13 @@ class ReductiblePhaseConnectionChecker2(PhaseConnectionChecker2):
         pore_outlets,
         max_cluster_id,
     ):
-        affected_clusters = []
-        for pore_id in pores_changed:
-            affected_clusters.append(pore_cluster[pore_id])
-            remove_from_clusters(pore_cluster, pore_id)
-        for throat_id in throats_changed:
-            affected_clusters.append(throat_cluster[throat_id])
-            remove_from_clusters(throat_cluster, throat_id)
+        affected_clusters = np.empty(len(pores_changed) + len(throats_changed), dtype=np.int64)
+        for i, pore_id in enumerate(pores_changed):
+            affected_clusters[i] = pore_cluster[pore_id]
+            pore_cluster[pore_id] = -pore_id
+        for i, throat_id in enumerate(throats_changed):
+            affected_clusters[i + len(pores_changed)] = throat_cluster[throat_id]
+            throat_cluster[throat_id] = -throat_id
 
         affected_clusters = np.array(list(set(affected_clusters)))
         pore_to_scan = njit_isin(pore_cluster, affected_clusters)
@@ -455,16 +421,21 @@ class ReductiblePhaseConnectionChecker2(PhaseConnectionChecker2):
                 max_cluster_id += 1
                 new_clusters_ids[i] = max_cluster_id
 
-        for pore_id in range(len(pore_to_scan)):
-            if pore_to_scan[pore_id]:
-                for i in range(len(new_temp_clusters)):
-                    if pore_cluster_temp[pore_id] == new_temp_clusters[i]:
-                        pore_cluster[pore_id] = new_clusters_ids[i]
-        for throat_id in range(len(throat_to_scan)):
-            if throat_to_scan[throat_id]:
-                for i in range(len(new_temp_clusters)):
-                    if throat_cluster_temp[throat_id] == new_temp_clusters[i]:
-                        throat_cluster[throat_id] = new_clusters_ids[i]
+        for i in range(wqupc_nP):
+            if pore_to_scan[i]:
+                temp_id = pore_cluster_temp[i]
+                for j in range(len(new_temp_clusters)):
+                    if temp_id == new_temp_clusters[j]:
+                        pore_cluster[i] = new_clusters_ids[j]
+                        break
+
+        for i in range(wqupc_nT):
+            if throat_to_scan[i]:
+                temp_id = throat_cluster_temp[i]
+                for j in range(len(new_temp_clusters)):
+                    if temp_id == new_temp_clusters[j]:
+                        throat_cluster[i] = new_clusters_ids[j]
+                        break
 
         return max_cluster_id
 
@@ -1039,17 +1010,6 @@ def get_inlet_outlet_clusters(pore_cluster, pore_inlets, pore_outlets):
 @nb.njit(cache=True)
 def remove_from_clusters(element_cluster_array, element_id_list):
     element_cluster_array[element_id_list] = -element_id_list
-
-
-@nb.njit(cache=True)
-def isin_indexes(array_a, array_b):
-    result = nb.typed.List.empty_list(nb.int64)
-    for i in range(array_a.size):
-        for j in range(array_b.size):
-            if array_a[i] == array_b[j]:
-                result.append(i)
-                break
-    return result
 
 
 @nb.njit(cache=True)
