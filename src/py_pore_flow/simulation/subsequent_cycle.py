@@ -140,15 +140,15 @@ class SubsequentCycleSimulation(CycleSimulation):
             return
 
         neighbors = self.network.get_neighbor_throats_ids(pore_id)
-        number_of_filled_neighbors = neighbors.size
+        mask = self.adversary_fluid_filled[neighbors]
+        filled_neighbors = neighbors[mask]
+        number_of_filled_neighbors = filled_neighbors.size
 
         if number_of_filled_neighbors <= 1:
             element_pc = self.network.pn_core.pore.piston_like_pressure[pore_id]
             self.network.pn_core.pore.entry_pressure[pore_id] = element_pc
             return
 
-        mask = self.adversary_fluid_filled[neighbors]
-        filled_neighbors = neighbors[mask]
         throats_radii = self.network.pn_core.throat.radius[filled_neighbors]
 
         element_pc = self.calculate_pore_body_filling_pc(
