@@ -270,6 +270,107 @@ def jit_reset_connections(
     )
 
 
+@nb.njit(cache=True)
+def jit_reset_connections_truncated(
+    parent_array,
+    size_array,
+    nT,
+    pore_ids,
+    throat_ids,
+    pore_connected_to_inlet,
+    pore_connected_to_outlet,
+    throat_connected_to_inlet,
+    throat_connected_to_outlet,
+    pore_has_phase,
+    throat_has_phase,
+    pore_conns,
+    throat_conns,
+    pore_cluster,
+    throat_cluster,
+    pore_inlets,
+    pore_outlets,
+    element_type,
+    neighbors,
+    queue,
+    visited,
+):
+    head = 0
+    tail = 0
+
+    if element_type == PORE:
+        for throat in neighbors:
+            if throat_has_phase[throat]:
+                queue[tail] = throat
+                tail += 1
+    else:
+        for pore in neighbors:
+            if pore_has_phase[pore]:
+                for throat in pore_conns[pore]:
+                    if throat_has_phase[throat]:
+                        queue[tail] = throat
+                        tail += 1
+
+    iter_count = 0
+    iter_next = 1
+    max_iter = 1e5
+    while head < tail:
+        if iter_count > max_iter:
+            cluster_refresh_union(
+                parent_array,
+                size_array,
+                nT,
+                throat_ids,
+                pore_has_phase,
+                throat_has_phase,
+                throat_conns,
+            )
+            break
+        iter_count += 1
+
+        throat = queue[head]
+        head += 1
+
+        if visited[throat]:
+            continue
+        visited[throat] = True
+
+        if not throat_has_phase[throat]:
+            continue
+
+        pore_0, pore_1 = throat_conns[throat]
+        for pore in [pore_0, pore_1]:
+            if pore_has_phase[pore]:
+                wqupc_union(throat, pore + nT, parent_array, size_array)
+                for conn in pore_conns[pore]:
+                    if throat_has_phase[conn] and not visited[conn]:
+                        wqupc_union(conn, pore + nT, parent_array, size_array)
+                        queue[tail] = conn
+                        tail += 1
+
+        if iter_count > iter_next:
+            iter_next *= 2
+            if check_neighbors_connected(parent_array, element_type, neighbors, nT):
+                # print(f"truncate with {iter_count}")
+                return True
+
+    cluster_refresh_connections(
+        parent_array,
+        nT,
+        pore_ids,
+        throat_ids,
+        pore_connected_to_inlet,
+        pore_connected_to_outlet,
+        throat_connected_to_inlet,
+        throat_connected_to_outlet,
+        pore_cluster,
+        throat_cluster,
+        pore_inlets,
+        pore_outlets,
+    )
+
+    return False
+
+
 class ReductiblePhaseConnectionChecker2(PhaseConnectionChecker2):
     def __init__(self, pn, phase):
         super().__init__(pn, phase)
@@ -313,40 +414,42 @@ class ReductiblePhaseConnectionChecker2(PhaseConnectionChecker2):
 
         # self.pore_old_cluster = self.pore_cluster.copy()
         # self.throat_old_cluster = self.throat_cluster.copy()
-        # for pore_id in np.where(pore_has_phase_diff)[0]:
-        #     self.__delete_connections(PORE, pore_id)
-        # for throat_id in np.where(throat_has_phase_diff)[0]:
-        #     self.__delete_connections(THROAT, throat_id)
-        self.__delete_connections(np.where(pore_has_phase_diff)[0], np.where(throat_has_phase_diff)[0])
+        for pore_id in np.where(pore_has_phase_diff)[0]:
+            self.__delete_connections(PORE, pore_id)
+        for throat_id in np.where(throat_has_phase_diff)[0]:
+            self.__delete_connections(THROAT, throat_id)
+        # self.__delete_connections(np.where(pore_has_phase_diff)[0], np.where(throat_has_phase_diff)[0])
 
         # self.__update_element_connection()
 
-    def __delete_connections(self, pores_changed, throats_changed):
+    def __delete_connections(self, element_type, element_id):
         if self.phase == WATER:
-            self.max_cluster_id = self.__njit_delete_connections(
-                pores_changed,
-                throats_changed,
+            self.max_cluster_id = self.__njit_delete_connection(
+                element_type,
+                element_id,
                 self.pore_cluster,
                 self.throat_cluster,
                 self.pn.pore.water_connected_to_inlet,
                 self.pn.pore.water_connected_to_outlet,
                 self.pn.throat.water_connected_to_inlet,
                 self.pn.throat.water_connected_to_outlet,
+                self.pn.pore.conns,
                 self.pn.throat.conns,
                 self.pn.pore.inlets,
                 self.pn.pore.outlets,
                 self.max_cluster_id,
             )
         else:
-            self.max_cluster_id = self.__njit_delete_connections(
-                pores_changed,
-                throats_changed,
+            self.max_cluster_id = self.__njit_delete_connection(
+                element_type,
+                element_id,
                 self.pore_cluster,
                 self.throat_cluster,
                 self.pn.pore.oil_connected_to_inlet,
                 self.pn.pore.oil_connected_to_outlet,
                 self.pn.throat.oil_connected_to_inlet,
                 self.pn.throat.oil_connected_to_outlet,
+                self.pn.pore.conns,
                 self.pn.throat.conns,
                 self.pn.pore.inlets,
                 self.pn.pore.outlets,
@@ -355,31 +458,32 @@ class ReductiblePhaseConnectionChecker2(PhaseConnectionChecker2):
 
     @staticmethod
     @nb.njit(cache=True)
-    def __njit_delete_connections(
-        pores_changed,
-        throats_changed,
+    def __njit_delete_connection(
+        element_type,
+        element_id,
         pore_cluster,
         throat_cluster,
         pore_connected_to_inlet,
         pore_connected_to_outlet,
         throat_connected_to_inlet,
         throat_connected_to_outlet,
+        pore_conns,
         throat_conns,
         pore_inlets,
         pore_outlets,
         max_cluster_id,
     ):
-        affected_clusters = np.empty(len(pores_changed) + len(throats_changed), dtype=np.int64)
-        for i, pore_id in enumerate(pores_changed):
-            affected_clusters[i] = pore_cluster[pore_id]
-            pore_cluster[pore_id] = -pore_id
-        for i, throat_id in enumerate(throats_changed):
-            affected_clusters[i + len(pores_changed)] = throat_cluster[throat_id]
-            throat_cluster[throat_id] = -throat_id
+        if element_type == THROAT:
+            cluster = throat_cluster[element_id]
+            throat_cluster[element_id] = -element_id
+            neighbors = throat_conns[element_id]
+        else:
+            cluster = pore_cluster[element_id]
+            pore_cluster[element_id] = -element_id
+            neighbors = pore_conns[element_id]
 
-        affected_clusters = np.array(list(set(affected_clusters)))
-        pore_to_scan = njit_isin(pore_cluster, affected_clusters)
-        throat_to_scan = njit_isin(throat_cluster, affected_clusters)
+        pore_to_scan = njit_isin(pore_cluster, np.array([cluster]))
+        throat_to_scan = njit_isin(throat_cluster, np.array([cluster]))
         pore_to_scan_ids = np.where(pore_to_scan)[0]
         throat_to_scan_ids = np.where(throat_to_scan)[0]
 
@@ -391,7 +495,10 @@ class ReductiblePhaseConnectionChecker2(PhaseConnectionChecker2):
         pore_cluster_temp = np.empty(wqupc_nP, dtype=np.int64)
         throat_cluster_temp = np.empty(wqupc_nT, dtype=np.int64)
 
-        jit_reset_connections(
+        queue = np.empty(10 * wqupc_nT, dtype=np.int32)
+        visited = np.zeros(wqupc_nT, dtype=np.bool_)
+
+        truncate = jit_reset_connections_truncated(
             wqupc_parent_array,
             wqupc_size_array,
             wqupc_nT,
@@ -403,23 +510,29 @@ class ReductiblePhaseConnectionChecker2(PhaseConnectionChecker2):
             throat_connected_to_outlet,
             pore_to_scan,
             throat_to_scan,
+            pore_conns,
             throat_conns,
             pore_cluster_temp,
             throat_cluster_temp,
             pore_inlets,
             pore_outlets,
+            element_type,
+            neighbors,
+            queue,
+            visited,
         )
+
+        if truncate:
+            return max_cluster_id
+
         new_tem_pore_clusters = np.array(list(set(pore_cluster_temp[pore_to_scan])))
         new_temp_throat_clusters = np.array(list(set(throat_cluster_temp[throat_to_scan])))
         new_temp_clusters = np.array(list(set(np.concatenate((new_tem_pore_clusters, new_temp_throat_clusters)))))
         new_clusters_ids = np.empty(len(new_temp_clusters), np.int32)
 
         for i in range(len(new_temp_clusters)):
-            if i < len(affected_clusters):
-                new_clusters_ids[i] = affected_clusters[i]
-            else:
-                max_cluster_id += 1
-                new_clusters_ids[i] = max_cluster_id
+            max_cluster_id += 1
+            new_clusters_ids[i] = max_cluster_id
 
         for i in range(wqupc_nP):
             if pore_to_scan[i]:
@@ -539,6 +652,56 @@ def cluster_refresh_union(
                 union(throat, (pore_0 + nT))
             if pore_has_phase[pore_1]:
                 union(throat, (pore_1 + nT))
+
+
+@nb.njit(cache=True)
+def cluster_refresh_union_truncated(
+    parent_array,
+    size_array,
+    nT,
+    throat_ids,
+    pore_has_phase,
+    throat_has_phase,
+    throat_conns,
+    element_type,
+    neighbors,
+):
+    union = lambda p, q: wqupc_union(p, q, parent_array, size_array)
+
+    for throat in throat_ids:
+        if throat_has_phase[throat]:
+            pore_0, pore_1 = throat_conns[throat]
+            if pore_has_phase[pore_0]:
+                union(throat, (pore_0 + nT))
+            if pore_has_phase[pore_1]:
+                union(throat, (pore_1 + nT))
+
+        truncate = check_neighbors_connected(parent_array, element_type, neighbors, nT)
+        if truncate:
+            return True
+
+    return False
+
+
+@nb.njit(cache=True)
+def check_neighbors_connected(parent_array, element_type, neighbors, nT):
+    find = lambda p: wqupc_find(p, parent_array)
+
+    if len(neighbors) > 1:
+        if element_type == PORE:
+            root = find(neighbors[0])
+        else:
+            root = find(neighbors[0] + nT)
+
+        for neighbor in neighbors[1:]:
+            if element_type == PORE:
+                cluster = find(neighbor)
+            else:
+                cluster = find(neighbor + nT)
+            if cluster != root:
+                return False
+
+    return True
 
 
 @nb.njit(cache=True)
