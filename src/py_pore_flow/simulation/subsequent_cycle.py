@@ -98,7 +98,7 @@ class SubsequentCycleSimulation(CycleSimulation):
         self.snap_off_pore_list = self._update_pores_snap_offs_pcs(pc)
         self.snap_off_throat_list = self._update_throats_snap_offs_pcs(pc)
 
-    def __update_oil_layers(self, pc):
+    def _update_oil_layers(self, pc):
         calculate_oil_layer_network(
             self.network.pn_core.pore.corner_oil_layer,
             self.network.pn_core.pore.oil_layer_collapse_pressure,
@@ -259,7 +259,7 @@ class SubsequentCycleSimulation(CycleSimulation):
     def _update_network_geometry(self, pc):
         self._update_hinging_contact_angles(pc)
         self._update_b(pc)
-        self.__update_oil_layers(pc)
+        self._update_oil_layers(pc)
         self.__update_water_layers()
         super()._update_network_geometry(pc)
 
