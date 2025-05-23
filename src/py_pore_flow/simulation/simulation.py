@@ -8,15 +8,19 @@ from py_pore_flow import log
 from py_pore_flow.equations.geometry import (
     WATER,
     OIL,
+    calculate_2nd_drainage_oil_filled_multiphase,
+    calculate_2nd_drainage_oil_layer_existance_network,
     calculate_area,
     calculate_beta,
     calculate_C,
     calculate_drainage_b,
+    calculate_imbibion_oil_filled_multiphase,
     calculate_max_b,
     calculate_oil_layer_collapse_pc_network,
     calculate_r,
     calculate_shape,
     calculate_sides,
+    calculate_water_filled_multiphase,
 )
 from py_pore_flow.equations.entry_pressure import (
     calculate_2nd_drainage_piston_like_displacement_pc_network,
@@ -328,8 +332,17 @@ def calculate_imbibition_values(network, max_pc):
     network.pn_core["throat.trapped_evacuation"] = False
     network.pn_core.pore.hinging_contact_angle_o[:, :] = network.pn_core.pore.advancing_contact_angle[:, np.newaxis]
     network.pn_core.throat.hinging_contact_angle_o[:, :] = network.pn_core.throat.advancing_contact_angle[:, np.newaxis]
-    network.pn_core.pore.b_pinned = network.pn_core.pore.b.copy()
-    network.pn_core.throat.b_pinned = network.pn_core.throat.b.copy()
+
+    calculate_imbibion_oil_filled_multiphase(
+        network.pn_core.pore.oil_filled_multiphase,
+        network.pn_core.pore.n_corners,
+        network.pn_core.pore.b,
+    )
+    calculate_imbibion_oil_filled_multiphase(
+        network.pn_core.throat.oil_filled_multiphase,
+        network.pn_core.throat.n_corners,
+        network.pn_core.throat.b,
+    )
 
     calculate_snap_off_values(network, max_pc)
     calculate_piston_like_values(network, max_pc)
@@ -353,8 +366,46 @@ def calculate_2nd_drainage_values(network, min_pc):
     network.pn_core["throat.trapped"] = False
     network.pn_core["pore.trapped_evacuation"] = False
     network.pn_core["throat.trapped_evacuation"] = False
-    network.pn_core.pore.b_pinned = network.pn_core.pore.b.copy()
-    network.pn_core.throat.b_pinned = network.pn_core.throat.b.copy()
+
+    calculate_2nd_drainage_oil_layer_existance_network(
+        network.pn_core.pore.corner_oil_layer,
+        network.pn_core.pore.bo,
+        network.pn_core.pore.n_corners
+    )
+    calculate_water_filled_multiphase(
+        network.pn_core.pore.water_filled_multiphase,
+        network.pn_core.pore.n_corners,
+        network.pn_core.pore.corner_oil_layer,
+        network.pn_core.pore.bo,
+    )
+    calculate_2nd_drainage_oil_filled_multiphase(
+        network.pn_core.pore.oil_filled_multiphase,
+        network.pn_core.pore.n_corners,
+        network.pn_core.pore.receding_contact_angle,
+        network.pn_core.pore.corner_half_angle,
+        network.pn_core.pore.b,
+        network.pn_core.pore.oil_filled,
+    )
+    calculate_2nd_drainage_oil_layer_existance_network(
+        network.pn_core.throat.corner_oil_layer,
+        network.pn_core.throat.bo,
+        network.pn_core.throat.n_corners
+    )
+    calculate_water_filled_multiphase(
+        network.pn_core.throat.water_filled_multiphase,
+        network.pn_core.throat.n_corners,
+        network.pn_core.throat.corner_oil_layer,
+        network.pn_core.throat.bo,
+    )
+    calculate_2nd_drainage_oil_filled_multiphase(
+        network.pn_core.throat.oil_filled_multiphase,
+        network.pn_core.throat.n_corners,
+        network.pn_core.throat.receding_contact_angle,
+        network.pn_core.throat.corner_half_angle,
+        network.pn_core.throat.b,
+        network.pn_core.throat.oil_filled,
+    )
+    print("interesting", network.pn_core.throat.b[7143], network.pn_core.throat.trapped[7143], network.pn_core.throat.trapped_evacuation[7143], network.pn_core.throat.water_filled[7143])
 
     calculate_2nd_drainage_snap_off_values(network, min_pc)
     calculate_2nd_drainage_piston_like_values(network, min_pc)
