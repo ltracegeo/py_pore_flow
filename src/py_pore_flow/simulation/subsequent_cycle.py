@@ -248,10 +248,10 @@ class SubsequentCycleSimulation(CycleSimulation):
         )
 
     def _update_network_geometry(self, pc):
+        self._update_hinging_contact_angles(pc)
         self._update_b(pc)
         self.__update_oil_layers(pc)
         self.__update_water_layers()
-        self._update_hinging_contact_angles(pc)
         super()._update_network_geometry(pc)
 
     def _update_element_b(self, type_name, id, pc):
