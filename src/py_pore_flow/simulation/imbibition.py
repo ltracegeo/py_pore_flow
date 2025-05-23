@@ -30,23 +30,25 @@ class ImbibitionSimulation(SubsequentCycleSimulation):
     def _update_multiphase_mask(self, pc, pc_old):
         calculate_multiphase_mask_imbibition(
             self.network.pn_core.pore.is_multiphase2,
-            self.network.pn_core.pore.b,
+            self.network.pn_core.pore.b_pinned,
             self.network.pn_core.pore.n_corners,
             self.network.pn_core.pore.corner_oil_layer,
             self.network.pn_core.pore.oil_layer_collapse_pressure,
             self.network.pn_core.pore.water_filled,
             self.network.pn_core.pore.oil_filled,
+            self.network.pn_core.pore.trapped,
             self.network.pn_core.pore.trapped_evacuation,
             pc,
         )
         calculate_multiphase_mask_imbibition(
             self.network.pn_core.throat.is_multiphase2,
-            self.network.pn_core.throat.b,
+            self.network.pn_core.throat.b_pinned,
             self.network.pn_core.throat.n_corners,
             self.network.pn_core.throat.corner_oil_layer,
             self.network.pn_core.throat.oil_layer_collapse_pressure,
             self.network.pn_core.throat.water_filled,
             self.network.pn_core.throat.oil_filled,
+            self.network.pn_core.throat.trapped,
             self.network.pn_core.throat.trapped_evacuation,
             pc,
         )

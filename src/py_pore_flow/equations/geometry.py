@@ -569,10 +569,19 @@ def calculate_multiphase_mask_drainage(is_multiphase, n_corners, b, oil_filled):
 
 @njit(cache=True)
 def calculate_multiphase_mask_imbibition(
-    is_multiphase, b, n_corners, has_oil_layer, oil_collapse_pc, water_filled, oil_filled, trapped_evacuation, pc
+    is_multiphase,
+    b_pinned,
+    n_corners,
+    has_oil_layer,
+    oil_collapse_pc,
+    water_filled,
+    oil_filled,
+    trapped,
+    trapped_evacuation,
+    pc,
 ):
     for i in range(len(is_multiphase)):
-        if is_multiphase[i] and trapped_evacuation[i]:
+        if (n_corners[i] == 0) or trapped[i] or (is_multiphase[i] and trapped_evacuation[i]):
             continue
         if water_filled[i]:
             if np.all(pc < oil_collapse_pc[i][: n_corners[i]]):
@@ -581,7 +590,7 @@ def calculate_multiphase_mask_imbibition(
                 is_multiphase[i] = True
             else:
                 is_multiphase[i] = False
-        elif oil_filled[i] and np.all(b[i][: n_corners[i]] == 0):
+        elif oil_filled[i] and np.all(b_pinned[i][: n_corners[i]] <= 0):
             is_multiphase[i] = False
         else:
             is_multiphase[i] = True
@@ -589,12 +598,12 @@ def calculate_multiphase_mask_imbibition(
 
 @njit(cache=True)
 def calculate_multiphase_mask_2nd_drainage(
-    is_multiphase, b, bo, n_corners, has_oil_layer, water_filled, oil_filled, trapped_evacuation, pc
+    is_multiphase, b_pinned, n_corners, has_oil_layer, water_filled, oil_filled, trapped, trapped_evacuation, theta_r, beta, pc
 ):
     for i in range(len(is_multiphase)):
-        if is_multiphase[i] and trapped_evacuation[i]:
+        if (n_corners[i] == 0) or trapped[i] or (is_multiphase[i] and trapped_evacuation[i]):
             continue
-        if oil_filled[i] and np.any(b[i][: n_corners[i]] > 0):
+        if oil_filled[i] and ((theta_r[i] + np.min(beta[i][: n_corners[i]]) < pi / 2) or np.any(b_pinned[i][: n_corners[i]] > 0)):
             is_multiphase[i] = True
         elif water_filled[i] and np.any(has_oil_layer[i][: n_corners[i]]):
             is_multiphase[i] = True

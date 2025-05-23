@@ -35,6 +35,7 @@ def initialize_pn(pn):
         )
         pn[f"{element_type}.b"] = np.full((number_of_elements, MAX_NUMBER_OF_CORNERS), 0.0, np.float64)
         pn[f"{element_type}.bo"] = np.full((number_of_elements, MAX_NUMBER_OF_CORNERS), 0.0, np.float64)
+        pn[f"{element_type}.b_pinned"] = np.full((number_of_elements, MAX_NUMBER_OF_CORNERS), 0.0, np.float64)
         pn[f"{element_type}.max_b"] = 0.0
         pn[f"{element_type}.corner_water_layer"] = np.full((number_of_elements, MAX_NUMBER_OF_CORNERS), False, np.bool_)
         pn[f"{element_type}.corner_oil_layer"] = np.full((number_of_elements, MAX_NUMBER_OF_CORNERS), False, np.bool_)
@@ -512,6 +513,7 @@ class PoresNetwork(ElementNetwork):
         self.hinging_contact_angle_o = pn["pore.hinging_contact_angle_o"]
         self.b = pn["pore.b"]
         self.bo = pn["pore.bo"]
+        self.b_pinned = pn["pore.b_pinned"]
         self.max_b = pn["pore.max_b"]
         self.corner_water_layer = pn["pore.corner_water_layer"]
         self.corner_oil_layer = pn["pore.corner_oil_layer"]
@@ -577,6 +579,7 @@ class ThroatsNetwork(ElementNetwork):
         self.hinging_contact_angle_o = pn["throat.hinging_contact_angle_o"]
         self.b = pn["throat.b"]
         self.bo = pn["throat.bo"]
+        self.b_pinned = pn["throat.b_pinned"]
         self.max_b = pn["throat.max_b"]
         self.corner_water_layer = pn["throat.corner_water_layer"]
         self.corner_oil_layer = pn["throat.corner_oil_layer"]
