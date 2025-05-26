@@ -35,6 +35,7 @@ def initialize_pn(pn):
         )
         pn[f"{element_type}.b"] = np.full((number_of_elements, MAX_NUMBER_OF_CORNERS), 0.0, np.float64)
         pn[f"{element_type}.bo"] = np.full((number_of_elements, MAX_NUMBER_OF_CORNERS), 0.0, np.float64)
+        pn[f"{element_type}.b_pinned"] = np.full((number_of_elements, MAX_NUMBER_OF_CORNERS), 0.0, np.float64)
         pn[f"{element_type}.water_filled_multiphase"] = False
         pn[f"{element_type}.oil_filled_multiphase"] = False
         pn[f"{element_type}.max_b"] = 0.0
@@ -514,6 +515,7 @@ class PoresNetwork(ElementNetwork):
         self.hinging_contact_angle_o = pn["pore.hinging_contact_angle_o"]
         self.b = pn["pore.b"]
         self.bo = pn["pore.bo"]
+        self.b_pinned = pn["pore.b_pinned"]
         self.water_filled_multiphase = pn["pore.water_filled_multiphase"]
         self.oil_filled_multiphase = pn["pore.oil_filled_multiphase"]
         self.max_b = pn["pore.max_b"]
@@ -581,6 +583,7 @@ class ThroatsNetwork(ElementNetwork):
         self.hinging_contact_angle_o = pn["throat.hinging_contact_angle_o"]
         self.b = pn["throat.b"]
         self.bo = pn["throat.bo"]
+        self.b_pinned = pn["throat.b_pinned"]
         self.water_filled_multiphase = pn["throat.water_filled_multiphase"]
         self.oil_filled_multiphase = pn["throat.oil_filled_multiphase"]
         self.max_b = pn["throat.max_b"]

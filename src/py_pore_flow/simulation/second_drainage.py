@@ -44,6 +44,9 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
             self.network.pn_core.pore.trapped_evacuation,
             self.network.pn_core.pore.water_filled_multiphase,
             self.network.pn_core.pore.oil_filled_multiphase,
+            self.network.pn_core.pore.water_corner_collapse_pressure,
+            self.network.pn_core.pore.b_pinned,
+            pc,
         )
         calculate_multiphase_mask_2nd_drainage(
             self.network.pn_core.throat.is_multiphase2,
@@ -54,6 +57,9 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
             self.network.pn_core.throat.trapped_evacuation,
             self.network.pn_core.throat.water_filled_multiphase,
             self.network.pn_core.throat.oil_filled_multiphase,
+            self.network.pn_core.throat.water_corner_collapse_pressure,
+            self.network.pn_core.throat.b_pinned,
+            pc,
         )
         super()._update_multiphase_mask(pc, pc_old)
 

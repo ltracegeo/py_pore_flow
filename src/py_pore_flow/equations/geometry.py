@@ -625,12 +625,22 @@ def calculate_multiphase_mask_2nd_drainage(
     trapped_evacuation,
     water_filled_multiphase,
     oil_filled_multiphase,
+    water_corner_collapse_pressure,
+    b_pinned,
+    pc,
 ):
     for i in range(len(is_multiphase)):
         if (n_corners[i] == 0) or trapped[i] or (is_multiphase[i] and trapped_evacuation[i]):
             continue
-        if oil_filled[i] and oil_filled_multiphase[i]:
-            is_multiphase[i] = True
+        if oil_filled[i]:
+            if oil_filled_multiphase[i]:
+                is_multiphase[i] = True
+            elif (b_pinned[i][: n_corners[i]] > 0).any() and pc < np.max(
+                water_corner_collapse_pressure[i][: n_corners[i]]
+            ):
+                is_multiphase[i] = True
+            else:
+                is_multiphase[i] = False
         elif water_filled[i] and water_filled_multiphase[i]:
             is_multiphase[i] = True
         else:
@@ -667,9 +677,18 @@ def calculate_2nd_drainage_oil_filled_multiphase(filled_multiphase, n_corners, t
         if n_corners[i] == 0:
             filled_multiphase[i] = False
         else:
-            if oil_filled[i]:
-                filled_multiphase[i] = (theta_r[i] + np.min(beta[i][: n_corners[i]]) < pi / 2) or np.any(
-                    b_pinned[i][: n_corners[i]] > 0
-                )
-            else:
-                filled_multiphase[i] = (theta_r[i] + np.min(beta[i][: n_corners[i]]) < pi / 2)
+            # if oil_filled[i]:
+            #     filled_multiphase[i] = (theta_r[i] + np.min(beta[i][: n_corners[i]]) < pi / 2) or np.any(
+            #         b_pinned[i][: n_corners[i]] > 0
+            #     )
+            # else:
+            filled_multiphase[i] = theta_r[i] + np.min(beta[i][: n_corners[i]]) < pi / 2
+
+
+@njit(cache=True)
+def calculate_water_corner_collapse_pc(water_corner_collapse_pressure, theta_r, n_corners, b_pinned, beta):
+    number_of_elements = len(water_corner_collapse_pressure)
+    for i in range(number_of_elements):
+        for j in range(n_corners[i]):
+            Pc = (cos(theta_r[i] + beta[i][j]) * c.sigma) / (b_pinned[i][j] * sin(beta[i][j]))
+            water_corner_collapse_pressure[i][j] = Pc

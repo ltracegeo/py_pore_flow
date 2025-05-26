@@ -20,6 +20,7 @@ from py_pore_flow.equations.geometry import (
     calculate_r,
     calculate_shape,
     calculate_sides,
+    calculate_water_corner_collapse_pc,
     calculate_water_filled_multiphase,
 )
 from py_pore_flow.equations.entry_pressure import (
@@ -367,10 +368,16 @@ def calculate_2nd_drainage_values(network, min_pc):
     network.pn_core["pore.trapped_evacuation"] = False
     network.pn_core["throat.trapped_evacuation"] = False
 
+    network.pn_core.pore.b_pinned[:] = network.pn_core.pore.b
+    calculate_water_corner_collapse_pc(
+        network.pn_core.pore.water_corner_collapse_pressure,
+        network.pn_core.pore.receding_contact_angle,
+        network.pn_core.pore.n_corners,
+        network.pn_core.pore.b,
+        network.pn_core.pore.corner_half_angle,
+    )
     calculate_2nd_drainage_oil_layer_existance_network(
-        network.pn_core.pore.corner_oil_layer,
-        network.pn_core.pore.bo,
-        network.pn_core.pore.n_corners
+        network.pn_core.pore.corner_oil_layer, network.pn_core.pore.bo, network.pn_core.pore.n_corners
     )
     calculate_water_filled_multiphase(
         network.pn_core.pore.water_filled_multiphase,
@@ -386,10 +393,16 @@ def calculate_2nd_drainage_values(network, min_pc):
         network.pn_core.pore.b,
         network.pn_core.pore.oil_filled,
     )
+    network.pn_core.throat.b_pinned[:] = network.pn_core.throat.b
+    calculate_water_corner_collapse_pc(
+        network.pn_core.throat.water_corner_collapse_pressure,
+        network.pn_core.throat.receding_contact_angle,
+        network.pn_core.throat.n_corners,
+        network.pn_core.throat.b,
+        network.pn_core.throat.corner_half_angle,
+    )
     calculate_2nd_drainage_oil_layer_existance_network(
-        network.pn_core.throat.corner_oil_layer,
-        network.pn_core.throat.bo,
-        network.pn_core.throat.n_corners
+        network.pn_core.throat.corner_oil_layer, network.pn_core.throat.bo, network.pn_core.throat.n_corners
     )
     calculate_water_filled_multiphase(
         network.pn_core.throat.water_filled_multiphase,
