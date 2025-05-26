@@ -685,6 +685,8 @@ class CycleSimulation:
                 element_data.receding_contact_angle[error_id],
                 "beta:",
                 element_data.corner_half_angle[error_id][: element_data.n_corners[error_id]],
+                "theta_r:",
+                element_data.snap_off_pressure[error_id],
             )
             exit()
 

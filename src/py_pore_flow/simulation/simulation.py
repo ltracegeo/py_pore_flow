@@ -368,6 +368,7 @@ def calculate_2nd_drainage_values(network, min_pc):
     network.pn_core["pore.trapped_evacuation"] = False
     network.pn_core["throat.trapped_evacuation"] = False
 
+    print("pore")
     network.pn_core.pore.b_pinned[:] = network.pn_core.pore.b
     calculate_water_corner_collapse_pc(
         network.pn_core.pore.water_corner_collapse_pressure,
@@ -393,6 +394,7 @@ def calculate_2nd_drainage_values(network, min_pc):
         network.pn_core.pore.b,
         network.pn_core.pore.oil_filled,
     )
+    print("throat")
     network.pn_core.throat.b_pinned[:] = network.pn_core.throat.b
     calculate_water_corner_collapse_pc(
         network.pn_core.throat.water_corner_collapse_pressure,
@@ -418,7 +420,14 @@ def calculate_2nd_drainage_values(network, min_pc):
         network.pn_core.throat.b,
         network.pn_core.throat.oil_filled,
     )
-    print("interesting", network.pn_core.throat.b[7143], network.pn_core.throat.trapped[7143], network.pn_core.throat.trapped_evacuation[7143], network.pn_core.throat.water_filled[7143])
+    # print(
+    #     "interesting",
+    #     network.pn_core.throat.b[697][: network.pn_core.throat.n_corners[697]],
+    #     network.pn_core.throat.trapped[697],
+    #     network.pn_core.throat.trapped_evacuation[697],
+    #     network.pn_core.throat.water_filled[697],
+    #     network.pn_core.throat.water_filled[697],
+    # )
 
     calculate_2nd_drainage_snap_off_values(network, min_pc)
     calculate_2nd_drainage_piston_like_values(network, min_pc)

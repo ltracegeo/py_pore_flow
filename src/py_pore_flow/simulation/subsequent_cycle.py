@@ -372,6 +372,7 @@ class SubsequentSaturation(SaturationCalculator):
             area = self.network.pn_core.throat.cross_sectional_area[id]
 
         return calculate_imbibition_element_saturation(
+            0,
             area,
             element_data.oil_filled[id],
             element_data.advancing_contact_angle[id],

@@ -172,6 +172,7 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
         return super()._update_element_filled_geometry(pc, element)
 
     def _update_b(self, pc):
+        print("##############################################################")
         calculate_2nd_drainage_network_b(
             self.network.pn_core.pore.b,
             self.network.pn_core.pore.trapped_evacuation,
