@@ -709,6 +709,12 @@ class CycleSimulation:
 
     def __fill_element(self, element, pc):
         element.set_filled(self.phase, True)
+        if element.type_name == "pore":
+            self.network.pn_core.pore.trapped[element.id] = False
+            self.network.pn_core.pore.trapped_evacuation[element.id] = False
+        else:
+            self.network.pn_core.throat.trapped[element.id] = False
+            self.network.pn_core.throat.trapped_evacuation[element.id] = False
 
     def __update_element_hinging_contact_angles(self, type_name, id, pc):
         if type_name == "pore":
@@ -972,10 +978,10 @@ class TrapChecker:
 
     def update_trapped_pores(self):
         if self.phase == WATER:
-            self.network.pn_core["pore.trapped"] = self.network.pn_core.pore.trapped | (
+            self.network.pn_core["pore.trapped"] = (
                 self.network.pn_core.pore.oil_filled & ~self.network.pn_core.pore.oil_connected_to_outlet
             )
-            self.network.pn_core["throat.trapped"] = self.network.pn_core.throat.trapped | (
+            self.network.pn_core["throat.trapped"] = (
                 self.network.pn_core.throat.oil_filled & ~self.network.pn_core.throat.oil_connected_to_outlet
             )
             self.network.pn_core["pore.trapped_evacuation"] = (
@@ -985,10 +991,10 @@ class TrapChecker:
                 self.network.pn_core.throat.trapped | ~self.network.pn_core.throat.water_connected_to_inlet
             )
         else:
-            self.network.pn_core["pore.trapped"] = self.network.pn_core.pore.trapped | (
+            self.network.pn_core["pore.trapped"] = (
                 self.network.pn_core.pore.water_filled & ~self.network.pn_core.pore.water_connected_to_outlet
             )
-            self.network.pn_core["throat.trapped"] = self.network.pn_core.throat.trapped | (
+            self.network.pn_core["throat.trapped"] = (
                 self.network.pn_core.throat.water_filled & ~self.network.pn_core.throat.water_connected_to_outlet
             )
             self.network.pn_core["pore.trapped_evacuation"] = (
