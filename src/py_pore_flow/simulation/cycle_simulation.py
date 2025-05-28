@@ -916,6 +916,8 @@ class CycleSimulation:
         border_elements.add_throats_ids(new_border_throats)
         border_elements.remove_pores_ids(old_pores)
         border_elements.remove_throats_ids(old_throats)
+        border_elements.get_pores_ids().sort()
+        border_elements.get_throats_ids().sort()
 
         return new_border_pores, new_border_throats
 
