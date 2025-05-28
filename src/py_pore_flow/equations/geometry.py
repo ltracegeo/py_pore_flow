@@ -306,15 +306,38 @@ def calculate_imbibition_corner_b(b, beta, theta_r, theta_a, theta_h, R, Rmin):
 
 @njit
 def calculate_2nd_drainage_network_b(
-    b, trapped, beta, max_b, theta_r, theta_a, theta_h, has_water_layer, n_corners, pc, Rmin
+    b, trapped, oil_filled, beta, max_b, theta_r, theta_a, theta_h, has_water_layer, n_corners, pc, Rmin
 ):
     number_of_elements = len(beta)
 
     for i in range(number_of_elements):
         if not trapped[i]:
-            b[i] = calculate_2nd_drainage_element_b(
-                b[i], beta[i], max_b[i], theta_r[i], theta_a[i], theta_h[i], has_water_layer[i], n_corners[i], Rmin, pc
-            )
+            if oil_filled[i]:
+                b[i] = calculate_2nd_drainage_element_b(
+                    b[i],
+                    beta[i],
+                    max_b[i],
+                    theta_r[i],
+                    theta_a[i],
+                    theta_h[i],
+                    has_water_layer[i],
+                    n_corners[i],
+                    Rmin,
+                    pc,
+                )
+            else:
+                b[i] = calculate_imbibition_element_b(
+                    b[i],
+                    beta[i],
+                    max_b[i],
+                    theta_r[i],
+                    theta_a[i],
+                    theta_h[i],
+                    has_water_layer[i],
+                    n_corners[i],
+                    Rmin,
+                    pc,
+                )
 
 
 @njit
