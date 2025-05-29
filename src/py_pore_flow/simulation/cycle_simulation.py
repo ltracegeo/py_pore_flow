@@ -642,7 +642,7 @@ class CycleSimulation:
         pass
 
     def _update_element_filled_geometry(self, pc, element):
-        self.__update_element_hinging_contact_angles(element.type_name, element.id, pc)
+        self._update_element_hinging_contact_angles(element.type_name, element.id, pc)
         return self.saturation_calculator.update_element_saturations(element.type_name, element.id, pc)
 
     def _update_network_geometry(self, pc):
@@ -716,7 +716,7 @@ class CycleSimulation:
             self.network.pn_core.throat.trapped[element.id] = False
             self.network.pn_core.throat.trapped_evacuation[element.id] = False
 
-    def __update_element_hinging_contact_angles(self, type_name, id, pc):
+    def _update_element_hinging_contact_angles(self, type_name, id, pc):
         if type_name == "pore":
             element_data = self.network.pn_core.pore
         else:

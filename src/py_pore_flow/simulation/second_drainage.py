@@ -131,14 +131,37 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
         return (min_type, min_id, max(min_pressure, pc))
 
     def _update_element_filled_geometry(self, pc, element):
+        self._update_element_hinging_contact_angles(element.type_name, element.id, pc)
         element.corner_oil_layer = False
         element.bo = 0.0
         element.corner_water_layer = check_water_layer(element.corner_oil_layer, element.oil_filled)
-        self._update_element_b(element.type_name, element.id, pc)
+        self.__update_element_pinned_b(element.type_name, element.id, pc)
+        self._update_element_hinging_contact_angles(element.type_name, element.id, pc)
+        self.__update_element_b(element.type_name, element.id, pc)
         return super()._update_element_filled_geometry(pc, element)
 
-    def _update_element_b(self, type_name, id, pc):
-        if type_name == "pore":
+    def __update_element_pinned_b(self, element_type, id, pc):
+        if element_type == "pore":
+            element = self.network.pn_core.pore
+        else:
+            element = self.network.pn_core.throat
+
+        n_corners = element.n_corners[id]
+        element.b[id] = calculate_2nd_drainage_element_b(
+            element.b[id],
+            element.corner_half_angle[id],
+            element.max_b[id],
+            element.receding_contact_angle[id],
+            element.advancing_contact_angle[id],
+            np.full(n_corners, element.receding_contact_angle[id], np.float64),
+            element.corner_water_layer[id],
+            n_corners,
+            self.Rmin,
+            pc,
+        )
+
+    def __update_element_b(self, element_type, id, pc):
+        if element_type == "pore":
             element = self.network.pn_core.pore
         else:
             element = self.network.pn_core.throat

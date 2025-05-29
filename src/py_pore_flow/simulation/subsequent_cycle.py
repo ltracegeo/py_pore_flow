@@ -254,33 +254,6 @@ class SubsequentCycleSimulation(CycleSimulation):
         self.__update_water_layers()
         super()._update_network_geometry(pc)
 
-    def _update_element_b(self, type_name, id, pc):
-        if type_name == "pore":
-            element = self.network.pn_core.pore
-        else:
-            element = self.network.pn_core.throat
-
-        element.b[id] = calculate_imbibition_element_b(
-            element.b[id],
-            element.corner_half_angle[id],
-            element.max_b[id],
-            element.receding_contact_angle[id],
-            element.advancing_contact_angle[id],
-            element.hinging_contact_angle[id],
-            element.corner_water_layer[id],
-            element.n_corners[id],
-            self.Rmin,
-            pc,
-        )
-        element.bo[id] = calculate_imbibition_element_bo(
-            element.corner_half_angle[id],
-            element.max_b[id],
-            element.advancing_contact_angle[id],
-            element.corner_oil_layer[id],
-            element.n_corners[id],
-            pc,
-        )
-
     def __clear_snapoff_lists(self):
         filled_pores = (
             self.network.pn_core.pore.water_filled[self.snap_off_pore_list]

@@ -4,13 +4,16 @@ import numpy as np
 from py_pore_flow.equations.geometry import (
     CIRCLE,
     WATER,
+    calculate_hinging_contact_angle,
     calculate_imbibition_element_b,
     calculate_imbibition_element_bo,
     calculate_imbibition_network_b,
     calculate_imbibition_network_bo,
     calculate_network_hinging_contact_angle,
     calculate_oil_layer,
+    calculate_oil_layer_element,
     calculate_r,
+    check_water_layer,
     check_water_layer_network,
 )
 import py_pore_flow.constants as c
@@ -107,9 +110,118 @@ class ImbibitionSimulation(SubsequentCycleSimulation):
         return (max_type, max_id, min(max_pressure, pc))
 
     def _update_element_filled_geometry(self, pc, element):
+        self.__update_element_pinned_hinging_contact_angles(element.type_name, element.id, pc)
+        self.__update_element_pinned_b(element.type_name, element.id, pc)
         element.corner_oil_layer = calculate_oil_layer(
             element.advancing_contact_angle, element.beta, element.n_corners, pc
         )
-        self._update_element_b(element.type_name, element.id, pc)
+        self.__update_oil_layer_element(element.type_name, element.id, pc)
+
+        self.__update_element_bo(element.type_name, element.id, pc)
+        self.__check_water_layer(element.type_name, element.id)
+        self._update_element_hinging_contact_angles(element.type_name, element.id, pc)
+        self.__update_element_b(element.type_name, element.id, pc)
 
         return super()._update_element_filled_geometry(pc, element)
+
+    def __update_element_pinned_b(self, element_type, id, pc):
+        if element_type == "pore":
+            element = self.network.pn_core.pore
+        else:
+            element = self.network.pn_core.throat
+
+        n_corners = element.n_corners[id]
+        element.b[id] = calculate_imbibition_element_b(
+            element.b[id],
+            element.corner_half_angle[id],
+            element.max_b[id],
+            element.receding_contact_angle[id],
+            element.advancing_contact_angle[id],
+            element.hinging_contact_angle[id],
+            np.full(n_corners, True, np.bool_),
+            n_corners,
+            self.Rmin,
+            pc,
+        )
+
+    def __update_element_bo(self, element_type, id, pc):
+        if element_type == "pore":
+            element = self.network.pn_core.pore
+        else:
+            element = self.network.pn_core.throat
+
+        element.bo[id] = calculate_imbibition_element_bo(
+            element.corner_half_angle[id],
+            element.max_b[id],
+            element.advancing_contact_angle[id],
+            element.corner_oil_layer[id],
+            element.n_corners[id],
+            pc,
+        )
+
+    def __update_oil_layer_element(self, element_type, id, pc):
+        if element_type == "pore":
+            element = self.network.pn_core.pore
+        else:
+            element = self.network.pn_core.throat
+
+        calculate_oil_layer_element(
+            element.corner_oil_layer[id],
+            element.oil_layer_collapse_pressure[id],
+            element.b[id],
+            element.n_corners[id],
+            pc,
+        )
+
+    def __check_water_layer(self, element_type, id):
+        if element_type == "pore":
+            element = self.network.pn_core.pore
+        else:
+            element = self.network.pn_core.throat
+
+        element.corner_water_layer[id] = check_water_layer(
+            element.corner_oil_layer[id],
+            element.oil_filled[id],
+        )
+
+    def __update_element_pinned_hinging_contact_angles(self, element_type, id, pc):
+        if element_type == "pore":
+            element_data = self.network.pn_core.pore
+        else:
+            element_data = self.network.pn_core.throat
+        calculate_hinging_contact_angle(
+            pc,
+            element_data.corner_half_angle[id],
+            element_data.b_pinned[id],
+            element_data.n_corners[id],
+            element_data.receding_contact_angle[id],
+            element_data.advancing_contact_angle[id],
+            element_data.hinging_contact_angle[id],
+        )
+
+    def __update_element_b(self, element_type, id, pc):
+        if element_type == "pore":
+            element = self.network.pn_core.pore
+        else:
+            element = self.network.pn_core.throat
+
+        element.b[id] = calculate_imbibition_element_b(
+            element.b[id],
+            element.corner_half_angle[id],
+            element.max_b[id],
+            element.receding_contact_angle[id],
+            element.advancing_contact_angle[id],
+            element.hinging_contact_angle[id],
+            element.corner_water_layer[id],
+            element.n_corners[id],
+            self.Rmin,
+            pc,
+        )
+        element.bo[id] = calculate_imbibition_element_bo(
+            element.corner_half_angle[id],
+            element.max_b[id],
+            element.advancing_contact_angle[id],
+            element.corner_oil_layer[id],
+            element.n_corners[id],
+            pc,
+        )
