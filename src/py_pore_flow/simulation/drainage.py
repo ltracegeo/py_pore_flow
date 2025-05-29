@@ -67,6 +67,7 @@ class DrainageSimulation(CycleSimulation):
 
     def _update_element_filled_geometry(self, pc, element):
         element.corner_water_layer = check_water_layer(element.corner_oil_layer, element.oil_filled)
+        self._update_element_hinging_contact_angles(element.type_name, element.id, pc)
         return super()._update_element_filled_geometry(pc, element)
 
 

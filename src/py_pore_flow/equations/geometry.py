@@ -435,12 +435,6 @@ def check_water_layer_network(corner_water_layer, trapped, corner_oil_layer, fil
 
 
 @njit
-def calculate_oil_layer_collapse_pc(beta, theta_a, b):
-    Pc = c.sigma * cos(acos(2 * sin(beta) + cos(theta_a)) + beta) / (b * sin(beta))
-    return Pc
-
-
-@njit
 def calculate_oil_layer_element(corner_oil_layer, oil_layer_collapse_pc, b, n_corners, pc):
     for i in range(int(n_corners)):
         if corner_oil_layer[i]:

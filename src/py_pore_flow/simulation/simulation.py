@@ -335,6 +335,9 @@ def calculate_2nd_drainage_values(network, min_pc):
     network.pn_core["pore.trapped_evacuation"] = False
     network.pn_core["throat.trapped_evacuation"] = False
 
+    network.pn_core.pore.b_pinned[:] = network.pn_core.pore.b
+    network.pn_core.throat.b_pinned[:] = network.pn_core.throat.b
+
     calculate_2nd_drainage_snap_off_values(network, min_pc)
     calculate_2nd_drainage_piston_like_values(network, min_pc)
 
