@@ -688,12 +688,11 @@ class CycleSimulation:
             else:
                 element = self.network.get_throat(element_id)
 
-            log.debug(
-                f"Invasion {element.type_name:6} ID: {element.id:6} Pc: {element.pc:.5f} Radius: {element.r:.2e} G: {element.G:.4f} n_corners: {element.n_corners} area: {element.A}"
-            )
-
             self.__fill_element(element, invasion_pc)
             sw_delta += self._update_element_filled_geometry(invasion_pc, element)
+            log.debug(
+                f"Invasion {element.type_name:6} ID: {element.id:6} Pc: {element.pc:.5f}/{pc} Radius: {element.r:.2e} G: {element.G:.4f} n_corners: {element.n_corners} area: {element.A} | swdelta:{sw_delta}"
+            )
             self.phase_connection_checker.update_phase_connections()
             if (self.phase == OIL and element.So == 1.0) or (self.phase == WATER and element.Sw == 1.0):
                 self.trap_checker.update_trapped_pores()
