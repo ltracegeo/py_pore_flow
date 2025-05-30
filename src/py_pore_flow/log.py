@@ -16,11 +16,14 @@ BOTH = 3
 logger = logging.getLogger("py_pore_flow")
 
 
-def configure(output=STDOUT, level=CRITICAL, filename="py_pore_flow.log"):
+def configure(output=STDOUT, level=CRITICAL, timestamp=True, filename="py_pore_flow.log"):
     global logger
 
     logger.propagate = False
-    formatter = logging.Formatter("%(asctime)s %(levelname)s - %(message)s", datefmt="[%H:%M:%S]")
+    if timestamp:
+        formatter = logging.Formatter("%(asctime)s %(levelname)s - %(message)s", datefmt="[%H:%M:%S]")
+    else:
+        formatter = logging.Formatter("%(levelname)s - %(message)s", datefmt="[%H:%M:%S]")
 
     if output & STDOUT:
         handler = logging.StreamHandler()
