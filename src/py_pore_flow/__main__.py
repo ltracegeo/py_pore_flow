@@ -117,7 +117,8 @@ def automatic_simulation(
 ):
     start = time.time()
 
-    ppf.log.configure(output=ppf.log.STDOUT, level=ppf.log.DEBUG if debug else ppf.log.INFO)
+    ppf.log.configure(output=ppf.log.FILE, level=ppf.log.DEBUG if debug else ppf.log.INFO, timestamp=False)
+    # ppf.log.configure(output=ppf.log.STDOUT, level=ppf.log.DEBUG if debug else ppf.log.INFO)
 
     cycle, Pc, Sw, Krw, Kro = ppf.run_two_phase_simulation(
         pn,
