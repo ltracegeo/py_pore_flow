@@ -701,13 +701,19 @@ class CycleSimulation:
             else:
                 element = self.network.get_throat(element_id)
 
-            log.debug(
-                f"Invasion {element.type_name:6} ID: {element.id:6} Pc: {element.pc:.5f} Radius: {element.r:.2e} G: {element.G:.4f} n_corners: {element.n_corners} area: {element.A}"
+            number_of_multiphase = (
+                self.network.pn_core.pore.is_multiphase.sum() + self.network.pn_core.throat.is_multiphase.sum()
             )
 
             self.__fill_element(element, invasion_pc)
             reached_bubble = self.__check_for_bubble(element)
             sw_delta += self._update_element_filled_geometry(invasion_pc, element)
+            # log.debug(
+            #     f"Invasion {element.type_name:6} ID: {element.id:6} Pc: {element.pc:.5f}/{pc} Radius: {element.r:.2e} G: {element.G:.4f} n_corners: {element.n_corners} area: {element.A} | swdelta:{sw_delta} mp:{number_of_multiphase}"
+            # )
+            log.debug(
+                f"Invasion {element.type_name:6} ID: {element.id:6} Pc: {element.pc:.5f}/{pc} Radius: {element.r:.2e} G: {element.G:.4f} n_corners: {element.n_corners} area: {element.A} | swdelta:{sw_delta}"
+            )
             if element.is_pore():
                 self.phase_connection_checker.update_phase_connections(PORE, element.id)
             else:
