@@ -82,6 +82,8 @@ def calculate_imbibition_piston_like_displacement_pc_network(
                 n_corners[i],
                 Rmin,
             )
+            if Pc[i] < 0:
+                Pc[i] = -calculate_pc(shape_factor[i], r[i], pi - theta_a[i], shape[i], beta[i], n_corners[i])
         else:
             Pc[i] = calculate_pc(shape_factor[i], r[i], theta_a[i], shape[i], beta[i], n_corners[i])
 
