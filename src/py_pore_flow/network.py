@@ -145,7 +145,7 @@ class Network:
         return len(self.pn.pores())
 
     def get_number_of_throats(self):
-        return len(self.pn.pores())
+        return len(self.pn.throats())
 
     def get_neighbor_throats_ids(self, pore_id):
         return self.pn_core.pore.conns[pore_id][: self.pn_core.pore.n_conns[pore_id]]
