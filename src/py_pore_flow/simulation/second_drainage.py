@@ -131,7 +131,6 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
         return (min_type, min_id, max(min_pressure, pc))
 
     def _update_element_filled_geometry(self, pc, element):
-        self._update_element_hinging_contact_angles(element.type_name, element.id, pc)
         element.corner_oil_layer = False
         element.bo = 0.0
         element.corner_water_layer = check_water_layer(element.corner_oil_layer, element.oil_filled)
@@ -153,7 +152,7 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
             element.max_b[id],
             element.receding_contact_angle[id],
             element.advancing_contact_angle[id],
-            np.full(n_corners, element.receding_contact_angle[id], np.float64),
+            np.full(n_corners, element.advancing_contact_angle[id], np.float64),
             element.corner_water_layer[id],
             n_corners,
             self.Rmin,
