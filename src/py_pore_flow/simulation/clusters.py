@@ -8,8 +8,6 @@ from py_pore_flow.equations.geometry import OIL, WATER
 PORE = 0
 THROAT = 1
 
-TRAP_TOLERANCE = 0.0
-
 
 class PhaseConnectionChecker:
     def __init__(self, network, phase):
@@ -280,11 +278,11 @@ class ReductiblePhaseConnectionChecker2(PhaseConnectionChecker2):
 
     def reset_connections(self):
         if self.phase == WATER:
-            self.pore_has_phase_old = self.pn.pore.water_saturation > 0.0 + TRAP_TOLERANCE
-            self.throat_has_phase_old = self.pn.throat.water_saturation > 0.0 + TRAP_TOLERANCE
+            self.pore_has_phase_old = self.pn.pore.is_multiphase | self.pn.pore.water_filled
+            self.throat_has_phase_old = self.pn.throat.is_multiphase | self.pn.throat.water_filled
         else:
-            self.pore_has_phase_old = self.pn.pore.oil_saturation > 0.0 + TRAP_TOLERANCE
-            self.throat_has_phase_old = self.pn.throat.oil_saturation > 0.0 + TRAP_TOLERANCE
+            self.pore_has_phase_old = self.pn.pore.is_multiphase | self.pn.pore.oil_filled
+            self.throat_has_phase_old = self.pn.throat.is_multiphase | self.pn.throat.oil_filled
         super().reset_connections()
 
         self.max_cluster_id = max(self.pore_cluster.max(), self.throat_cluster.max())
@@ -301,11 +299,11 @@ class ReductiblePhaseConnectionChecker2(PhaseConnectionChecker2):
 
     def reverse_connections(self):
         if self.phase == WATER:
-            pore_has_phase = self.pn.pore.water_saturation > 0.0 + TRAP_TOLERANCE
-            throat_has_phase = self.pn.throat.water_saturation > 0.0 + TRAP_TOLERANCE
+            pore_has_phase = self.pn.pore.is_multiphase | self.pn.pore.water_filled
+            throat_has_phase = self.pn.throat.is_multiphase | self.pn.throat.water_filled
         else:
-            pore_has_phase = self.pn.pore.oil_saturation > 0.0 + TRAP_TOLERANCE
-            throat_has_phase = self.pn.throat.oil_saturation > 0.0 + TRAP_TOLERANCE
+            pore_has_phase = self.pn.pore.is_multiphase | self.pn.pore.oil_filled
+            throat_has_phase = self.pn.throat.is_multiphase | self.pn.throat.oil_filled
         pore_has_phase_diff = self.pore_has_phase_old & ~pore_has_phase
         throat_has_phase_diff = self.throat_has_phase_old & ~throat_has_phase
         self.pore_has_phase_old = pore_has_phase.copy()
