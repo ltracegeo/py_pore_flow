@@ -37,10 +37,6 @@ class SubsequentCycleSimulation(CycleSimulation):
         self.snap_off_throat_list = []
         self.snap_off_pore_list = []
 
-    def _update_invasions(self, pc, target_sw=None):
-        invaded_pc = super()._update_invasions(pc, target_sw)
-        return invaded_pc
-
     def calculate_pore_body_filling_pc(self, r, theta_a, K, oil_filled_throats_n, throats_radii, G, h):
         pass
 

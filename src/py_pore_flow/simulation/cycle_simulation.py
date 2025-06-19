@@ -604,15 +604,12 @@ class CycleSimulation:
     def update_pc(self, pc, target_sw=None):
         invasion_pc = pc
         total_sw_delta = 0.0
-        invasion_target_sw = None
 
         self._update_network_geometry(pc)
 
         while True:
-            if target_sw is not None:
-                invasion_target_sw = target_sw - total_sw_delta
             invaded_pc = invasion_pc
-            sw_delta, invasion_pc, no_invasion_left = self._update_invasions(invasion_pc, invasion_target_sw)
+            sw_delta, invasion_pc, no_invasion_left = self.__update_invasions(invasion_pc)
             self._update_network_geometry(invaded_pc)
             total_sw_delta += sw_delta
 
@@ -667,7 +664,7 @@ class CycleSimulation:
         for pore_id in self.border_elements.get_pores_ids():
             self._update_pore_entry_pc(pore_id, pc)
 
-    def _update_invasions(self, pc, target_sw=None):
+    def __update_invasions(self, pc):
         sw_delta = 0.0
 
         self._update_entry_pressures(pc)
@@ -683,7 +680,7 @@ class CycleSimulation:
 
             element_type, element_id, invasion_pc = element_to_fill
 
-            if (target_sw is not None and sw_delta >= target_sw) or not self._can_be_filled(pc, invasion_pc):
+            if not self._can_be_filled(pc, invasion_pc):
                 break
 
             if element_type == PORE:
