@@ -155,30 +155,32 @@ class SubsequentCycleSimulation(CycleSimulation):
         if number_of_filled_neighbors <= 1:
             element_pc = self.network.pn_core.pore.piston_like_pressure[pore_id]
             self.network.pn_core.pore.entry_pressure[pore_id] = element_pc
-            return
-
-        throats_radii = self.network.pn_core.throat.radius[filled_neighbors]
-
-        element_pc = self.calculate_pore_body_filling_pc(
-            self.network.pn_core.pore.radius[pore_id],
-            self.limit_contact_angle[pore_id],
-            number_of_filled_neighbors,
-            throats_radii,
-            self.network.pn_core.pore.shape_factor[pore_id],
-        )
-
-        replace_pressure = False
-        if self.network.pn_core.pore.imminent_snap_off[pore_id]:
-            if self.phase == WATER:
-                if element_pc > self.network.pn_core.pore.entry_pressure[pore_id]:
-                    replace_pressure = True
-            else:
-                if element_pc < self.network.pn_core.pore.entry_pressure[pore_id]:
-                    replace_pressure = True
         else:
-            replace_pressure = True
-        if replace_pressure:
-            self.network.pn_core.pore.entry_pressure[pore_id] = element_pc
+            throats_radii = self.network.pn_core.throat.radius[filled_neighbors]
+
+            pore_body_filling_pressure = self.calculate_pore_body_filling_pc(
+                self.network.pn_core.pore.radius[pore_id],
+                self.limit_contact_angle[pore_id],
+                number_of_filled_neighbors,
+                throats_radii,
+                self.network.pn_core.pore.shape_factor[pore_id],
+            )
+            piston_like_pressure = self.network.pn_core.pore.piston_like_pressure[pore_id]
+
+            if self.phase == WATER and pore_body_filling_pressure > piston_like_pressure:
+                self.network.pn_core.pore.entry_pressure[pore_id] = piston_like_pressure
+            elif self.phase == OIL and pore_body_filling_pressure < piston_like_pressure:
+                self.network.pn_core.pore.entry_pressure[pore_id] = piston_like_pressure
+            else:
+                if self.network.pn_core.pore.imminent_snap_off[pore_id]:
+                    if self.phase == WATER:
+                        if pore_body_filling_pressure > self.network.pn_core.pore.entry_pressure[pore_id]:
+                            self.network.pn_core.pore.entry_pressure[pore_id] = pore_body_filling_pressure
+                    else:
+                        if pore_body_filling_pressure < self.network.pn_core.pore.entry_pressure[pore_id]:
+                            self.network.pn_core.pore.entry_pressure[pore_id] = pore_body_filling_pressure
+                else:
+                    self.network.pn_core.pore.entry_pressure[pore_id] = pore_body_filling_pressure
 
     def _update_throat_entry_pc(self, throat_id):
         self.network.pn_core.throat.entry_pressure[throat_id] = self.network.pn_core.throat.piston_like_pressure[
