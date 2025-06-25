@@ -431,7 +431,6 @@ def calculate_piston_like_values(network, max_pc):
     network.pn_core["throat.piston_like_pressure"] = calculate_imbibition_piston_like_displacement_pc_network(
         network.pn_core.throat.shape_factor,
         network.pn_core.throat.radius,
-        network.pn_core.throat.b,
         network.pn_core.throat.advancing_contact_angle,
         network.pn_core.throat.receding_contact_angle,
         network.pn_core.throat.shape,
@@ -443,7 +442,6 @@ def calculate_piston_like_values(network, max_pc):
     network.pn_core["pore.piston_like_pressure"] = calculate_imbibition_piston_like_displacement_pc_network(
         network.pn_core.pore.shape_factor,
         network.pn_core.pore.radius,
-        network.pn_core.pore.b,
         network.pn_core.pore.advancing_contact_angle,
         network.pn_core.pore.receding_contact_angle,
         network.pn_core.pore.shape,
