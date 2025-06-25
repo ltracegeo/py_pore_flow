@@ -1101,9 +1101,10 @@ class TrapChecker:
     ):
         new_trapped_elements = list()
         for element_id in range(len(element_trapped)):
-            element_trapped[element_id] = evading_filled[element_id] and not evading_connected_to_outlet[element_id]
-            if element_trapped[element_id]:
+            new_trapped_status = evading_filled[element_id] and not evading_connected_to_outlet[element_id]
+            if not element_trapped[element_id] and new_trapped_status:
                 new_trapped_elements.append(element_id)
+            element_trapped[element_id] = new_trapped_status
             element_trapped_evacuation[element_id] = (
                 element_trapped[element_id] or not invading_connected_to_inlet[element_id]
             )
