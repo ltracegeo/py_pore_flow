@@ -67,12 +67,6 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
         return current_pc >= invasion_pc
 
     def _update_throats_snap_offs_pcs(self, pc):
-        throat_snap_off_viability = np.empty(len(self.network.pn.throats()), np.bool_)
-        self.__set_snap_off_viability(
-            throat_snap_off_viability,
-            self.network.pn_core.throat.corner_oil_layer,
-            self.network.pn_core.throat.n_conns,
-        )
         return self._snap_off(
             self.network.pn_core.throat.imminent_snap_off,
             self.network.pn.throats(),
@@ -86,7 +80,7 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
             self.network.pn_core.throat.advancing_contact_angle,
             self.network.pn_core.throat.receding_contact_angle,
             self.network.pn_core.throat.hinging_contact_angle,
-            throat_snap_off_viability,
+            self.network.pn_core.throat.snap_off_viability,
             self.network.pn_core.throat.entry_pressure,
             self.network.pn_core.throat.snap_off_pressure,
             self.network.pn_core.throat.trapped_evacuation,
@@ -97,12 +91,6 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
         )
 
     def _update_pores_snap_offs_pcs(self, pc):
-        pore_snap_off_viability = np.empty(len(self.network.pn.pores()), np.bool_)
-        self.__set_snap_off_viability(
-            pore_snap_off_viability,
-            self.network.pn_core.pore.corner_oil_layer,
-            self.network.pn_core.pore.n_conns,
-        )
         return self._snap_off(
             self.network.pn_core.pore.imminent_snap_off,
             self.network.pn.pores(),
@@ -116,7 +104,7 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
             self.network.pn_core.pore.advancing_contact_angle,
             self.network.pn_core.pore.receding_contact_angle,
             self.network.pn_core.pore.hinging_contact_angle,
-            pore_snap_off_viability,
+            self.network.pn_core.pore.snap_off_viability,
             self.network.pn_core.pore.entry_pressure,
             self.network.pn_core.pore.snap_off_pressure,
             self.network.pn_core.pore.trapped_evacuation,
@@ -125,12 +113,6 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
             pc,
             is_throats=False,
         )
-
-    @staticmethod
-    @nb.njit(cache=True)
-    def __set_snap_off_viability(snap_off_viability, corner_oil_layer, n_conns):
-        for i in range(len(snap_off_viability)):
-            snap_off_viability[i] = corner_oil_layer[i][: n_conns[i]].any()
 
     @staticmethod
     @nb.njit(cache=True)
