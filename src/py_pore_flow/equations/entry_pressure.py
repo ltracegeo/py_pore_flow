@@ -44,7 +44,7 @@ def calculate_drainage_pc(shape_factor, radius, receding_contact_angle, shape, b
 
 @njit(cache=True)
 def calculate_imbibition_piston_like_displacement_pc_network(
-    shape_factor, r, b, theta_a, theta_r, shape, beta, n_corners, Rmin
+    shape_factor, r, theta_a, theta_r, shape, beta, n_corners, Rmin
 ):
     number_of_elements = len(r)
 
@@ -54,10 +54,8 @@ def calculate_imbibition_piston_like_displacement_pc_network(
             Pc[i] = calculate_imbibition_piston_like_displacement_pc_element(
                 shape_factor[i],
                 r[i],
-                b[i],
                 theta_a[i],
                 theta_r[i],
-                shape[i],
                 beta[i],
                 n_corners[i],
                 Rmin,
@@ -72,8 +70,9 @@ def calculate_imbibition_piston_like_displacement_pc_network(
 
 @njit(cache=True)
 def calculate_imbibition_piston_like_displacement_pc_element(
-    shape_factor, radius, b, advancing_contact_angle, receding_contact_angle, shape, beta, n_corners, Rmin
+    shape_factor, radius, advancing_contact_angle, receding_contact_angle, beta, n_corners, Rmin
 ):
+    b = np.empty(n_corners, np.float64)
     theta_h = np.empty(n_corners, np.float64)
     arc_meniscus = [i for i in range(n_corners) if beta[i] < pi / 2 - receding_contact_angle]
     a = 0
