@@ -20,7 +20,7 @@ from py_pore_flow.equations.geometry import (
     check_water_layer_network,
 )
 import py_pore_flow.constants as c
-from py_pore_flow.equations.entry_pressure import PORE_BODY_FILLING_STRATEGY
+from py_pore_flow.equations.entry_pressure import PORE_BODY_FILLING_STRATEGY, calculate_pore_body_filling_pc
 from py_pore_flow.network import PORE, THROAT
 from py_pore_flow.simulation.cycle_simulation import CycleSimulation, SaturationCalculator
 from py_pore_flow import log
@@ -34,37 +34,22 @@ class SubsequentCycleSimulation(CycleSimulation):
         self.Rmin = calculate_r(pc_max, 100000)
 
         self.use_pore_body_filling = c.use_pore_fill
-        self.calculate_pore_body_filling_pc = PORE_BODY_FILLING_STRATEGY[c.pore_fill_alg]
+        self.pore_body_filling_strategy = PORE_BODY_FILLING_STRATEGY[c.pore_fill_alg]
 
         self.snap_off_throat_list = []
         self.snap_off_pore_list = []
 
-    def calculate_pore_body_filling_pc(self, r, theta_a, oil_filled_throats_n, throats_radii, G):
-        pass
-
     @staticmethod
     @nb.njit(cache=True)
-    def _snap_off(
+    def _njit_snap_off(
         element_imminent_snap_off,
         element_id_list,
-        element_n_corners,
-        element_conns,
-        element_n_conns,
         element_filled,
         element_shape,
-        element_r,
-        element_beta,
-        element_theta_a,
-        element_theta_r,
-        element_theta_h,
         element_snap_off_viability,
         entry_pressure,
         element_snap_off_pc,
         element_trapped,
-        neighbor_filled,
-        Rmin,
-        pc,
-        is_throats=True,
     ):
         snap_off_elements = []
         for element_id in element_id_list:
@@ -82,13 +67,41 @@ class SubsequentCycleSimulation(CycleSimulation):
 
         return np.array(snap_off_elements, dtype=np.int64)
 
-    @abstractmethod
-    def _update_throats_snap_offs_pcs(self, pc):
-        pass
+    def _update_throats_snap_offs_pcs(self, pc, throat_ids=None):
+        if throat_ids == None:
+            throat_ids = self.network.pn.throats()
 
-    @abstractmethod
-    def _update_pores_snap_offs_pcs(self, pc):
-        pass
+        throat_filled = (
+            self.network.pn_core.throat.water_filled if self.phase == WATER else self.network.pn_core.throat.oil_filled
+        )
+        return self._njit_snap_off(
+            self.network.pn_core.throat.imminent_snap_off,
+            throat_ids,
+            throat_filled,
+            self.network.pn_core.throat.shape,
+            self.network.pn_core.throat.snap_off_viability,
+            self.network.pn_core.throat.entry_pressure,
+            self.network.pn_core.throat.snap_off_pressure,
+            self.network.pn_core.throat.trapped_evacuation,
+        )
+
+    def _update_pores_snap_offs_pcs(self, pc, pore_ids=None):
+        if pore_ids == None:
+            pore_ids = self.network.pn.pores()
+
+        pore_filled = (
+            self.network.pn_core.pore.water_filled if self.phase == WATER else self.network.pn_core.pore.oil_filled
+        )
+        return self._njit_snap_off(
+            self.network.pn_core.pore.imminent_snap_off,
+            pore_ids,
+            pore_filled,
+            self.network.pn_core.pore.shape,
+            self.network.pn_core.pore.snap_off_viability,
+            self.network.pn_core.pore.entry_pressure,
+            self.network.pn_core.pore.snap_off_pressure,
+            self.network.pn_core.pore.trapped_evacuation,
+        )
 
     def _update_snap_offs_pcs(self, pc):
         self.snap_off_pore_list = self._update_pores_snap_offs_pcs(pc)
@@ -130,62 +143,113 @@ class SubsequentCycleSimulation(CycleSimulation):
     def _update_entry_pressures(self, pc):
         self._update_snap_offs_pcs(pc)
 
-        for throat_id in self.border_elements.get_throats_ids():
-            self._update_throat_entry_pc(throat_id)
-        for pore_id in self.border_elements.get_pores_ids():
-            self._update_pore_entry_pc(pore_id, pc)
+        self._update_throat_entry_pc(self.border_elements.get_throats_ids())
+        self._update_pore_entry_pc(self.border_elements.get_pores_ids(), pc)
 
-    def _update_element_entry_pc(self, element, pc):
-        if element.is_pore():
-            self._update_pore_entry_pc(element.get_id(), pc)
-        else:
-            self._update_throat_entry_pc(element.get_id())
+    def _update_pore_entry_pc(self, pore_id_list, pc):
+        pore_limiting_contact_angle = (
+            self.network.pn_core.pore.advancing_contact_angle
+            if self.phase == WATER
+            else self.network.pn_core.pore.receding_contact_angle
+        )
+        throat_receding_phase_filled = (
+            self.network.pn_core.throat.oil_filled if self.phase == WATER else self.network.pn_core.throat.water_filled
+        )
+        self.__njit_update_pore_entry_pc(
+            self.network.pn_core.pore.entry_pressure,
+            pore_id_list,
+            pc,
+            self.use_pore_body_filling,
+            self.pore_body_filling_strategy,
+            self.phase,
+            self.network.pn_core.pore.piston_like_pressure,
+            self.network.pn_core.pore.radius,
+            self.network.pn_core.pore.shape_factor,
+            self.network.pn_core.pore.imminent_snap_off,
+            self.network.pn_core.pore.conns,
+            self.network.pn_core.pore.n_conns,
+            pore_limiting_contact_angle,
+            self.network.pn_core.throat.radius,
+            throat_receding_phase_filled,
+        )
 
-    def _update_pore_entry_pc(self, pore_id, pc):
-        if not self.use_pore_body_filling or pc <= 0:
-            element_pc = self.network.pn_core.pore.piston_like_pressure[pore_id]
-            self.network.pn_core.pore.entry_pressure[pore_id] = element_pc
-            return
+    @staticmethod
+    @nb.njit(cache=True)
+    def __njit_update_pore_entry_pc(
+        pore_entry_pressure,
+        pore_id_list,
+        pc,
+        use_pore_body_filling,
+        pore_body_filling_strategy,
+        phase,
+        pore_piston_like_pressure,
+        pore_radius,
+        pore_shape_factor,
+        pore_imminent_snap_off,
+        pore_conns,
+        pore_n_conns,
+        pore_limiting_contact_angle,
+        throat_radius,
+        throat_receding_phase_filled,
+    ):
+        for pore_id in pore_id_list:
+            if not use_pore_body_filling or pc <= 0:
+                element_pc = pore_piston_like_pressure[pore_id]
+                pore_entry_pressure[pore_id] = element_pc
+                continue
 
-        neighbors = self.network.get_neighbor_throats_ids(pore_id)
-        mask = self.adversary_fluid_filled[neighbors]
-        filled_neighbors = neighbors[mask]
-        number_of_filled_neighbors = filled_neighbors.size
+            neighbors = pore_conns[pore_id][: pore_n_conns[pore_id]]
+            mask = throat_receding_phase_filled[neighbors]
+            filled_neighbors = neighbors[mask]
+            number_of_filled_neighbors = filled_neighbors.size
 
-        if number_of_filled_neighbors <= 1:
-            element_pc = self.network.pn_core.pore.piston_like_pressure[pore_id]
-            self.network.pn_core.pore.entry_pressure[pore_id] = element_pc
-        else:
-            throats_radii = self.network.pn_core.throat.radius[filled_neighbors]
-
-            pore_body_filling_pressure = self.calculate_pore_body_filling_pc(
-                self.network.pn_core.pore.radius[pore_id],
-                self.limit_contact_angle[pore_id],
-                number_of_filled_neighbors,
-                throats_radii,
-                self.network.pn_core.pore.shape_factor[pore_id],
-            )
-            piston_like_pressure = self.network.pn_core.pore.piston_like_pressure[pore_id]
-
-            if self.phase == WATER and pore_body_filling_pressure > piston_like_pressure:
-                self.network.pn_core.pore.entry_pressure[pore_id] = piston_like_pressure
-            elif self.phase == OIL and pore_body_filling_pressure < piston_like_pressure:
-                self.network.pn_core.pore.entry_pressure[pore_id] = piston_like_pressure
+            if number_of_filled_neighbors <= 1:
+                element_pc = pore_piston_like_pressure[pore_id]
+                pore_entry_pressure[pore_id] = element_pc
             else:
-                if self.network.pn_core.pore.imminent_snap_off[pore_id]:
-                    if self.phase == WATER:
-                        if pore_body_filling_pressure > self.network.pn_core.pore.entry_pressure[pore_id]:
-                            self.network.pn_core.pore.entry_pressure[pore_id] = pore_body_filling_pressure
-                    else:
-                        if pore_body_filling_pressure < self.network.pn_core.pore.entry_pressure[pore_id]:
-                            self.network.pn_core.pore.entry_pressure[pore_id] = pore_body_filling_pressure
-                else:
-                    self.network.pn_core.pore.entry_pressure[pore_id] = pore_body_filling_pressure
+                throats_radii = throat_radius[filled_neighbors]
 
-    def _update_throat_entry_pc(self, throat_id):
-        self.network.pn_core.throat.entry_pressure[throat_id] = self.network.pn_core.throat.piston_like_pressure[
-            throat_id
-        ]
+                pore_body_filling_pressure = calculate_pore_body_filling_pc(
+                    pore_body_filling_strategy,
+                    pore_radius[pore_id],
+                    pore_limiting_contact_angle[pore_id],
+                    number_of_filled_neighbors,
+                    throats_radii,
+                    pore_shape_factor[pore_id],
+                )
+                piston_like_pressure = pore_piston_like_pressure[pore_id]
+
+                if phase == WATER and pore_body_filling_pressure > piston_like_pressure:
+                    pore_entry_pressure[pore_id] = piston_like_pressure
+                elif phase == OIL and pore_body_filling_pressure < piston_like_pressure:
+                    pore_entry_pressure[pore_id] = piston_like_pressure
+                else:
+                    if pore_imminent_snap_off[pore_id]:
+                        if phase == WATER:
+                            if pore_body_filling_pressure > pore_entry_pressure[pore_id]:
+                                pore_entry_pressure[pore_id] = pore_body_filling_pressure
+                        else:
+                            if pore_body_filling_pressure < pore_entry_pressure[pore_id]:
+                                pore_entry_pressure[pore_id] = pore_body_filling_pressure
+                    else:
+                        pore_entry_pressure[pore_id] = pore_body_filling_pressure
+
+    def _update_throat_entry_pc(self, throat_id_list):
+        self.__njit_update_throat_entry_pc(
+            throat_id_list,
+            self.network.pn_core.throat.entry_pressure,
+            self.network.pn_core.throat.piston_like_pressure,
+        )
+
+    @staticmethod
+    @nb.njit(cache=True)
+    def __njit_update_throat_entry_pc(
+        throat_id_list,
+        throat_entry_pressure,
+        throat_piston_like_pressure,
+    ):
+        for throat_id in throat_id_list:
+            throat_entry_pressure[throat_id] = throat_piston_like_pressure[throat_id]
 
     def _get_element_to_fill(self, pc, border_elements):
         self.__clear_snapoff_lists()

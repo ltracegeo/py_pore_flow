@@ -170,12 +170,30 @@ def calculate_pore_body_filling_oren2_pc(r, theta_a, oil_filled_throats_n, throa
     return Pc
 
 
+BLUNT1 = 0
+BLUNT2 = 1
+OREN1 = 2
+OREN2 = 3
+
+
 PORE_BODY_FILLING_STRATEGY = {
-    "blunt1": calculate_pore_body_filling_blunt1_pc,
-    "blunt2": calculate_pore_body_filling_blunt2_pc,
-    "oren1": calculate_pore_body_filling_oren1_pc,
-    "oren2": calculate_pore_body_filling_oren2_pc,
+    "blunt1": BLUNT1,
+    "blunt2": BLUNT2,
+    "oren1": OREN1,
+    "oren2": OREN2,
 }
+
+
+@njit(cache=True)
+def calculate_pore_body_filling_pc(strategy, r, theta_a, oil_filled_throats_n, throats_radii, G):
+    if strategy == BLUNT1:
+        return calculate_pore_body_filling_blunt1_pc(r, theta_a, oil_filled_throats_n, throats_radii, G)
+    elif strategy == BLUNT2:
+        return calculate_pore_body_filling_blunt2_pc(r, theta_a, oil_filled_throats_n, throats_radii, G)
+    elif strategy == OREN1:
+        return calculate_pore_body_filling_oren1_pc(r, theta_a, oil_filled_throats_n, throats_radii, G)
+    else:
+        return calculate_pore_body_filling_oren2_pc(r, theta_a, oil_filled_throats_n, throats_radii, G)
 
 
 @njit(cache=True)

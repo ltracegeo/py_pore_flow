@@ -663,7 +663,11 @@ class CycleSimulation:
         self.saturation_calculator.update_saturations(pc)
 
     @abstractmethod
-    def _update_element_entry_pc(self, element, pc):
+    def _update_pore_entry_pc(self, pore_id, pc):
+        pass
+
+    @abstractmethod
+    def _update_throat_entry_pc(self, throat_id):
         pass
 
     @abstractmethod
@@ -716,10 +720,8 @@ class CycleSimulation:
                 )
             else:
                 new_pores, new_throats = self.__refresh_border_elements(reached_bubble, element)
-            for pore_id in new_pores:
-                self._update_element_entry_pc(self.network.get_pore(pore_id), pc)
-            for throat_id in new_throats:
-                self._update_element_entry_pc(self.network.get_throat(throat_id), pc)
+            self._update_pore_entry_pc(new_pores, pc)
+            self._update_throat_entry_pc(new_throats)
         return sw_delta, invasion_pc, no_invasion_left
 
     def __check_for_bubble(self, element):
