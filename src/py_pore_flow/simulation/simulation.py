@@ -26,8 +26,9 @@ from py_pore_flow.equations.geometry import (
 from py_pore_flow.equations.entry_pressure import (
     calculate_2nd_drainage_piston_like_displacement_pc_network,
     calculate_2nd_drainage_snap_off_pc_network,
+    calculate_2nd_drainage_snap_off_viability,
     calculate_drainage_pc,
-    calculate_snap_off_viability,
+    calculate_imbibition_snap_off_viability,
     calculate_snap_off_pc_network,
     calculate_imbibition_piston_like_displacement_pc_network,
 )
@@ -353,11 +354,16 @@ def calculate_imbibition_values(network, max_pc):
 
 
 def calculate_2nd_drainage_values(network, min_pc):
-    for pore in network.pore_list:
-        calculate_element_2nd_drainage_values(pore)
-
-    for throat in network.throat_list:
-        calculate_element_2nd_drainage_values(throat)
+    calculate_2nd_drainage_snap_off_viability(
+        network.pn_core.pore.snap_off_viability,
+        network.pn_core.pore.corner_oil_layer,
+        network.pn_core.pore.n_conns,
+    )
+    calculate_2nd_drainage_snap_off_viability(
+        network.pn_core.throat.snap_off_viability,
+        network.pn_core.throat.corner_oil_layer,
+        network.pn_core.throat.n_conns,
+    )
 
     conductance_calculator = ConductanceCalculator(network)
     conductance_calculator.calculate_singlephase_conductance(OIL)
@@ -604,15 +610,11 @@ def calculate_element_imbibition_values(element, max_pc):
         np.full(element.n_corners, element.advancing_contact_angle), element.beta, element.n_corners
     )
 
-    element.snap_off_viability = calculate_snap_off_viability(
+    element.snap_off_viability = calculate_imbibition_snap_off_viability(
         element.receding_contact_angle,
         element.beta,
         element.n_corners,
     )
-
-
-def calculate_element_2nd_drainage_values(element):
-    element.snap_off_viability = True
 
 
 def update_wettability_property(network):

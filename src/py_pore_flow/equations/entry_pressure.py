@@ -229,12 +229,18 @@ def calculate_oilwet_snapoff_pc(beta, theta_a, theta_r, n_corners, Rmin, h):
 
 
 @njit(cache=True)
-def calculate_snap_off_viability(theta_r, beta, n_corners):
+def calculate_imbibition_snap_off_viability(theta_r, beta, n_corners):
     if n_corners > 0:
         beta_min = np.min(beta[:n_corners])
         return theta_r + beta_min < pi / 2
     else:
         return False
+
+
+@njit(cache=True)
+def calculate_2nd_drainage_snap_off_viability(snap_off_viability, corner_oil_layer, n_conns):
+    for i in range(len(snap_off_viability)):
+        snap_off_viability[i] = corner_oil_layer[i][: n_conns[i]].any()
 
 
 @njit(cache=True)
