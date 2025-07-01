@@ -241,6 +241,7 @@ class SubsequentCycleSimulation(CycleSimulation):
             throat_id_list,
             self.network.pn_core.throat.entry_pressure,
             self.network.pn_core.throat.piston_like_pressure,
+            self.network.pn_core.throat.in_border,
         )
 
     @staticmethod
@@ -249,9 +250,11 @@ class SubsequentCycleSimulation(CycleSimulation):
         throat_id_list,
         throat_entry_pressure,
         throat_piston_like_pressure,
+        throat_in_border,
     ):
         for throat_id in throat_id_list:
-            throat_entry_pressure[throat_id] = throat_piston_like_pressure[throat_id]
+            if throat_in_border[throat_id]:
+                throat_entry_pressure[throat_id] = throat_piston_like_pressure[throat_id]
 
     def _get_element_to_fill(self, pc, border_elements):
         self.__clear_snapoff_lists()

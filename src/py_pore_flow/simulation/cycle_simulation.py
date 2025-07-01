@@ -790,6 +790,8 @@ class CycleSimulation:
                 new_border_pores, new_border_throats = self.__refresh_border_elements(
                     reached_bubble, element, new_trapped_pores, new_trapped_throats
                 )
+                self._update_pore_entry_pc(new_untrapped_pores, pc)
+                self._update_throat_entry_pc(new_untrapped_throats)
             else:
                 new_border_pores, new_border_throats = self.__refresh_border_elements(reached_bubble, element)
             self._update_pore_entry_pc(new_border_pores, pc)
