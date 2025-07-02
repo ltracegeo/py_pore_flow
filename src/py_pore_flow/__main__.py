@@ -7,6 +7,7 @@ import re
 import time
 import os
 
+import numpy as np
 import openpnm
 from PySide2 import QtWidgets
 
@@ -19,6 +20,35 @@ from py_pore_flow.simulation.simulation import StepSimulation
 def print_props():
     pn = openpnm.io.network_from_statoil("tests/resources/statoil", "a")
     print(pn.props())
+
+
+def load_multiscale_values_from_dir(directory, network_name, pn):
+    link3_path = Path(directory) / f"{network_name}_link3.dat"
+    node3_path = Path(directory) / f"{network_name}_node3.dat"
+
+    if not link3_path.exists() or not node3_path.exists():
+        return None, None
+
+    with link3_path.open("r") as f:
+        link3_content = f.read()
+    with node3_path.open("r") as f:
+        node3_content = f.read()
+
+    num_pores = len(pn["pore.all"])
+    num_throats = len(pn["throat.all"])
+    pore_N = np.full(num_pores, 1.0, dtype=np.float64)
+    throat_N = np.full(num_throats, 1.0, dtype=np.float64)
+    for line in node3_content.strip().splitlines():
+        pid_str, N_str = line.split()[:2]
+        pid = int(pid_str)
+        pore_N[pid - 1] = float(N_str)
+    for line in link3_content.strip().splitlines():
+        parts = line.split()
+        tid = int(parts[0])
+        if tid <= num_throats:
+            throat_N[tid - 1] = float(parts[3])
+
+    return pore_N, throat_N
 
 
 def run(
@@ -71,6 +101,10 @@ def run_simulation(
             network_name = re_match[1]
 
     pn = openpnm.io.network_from_statoil(directory_path, network_name)
+
+    pore_N, throat_N = load_multiscale_values_from_dir(directory_path, network_name, pn)
+    if pore_N is not None and throat_N is not None:
+        pn["pore.N"], pn["throat.N"] = pore_N, throat_N
 
     if not parameters:
         try:
