@@ -39,9 +39,13 @@ class SubsequentCycleSimulation(CycleSimulation):
         self.snap_off_throat_list = []
         self.snap_off_pore_list = []
 
+        self.new_snap_off_throats_array = np.empty(len(self.network.pn_core.throat.all), np.int64)
+        self.new_snap_off_pores_array = np.empty(len(self.network.pn_core.pore.all), np.int64)
+
     @staticmethod
     @nb.njit(cache=True)
     def _njit_snap_off(
+        snap_off_elements,
         element_imminent_snap_off,
         element_id_list,
         element_filled,
@@ -51,7 +55,7 @@ class SubsequentCycleSimulation(CycleSimulation):
         element_snap_off_pc,
         element_trapped,
     ):
-        snap_off_elements = []
+        snap_off_elements_count = 0
         for element_id in element_id_list:
             if (
                 element_snap_off_viability[element_id]
@@ -60,18 +64,20 @@ class SubsequentCycleSimulation(CycleSimulation):
                 and not element_trapped[element_id]
             ):
                 entry_pressure[element_id] = element_snap_off_pc[element_id]
-                snap_off_elements.append(element_id)
+                snap_off_elements[snap_off_elements_count] = element_id
+                snap_off_elements_count += 1
                 element_imminent_snap_off[element_id] = True
             else:
                 element_imminent_snap_off[element_id] = False
 
-        return np.array(snap_off_elements, dtype=np.int64)
+        return snap_off_elements[:snap_off_elements_count]
 
     def _update_throats_snap_offs_pcs(self, throat_ids):
         throat_filled = (
             self.network.pn_core.throat.water_filled if self.phase == WATER else self.network.pn_core.throat.oil_filled
         )
         return self._njit_snap_off(
+            self.new_snap_off_throats_array,
             self.network.pn_core.throat.imminent_snap_off,
             throat_ids,
             throat_filled,
@@ -87,6 +93,7 @@ class SubsequentCycleSimulation(CycleSimulation):
             self.network.pn_core.pore.water_filled if self.phase == WATER else self.network.pn_core.pore.oil_filled
         )
         return self._njit_snap_off(
+            self.new_snap_off_pores_array,
             self.network.pn_core.pore.imminent_snap_off,
             pore_ids,
             pore_filled,
