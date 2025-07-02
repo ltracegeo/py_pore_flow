@@ -142,6 +142,9 @@ class SubsequentCycleSimulation(CycleSimulation):
             if len(new_snap_off_pores) > 0:
                 self.snap_off_pore_list = np.unique(np.concatenate((self.snap_off_pore_list, new_snap_off_pores)))
 
+        self._update_border_pore_entry_pc(pore_id_list, pc)
+
+    def _update_border_pore_entry_pc(self, pore_id_list, pc):
         pore_limiting_contact_angle = (
             self.network.pn_core.pore.advancing_contact_angle
             if self.phase == WATER
@@ -237,6 +240,9 @@ class SubsequentCycleSimulation(CycleSimulation):
             if len(new_snap_off_throats) > 0:
                 self.snap_off_throat_list = np.unique(np.concatenate((self.snap_off_throat_list, new_snap_off_throats)))
 
+        self._update_border_throat_entry_pc(throat_id_list)
+
+    def _update_border_throat_entry_pc(self, throat_id_list):
         self.__njit_update_throat_entry_pc(
             throat_id_list,
             self.network.pn_core.throat.entry_pressure,

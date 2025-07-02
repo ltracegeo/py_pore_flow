@@ -728,7 +728,15 @@ class CycleSimulation:
         pass
 
     @abstractmethod
+    def _update_border_pore_entry_pc(self, pore_id, pc):
+        pass
+
+    @abstractmethod
     def _update_throat_entry_pc(self, throat_id):
+        pass
+
+    @abstractmethod
+    def _update_border_throat_entry_pc(self, throat_id):
         pass
 
     @abstractmethod
@@ -794,8 +802,8 @@ class CycleSimulation:
                 self._update_throat_entry_pc(new_untrapped_throats)
             else:
                 new_border_pores, new_border_throats = self.__refresh_border_elements(reached_bubble, element)
-            self._update_pore_entry_pc(new_border_pores, pc)
-            self._update_throat_entry_pc(new_border_throats)
+            self._update_border_pore_entry_pc(new_border_pores, pc)
+            self._update_border_throat_entry_pc(new_border_throats)
         return sw_delta, invasion_pc, no_invasion_left
 
     def __check_for_bubble(self, element):
