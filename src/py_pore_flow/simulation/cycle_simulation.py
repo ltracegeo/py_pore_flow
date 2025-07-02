@@ -28,7 +28,6 @@ from py_pore_flow.simulation.clusters import PhaseConnectionChecker
 
 # Flags
 USE_OPENPNM_SOLVER = False
-USE_OPENPNM_TRAPCHECKER = False
 
 ENABLE_TRAPPING_FROM_INLET = True
 
@@ -597,10 +596,7 @@ class CycleSimulation:
         self.phase_connection_checker = PhaseConnectionChecker(network, self.phase)
         self.phase_connection_checker.reset_phase_connections()
 
-        if USE_OPENPNM_TRAPCHECKER:
-            self.trap_checker = TrapCheckerOpenpnm(network, self.phase)
-        else:
-            self.trap_checker = TrapChecker(network, self.phase)
+        self.trap_checker = TrapChecker(network, self.phase)
         self.trap_checker.update_trapped_pores()
 
         self.border_elements = BorderElements()
@@ -1095,48 +1091,6 @@ class CycleSimulation:
         border_throat_ids = np.unique(np.array(border_throat_ids, dtype=np.int64))
 
         return border_pore_ids, border_throat_ids
-
-
-class TrapCheckerOpenpnm:
-    def __init__(self, network, phase):
-        self.network = network
-        self.phase = phase
-        self.pn_clone = openpnm.network.Network()
-
-    def update_trapped_pores(self):
-        self.pn_clone.clear()
-        self.pn_clone.update(self.network.pn.copy())
-
-        if self.phase == OIL:
-            trapping_pores = self.network.pn_core.pore.oil_saturation == 1.0
-            trapping_throats = self.network.pn_core.throat.oil_saturation == 1.0
-        else:
-            trapping_pores = self.network.pn_core.pore.water_saturation == 1.0
-            trapping_throats = self.network.pn_core.throat.water_saturation == 1.0
-        openpnm.topotools.trim(
-            self.pn_clone,
-            pores=trapping_pores | self.network.pn_core.pore.trapped,
-            throats=trapping_throats | self.network.pn_core.throat.trapped,
-        )
-
-        self.network.pn_core["pore.trapped"] = False
-        self.network.pn_core["throat.trapped"] = False
-
-        number_of_pores = len(self.pn_clone["pore.all"])
-        number_of_throats = len(self.pn_clone["throat.all"])
-        if number_of_pores == 0 or number_of_throats == 0:
-            return
-        cluster_array = openpnm.topotools.find_clusters(self.pn_clone, mask=np.full(number_of_pores, True))
-
-        clusters_with_outlets = np.unique(cluster_array.pore_labels[self.pn_clone["pore.outlets"]])
-        for cluster_label in range(max(cluster_array.pore_labels.max(), cluster_array.throat_labels.max()) + 1):
-            if cluster_label not in clusters_with_outlets:
-                pore_cluster = cluster_array.pore_labels == cluster_label
-                throat_cluster = cluster_array.throat_labels == cluster_label
-                pore_id_list = self.pn_clone["pore.id"][pore_cluster]
-                throat_id_list = self.pn_clone["throat.id"][throat_cluster]
-                self.network.pn_core.pore.trapped[pore_id_list] = True
-                self.network.pn_core.throat.trapped[throat_id_list] = True
 
 
 class TrapChecker:
