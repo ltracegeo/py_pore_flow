@@ -34,14 +34,14 @@ class DrainageSimulation(CycleSimulation):
         super()._update_multiphase_mask(pc, pc_old)
 
     def _get_element_to_fill(self, pc, border_elements):
-        element_to_fill = self.__jit_pore_throats_element_to_fill(
+        pores_to_fill, throats_to_fill, pressure = self.__jit_pore_throats_element_to_fill(
             pc,
             border_elements.get_pores_ids(),
             self.network.pn_core.pore.entry_pressure,
             border_elements.get_throats_ids(),
             self.network.pn_core.throat.entry_pressure,
         )
-        return element_to_fill
+        return pores_to_fill, throats_to_fill, pressure
 
     @staticmethod
     @nb.njit(cache=True)
@@ -53,30 +53,35 @@ class DrainageSimulation(CycleSimulation):
         throat_entry_pressure,
     ):
         min_pressure = np.inf
-        min_id = -1
-        min_type = -1
+
+        pores_to_fill_list = np.empty(len(pore_id_list), np.int64)
+        throats_to_fill_list = np.empty(len(throat_id_list), np.int64)
+        pore_to_fill_count = 0
+        throat_to_fill_count = 0
 
         if len(pore_id_list) == 0 and len(throat_id_list) == 0:
-            return None
+            return np.empty(0, np.int64), np.empty(0, np.int64), pc
 
         for id in pore_id_list:
             pressure = pore_entry_pressure[id]
             if pressure < min_pressure:
                 min_pressure = pressure
-                min_id = id
-                min_type = PORE
+                pores_to_fill_list[0] = id
+                pore_to_fill_count = 1
 
         for id in throat_id_list:
             pressure = throat_entry_pressure[id]
             if pressure < min_pressure:
                 min_pressure = pressure
-                min_id = id
-                min_type = THROAT
+                throats_to_fill_list[0] = id
+                throat_to_fill_count = 1
+                pore_to_fill_count = 0
 
-        if min_id != -1:
-            return (min_type, min_id, max(min_pressure, pc))
-        else:
-            return None
+        return (
+            pores_to_fill_list[:pore_to_fill_count],
+            throats_to_fill_list[:throat_to_fill_count],
+            max(min_pressure, pc),
+        )
 
     def _can_be_filled(self, current_pc, invasion_pc):
         return current_pc >= invasion_pc

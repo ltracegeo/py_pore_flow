@@ -605,7 +605,7 @@ class CycleSimulation:
         self.trap_checker.update_trapped_pores()
 
         self.border_elements = BorderElements()
-        self.__refresh_border_elements(True, None)
+        self.__refresh_border_elements(True, None, None, None)
 
         self.saturation_calculator = None
 
@@ -691,7 +691,7 @@ class CycleSimulation:
         pass
 
     def __update_invasions(self, pc, target_sw=None):
-        sw_delta = 0.0
+        self.sw_delta = 0.0
 
         self._update_entry_pressures(pc)
 
@@ -699,33 +699,31 @@ class CycleSimulation:
 
         invasion_pc = pc
         while True:
-            element_to_fill = self._get_element_to_fill(pc, self.border_elements)
-            if element_to_fill is None:
+            pores_to_fill, throats_to_fill, invasion_pc = self._get_element_to_fill(pc, self.border_elements)
+
+            self.should_check_for_trapping = False
+            self.reached_bubble = False
+
+            if len(pores_to_fill) == 0 and len(throats_to_fill) == 0:
                 no_invasion_left = True
                 break
 
-            element_type, element_id, invasion_pc = element_to_fill
-
-            if (target_sw is not None and sw_delta >= target_sw) or not self._can_be_filled(pc, invasion_pc):
+            if (target_sw is not None and self.sw_delta >= target_sw) or not self._can_be_filled(pc, invasion_pc):
                 break
 
-            if element_type == PORE:
-                element = self.network.get_pore(element_id)
-            else:
-                element = self.network.get_throat(element_id)
+            sw_step_reached = False
 
-            log.debug(
-                f"Invasion {element.type_name:6} ID: {element.id:6} Pc: {element.pc:.5f} Radius: {element.r:.2e} G: {element.G:.4f} n_corners: {element.n_corners} area: {element.A}"
-            )
+            for pore_id in pores_to_fill:
+                if not self.__invade_element(pore_id, PORE, invasion_pc, target_sw):
+                    sw_step_reached = True
+                    break
 
-            self.__fill_element(element, invasion_pc)
-            reached_bubble = self.__check_for_bubble(element)
-            sw_delta += self._update_element_filled_geometry(invasion_pc, element)
-            if element.is_pore():
-                self.phase_connection_checker.update_phase_connections(PORE, element.id)
-            else:
-                self.phase_connection_checker.update_phase_connections(THROAT, element.id)
-            if (self.phase == OIL and element.So == 1.0) or (self.phase == WATER and element.Sw == 1.0):
+            for throat_id in throats_to_fill:
+                if not self.__invade_element(throat_id, THROAT, invasion_pc, target_sw):
+                    sw_step_reached = True
+                    break
+
+            if self.should_check_for_trapping:
                 (
                     new_trapped_pores,
                     new_trapped_throats,
@@ -733,15 +731,47 @@ class CycleSimulation:
                     new_untrapped_throats,
                 ) = self.trap_checker.update_trapped_pores()
                 new_border_pores, new_border_throats = self.__refresh_border_elements(
-                    reached_bubble, element, new_trapped_pores, new_trapped_throats
+                    self.reached_bubble, pores_to_fill, throats_to_fill, new_trapped_pores, new_trapped_throats
                 )
                 self._update_pore_entry_pc(new_untrapped_pores, pc)
                 self._update_throat_entry_pc(new_untrapped_throats)
             else:
-                new_border_pores, new_border_throats = self.__refresh_border_elements(reached_bubble, element)
+                new_border_pores, new_border_throats = self.__refresh_border_elements(
+                    self.reached_bubble, pores_to_fill, throats_to_fill
+                )
             self._update_border_pore_entry_pc(new_border_pores, pc)
             self._update_border_throat_entry_pc(new_border_throats)
-        return sw_delta, invasion_pc, no_invasion_left
+
+            if sw_step_reached:
+                break
+
+        return self.sw_delta, invasion_pc, no_invasion_left
+
+    def __invade_element(self, element_id, element_type, invasion_pc, target_sw):
+        if target_sw is not None and self.sw_delta >= target_sw:
+            return False
+
+        if element_type == PORE:
+            element = self.network.get_pore(element_id)
+        else:
+            element = self.network.get_throat(element_id)
+
+        log.debug(
+            f"Invasion {element.type_name:6} ID: {element.id:6} Pc: {element.pc:.5f} Radius: {element.r:.2e} G: {element.G:.4f} n_corners: {element.n_corners} area: {element.A}"
+        )
+
+        self.__fill_element(element, invasion_pc)
+        self.reached_bubble |= self.__check_for_bubble(element)
+        self.sw_delta += self._update_element_filled_geometry(invasion_pc, element)
+        if element.is_pore():
+            self.phase_connection_checker.update_phase_connections(PORE, element.id)
+        else:
+            self.phase_connection_checker.update_phase_connections(THROAT, element.id)
+
+        self.should_check_for_trapping |= (self.phase == OIL and element.So == 1.0) or (
+            self.phase == WATER and element.Sw == 1.0
+        )
+        return True
 
     def __check_for_bubble(self, element):
         element_id = element.id
@@ -774,7 +804,8 @@ class CycleSimulation:
     def __refresh_border_elements(
         self,
         reached_bubble,
-        filled_element,
+        pores_to_fill,
+        throats_to_fill,
         new_trapped_pores=np.empty(0, np.int64),
         new_trapped_throats=np.empty(0, np.int64),
     ):
@@ -787,18 +818,34 @@ class CycleSimulation:
                 self.phase,
             )
         else:
-            new_pores, new_throats = self.__update_border_elements(
-                self.new_border_pores_array,
-                self.new_border_throats_array,
-                self.old_border_pores_array,
-                self.old_border_throats_array,
-                self.network.pn_core,
-                self.border_elements,
-                self.phase,
-                filled_element,
-                new_trapped_pores,
-                new_trapped_throats,
-            )
+            for pore_id in pores_to_fill:
+                new_pores, new_throats = self.__update_border_elements(
+                    self.new_border_pores_array,
+                    self.new_border_throats_array,
+                    self.old_border_pores_array,
+                    self.old_border_throats_array,
+                    self.network.pn_core,
+                    self.border_elements,
+                    self.phase,
+                    pore_id,
+                    PORE,
+                    new_trapped_pores,
+                    new_trapped_throats,
+                )
+            for throat_id in throats_to_fill:
+                new_pores, new_throats = self.__update_border_elements(
+                    self.new_border_pores_array,
+                    self.new_border_throats_array,
+                    self.old_border_pores_array,
+                    self.old_border_throats_array,
+                    self.network.pn_core,
+                    self.border_elements,
+                    self.phase,
+                    throat_id,
+                    THROAT,
+                    new_trapped_pores,
+                    new_trapped_throats,
+                )
 
         return new_pores, new_throats
 
@@ -881,7 +928,8 @@ class CycleSimulation:
         pn,
         border_elements,
         phase,
-        filled_element,
+        filled_element_id,
+        filled_element_type,
         new_trapped_pores,
         new_trapped_throats,
     ):
@@ -891,8 +939,8 @@ class CycleSimulation:
             old_border_pores_array,
             old_border_throats_array,
             phase,
-            filled_element.type,
-            filled_element.id,
+            filled_element_type,
+            filled_element_id,
             pn.pore.trapped,
             pn.pore.conns,
             pn.pore.n_conns,

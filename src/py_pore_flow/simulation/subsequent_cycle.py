@@ -252,15 +252,14 @@ class SubsequentCycleSimulation(CycleSimulation):
         self.__clear_snapoff_lists()
         pore_id_list = np.concatenate((border_elements.get_pores_ids(), self.snap_off_pore_list))
         throat_id_list = np.concatenate((border_elements.get_throats_ids(), self.snap_off_throat_list))
-        element_to_fill = self._jit_pore_throats_element_to_fill(
+        pores_to_fill, throats_to_fill, pressure = self._jit_pore_throats_element_to_fill(
             pc,
             pore_id_list,
             self.network.pn_core.pore.entry_pressure,
             throat_id_list,
             self.network.pn_core.throat.entry_pressure,
         )
-
-        return element_to_fill
+        return pores_to_fill, throats_to_fill, pressure
 
     @abstractmethod
     def _can_be_filled(self, current_pc, invasion_pc):

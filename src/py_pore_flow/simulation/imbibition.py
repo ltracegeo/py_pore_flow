@@ -65,27 +65,35 @@ class ImbibitionSimulation(SubsequentCycleSimulation):
         throat_entry_pressure,
     ):
         max_pressure = -np.inf
-        max_id = -1
-        max_type = -1
+
+        pores_to_fill_list = np.empty(len(pore_id_list), np.int64)
+        throats_to_fill_list = np.empty(len(throat_id_list), np.int64)
+        pore_to_fill_count = 0
+        throat_to_fill_count = 0
 
         if len(pore_id_list) == 0 and len(throat_id_list) == 0:
-            return None
+            return np.empty(0, np.int64), np.empty(0, np.int64), pc
 
         for id in pore_id_list:
             pressure = pore_entry_pressure[id]
             if pressure > max_pressure:
                 max_pressure = pressure
-                max_id = id
-                max_type = PORE
+                pores_to_fill_list[0] = id
+                pore_to_fill_count = 1
 
         for id in throat_id_list:
             pressure = throat_entry_pressure[id]
             if pressure > max_pressure:
                 max_pressure = pressure
-                max_id = id
-                max_type = THROAT
+                throats_to_fill_list[0] = id
+                throat_to_fill_count = 1
+                pore_to_fill_count = 0
 
-        return (max_type, max_id, min(max_pressure, pc))
+        return (
+            pores_to_fill_list[:pore_to_fill_count],
+            throats_to_fill_list[:throat_to_fill_count],
+            min(max_pressure, pc),
+        )
 
     def _update_element_filled_geometry(self, pc, element):
         self.__update_element_pinned_hinging_contact_angles(element.type, element.id, pc)
