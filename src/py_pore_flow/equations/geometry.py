@@ -262,6 +262,14 @@ def calculate_hinging_contact_angle(Pc, beta, b, n_corners, theta_r, theta_a, th
 
 
 @njit(cache=True)
+def calculate_drainage_network_b(b, beta, theta_r, n_corners, max_b, Pc_max):
+    number_of_elements = len(beta)
+
+    for i in range(number_of_elements):
+        b[i] = calculate_drainage_b(beta[i], np.full(n_corners[i], theta_r[i]), n_corners[i], max_b[i], Pc_max)
+
+
+@njit(cache=True)
 def calculate_drainage_b(beta, theta, n_corners, max_b, Pc_max):
     Rmin = calculate_r(Pc_max, max_b)
 

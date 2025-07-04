@@ -14,6 +14,7 @@ from py_pore_flow.equations.geometry import (
     calculate_beta,
     calculate_C,
     calculate_drainage_b,
+    calculate_drainage_network_b,
     calculate_imbibion_oil_filled_multiphase,
     calculate_max_b,
     calculate_oil_layer_collapse_pc_network,
@@ -317,6 +318,25 @@ def calculate_drainage_values(network, max_pc):
     return network
 
 
+def calculate_drainage_pinned_b(network, max_pc):
+    calculate_drainage_network_b(
+        network.pn_core.pore.b,
+        network.pn_core.pore.corner_half_angle,
+        network.pn_core.pore.receding_contact_angle,
+        network.pn_core.pore.n_corners,
+        network.pn_core.pore.max_b,
+        max_pc,
+    )
+    calculate_drainage_network_b(
+        network.pn_core.throat.b,
+        network.pn_core.throat.corner_half_angle,
+        network.pn_core.throat.receding_contact_angle,
+        network.pn_core.throat.n_corners,
+        network.pn_core.throat.max_b,
+        max_pc,
+    )
+
+
 def calculate_imbibition_values(network, max_pc):
     for pore in network.pore_list:
         calculate_element_imbibition_values(pore, max_pc)
@@ -594,15 +614,6 @@ def calculate_element_drainage_values(element, max_pc):
 
 
 def calculate_element_imbibition_values(element, max_pc):
-    Rmin = calculate_r(max_pc, 100000)
-
-    element.b = calculate_drainage_b(
-        element.beta,
-        np.full(element.n_corners, element.receding_contact_angle),
-        element.n_corners,
-        element.max_b,
-        max_pc,
-    )
     element.C_r = calculate_C(
         np.full(element.n_corners, element.receding_contact_angle), element.beta, element.n_corners
     )
@@ -664,6 +675,9 @@ class StepSimulation:
             self.simulation = DrainageSimulation(self.network, self.calculate_full_conductance)
             self.max_pc = 0
         elif cycle == "imbibition":
+            calculate_drainage_pinned_b(
+                self.network, self.max_pc
+            )  # Necessary because drainage doesn't calculate theta_h
             update_wettability_property(self.network)
             self.parameter_manager.update_equilibrium_cas(self.network)
             calculate_imbibition_values(self.network, self.max_pc)
