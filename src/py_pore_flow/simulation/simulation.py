@@ -178,10 +178,14 @@ class Simulation:
             self.pc_incrementer.set_cycle(self.pc_incrementer.SECOND_DRAINAGE_CYCLE)
         self.step_simulation.set_cycle(cycle_name)
 
-        Pc_array = []
-        Sw_array = []
-        Krw_array = []
-        Kro_array = []
+        self.Pc_array = []
+        self.Sw_array = []
+        self.Krw_array = []
+        self.Kro_array = []
+
+        current_pc = self.pc_incrementer.get_pc()
+
+        self.__update_step_simulation(current_pc, first_step=True)
 
         simulation_end = False
 
@@ -193,24 +197,7 @@ class Simulation:
                 last_pc = current_pc
                 self.__check_snapshot(cycle_name, current_pc)
 
-                (
-                    current_pc,
-                    Sw,
-                    Krw,
-                    Kro,
-                    pores_filled,
-                    total_pores,
-                    percentage,
-                ) = self.step_simulation.update(current_pc)
-
-                Pc_array.append(current_pc)
-                Sw_array.append(Sw)
-                Krw_array.append(Krw)
-                Kro_array.append(Kro)
-
-                log.info(
-                    f"Pc: {current_pc:8.2f}, Sw: {Sw:.6f}, Krw: {Krw:.6f}, Kro: {Kro:.6f}, Filled: {pores_filled:4}/{total_pores} ({percentage:2}%)."
-                )
+                current_pc = self.__update_step_simulation(current_pc)
 
                 if self.generate_vtu:
                     if cycle_name == "drainage":
@@ -219,29 +206,51 @@ class Simulation:
                         cycle_number = 2
                     elif cycle_name == "2nd_drainage":
                         cycle_number = 3
-                    pn_to_vtu(self.pn, current_pc, Sw, cycle_number)
+                    pn_to_vtu(self.pn, current_pc, self.Sw_array[-1], cycle_number)
 
                 self.pc_incrementer.set_pc(current_pc)
 
-                if self.parameter_manager.end_at_sor and cycle_name == "imbibition" and Kro <= 0:
+                if self.parameter_manager.end_at_sor and cycle_name == "imbibition" and self.Kro_array[-1] <= 0:
                     simulation_end = True
                     break
                 elif self.step_simulation.cycle_should_end():
                     simulation_end = True
                     break
-                elif Sw <= self.parameter_manager.enforced_swi_1 and cycle_name == "drainage":
+                elif self.Sw_array[-1] <= self.parameter_manager.enforced_swi_1 and cycle_name == "drainage":
                     simulation_end = True
                     break
-                elif Sw >= self.parameter_manager.enforced_swi_2 and cycle_name == "imbibition":
+                elif self.Sw_array[-1] >= self.parameter_manager.enforced_swi_2 and cycle_name == "imbibition":
                     simulation_end = True
                     break
 
             if self.parameter_manager.control_by_pc:
-                self.pc_incrementer.update_pc(Sw)
+                self.pc_incrementer.update_pc(self.Sw_array[-1])
 
         self.__check_snapshot_final(cycle_name, current_pc)
 
-        return Pc_array, Sw_array, Krw_array, Kro_array
+        return self.Pc_array, self.Sw_array, self.Krw_array, self.Kro_array
+
+    def __update_step_simulation(self, current_pc, first_step=False):
+        (
+            current_pc,
+            Sw,
+            Krw,
+            Kro,
+            pores_filled,
+            total_pores,
+            percentage,
+        ) = self.step_simulation.update(current_pc, skip_invasions=first_step)
+
+        self.Pc_array.append(current_pc)
+        self.Sw_array.append(Sw)
+        self.Krw_array.append(Krw)
+        self.Kro_array.append(Kro)
+
+        log.info(
+            f"Pc: {current_pc:8.2f}, Sw: {Sw:.6f}, Krw: {Krw:.6f}, Kro: {Kro:.6f}, Filled: {pores_filled:4}/{total_pores} ({percentage:2}%)."
+        )
+
+        return current_pc
 
     def __check_snapshot(self, cycle_name, current_pc):
         if (
@@ -688,8 +697,11 @@ class StepSimulation:
             calculate_2nd_drainage_values(self.network, self.min_pc)
             self.simulation = SecondDrainageSimulation(self.network, self.max_pc, self.calculate_full_conductance)
 
-    def update(self, pc):
-        self.current_pc = self._perform_step(pc)
+    def update(self, pc, skip_invasions=False):
+        if skip_invasions:
+            self.current_pc = pc
+        else:
+            self.current_pc = self._perform_step(pc)
 
         Sw = self.simulation.calculate_sw_total()
         Krw, Kro = self.simulation.calculate_krel()
