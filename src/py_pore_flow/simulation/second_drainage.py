@@ -7,15 +7,10 @@ from py_pore_flow.equations.geometry import (
     check_water_layer,
     calculate_multiphase_mask_2nd_drainage,
     calculate_2nd_drainage_element_b,
-    calculate_imbibition_network_b,
     calculate_2nd_drainage_network_b,
     calculate_2nd_drainage_network_bo,
-    calculate_imbibition_network_bo,
     calculate_network_hinging_contact_angle,
     calculate_network_outter_hinging_contact_angle,
-    calculate_oil_layer,
-    calculate_r,
-    check_water_layer_network,
 )
 import py_pore_flow.constants as c
 from py_pore_flow.equations.entry_pressure import PORE_BODY_FILLING_STRATEGY

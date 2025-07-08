@@ -10,10 +10,7 @@ from py_pore_flow.equations.geometry import (
     calculate_multiphase_mask_drainage,
 )
 from py_pore_flow.network import PORE, THROAT
-from py_pore_flow.output import pn_to_vtu
 from py_pore_flow.simulation.cycle_simulation import CycleSimulation, SaturationCalculator
-
-from numba import njit
 
 
 class DrainageSimulation(CycleSimulation):

@@ -7,15 +7,8 @@ from py_pore_flow.equations.geometry import (
     CIRCLE,
     OIL,
     WATER,
-    calculate_imbibition_element_b,
-    calculate_imbibition_element_bo,
     calculate_imbibition_element_saturation,
-    calculate_imbibition_network_b,
-    calculate_imbibition_network_bo,
     calculate_imbibition_network_saturation,
-    calculate_network_hinging_contact_angle,
-    calculate_oil_layer,
-    calculate_oil_layer_network,
     calculate_r,
     check_water_layer_network,
 )
@@ -102,25 +95,6 @@ class SubsequentCycleSimulation(CycleSimulation):
             self.network.pn_core.pore.entry_pressure,
             self.network.pn_core.pore.snap_off_pressure,
             self.network.pn_core.pore.trapped_evacuation,
-        )
-
-    def _update_oil_layers(self, pc):
-        calculate_oil_layer_network(
-            self.network.pn_core.pore.corner_oil_layer,
-            self.network.pn_core.pore.oil_layer_collapse_pressure,
-            self.network.pn_core.pore.trapped_evacuation,
-            self.network.pn_core.pore.b,
-            self.network.pn_core.pore.n_corners,
-            pc,
-        )
-
-        calculate_oil_layer_network(
-            self.network.pn_core.throat.corner_oil_layer,
-            self.network.pn_core.throat.oil_layer_collapse_pressure,
-            self.network.pn_core.throat.trapped_evacuation,
-            self.network.pn_core.throat.b,
-            self.network.pn_core.throat.n_corners,
-            pc,
         )
 
     def __update_water_layers(self):
@@ -287,55 +261,6 @@ class SubsequentCycleSimulation(CycleSimulation):
     def _can_be_filled(self, current_pc, invasion_pc):
         pass
 
-    def _update_b(self, pc):
-        calculate_imbibition_network_b(
-            self.network.pn_core.pore.b,
-            self.network.pn_core.pore.trapped_evacuation,
-            self.network.pn_core.pore.corner_half_angle,
-            self.network.pn_core.pore.max_b,
-            self.network.pn_core.pore.receding_contact_angle,
-            self.network.pn_core.pore.advancing_contact_angle,
-            self.network.pn_core.pore.hinging_contact_angle,
-            self.network.pn_core.pore.corner_water_layer,
-            self.network.pn_core.pore.n_corners,
-            pc,
-            self.Rmin,
-        )
-        calculate_imbibition_network_b(
-            self.network.pn_core.throat.b,
-            self.network.pn_core.throat.trapped_evacuation,
-            self.network.pn_core.throat.corner_half_angle,
-            self.network.pn_core.throat.max_b,
-            self.network.pn_core.throat.receding_contact_angle,
-            self.network.pn_core.throat.advancing_contact_angle,
-            self.network.pn_core.throat.hinging_contact_angle,
-            self.network.pn_core.throat.corner_water_layer,
-            self.network.pn_core.throat.n_corners,
-            pc,
-            self.Rmin,
-        )
-
-        calculate_imbibition_network_bo(
-            self.network.pn_core.pore.bo,
-            self.network.pn_core.pore.trapped_evacuation,
-            self.network.pn_core.pore.corner_half_angle,
-            self.network.pn_core.pore.max_b,
-            self.network.pn_core.pore.advancing_contact_angle,
-            self.network.pn_core.pore.corner_oil_layer,
-            self.network.pn_core.pore.n_corners,
-            pc,
-        )
-        calculate_imbibition_network_bo(
-            self.network.pn_core.throat.bo,
-            self.network.pn_core.throat.trapped_evacuation,
-            self.network.pn_core.throat.corner_half_angle,
-            self.network.pn_core.throat.max_b,
-            self.network.pn_core.throat.advancing_contact_angle,
-            self.network.pn_core.throat.corner_oil_layer,
-            self.network.pn_core.throat.n_corners,
-            pc,
-        )
-
     def _update_network_geometry(self, pc):
         self._update_hinging_contact_angles(pc)
         self._update_b(pc)
@@ -363,27 +288,17 @@ class SubsequentCycleSimulation(CycleSimulation):
             filled_throats | self.network.pn_core.throat.trapped_evacuation[self.snap_off_throat_list],
         )
 
+    @abstractmethod
     def _update_hinging_contact_angles(self, pc):
-        calculate_network_hinging_contact_angle(
-            pc,
-            self.network.pn_core.pore.corner_half_angle,
-            self.network.pn_core.pore.b,
-            self.network.pn_core.pore.n_corners,
-            self.network.pn_core.pore.receding_contact_angle,
-            self.network.pn_core.pore.advancing_contact_angle,
-            self.network.pn_core.pore.hinging_contact_angle,
-            self.network.pn_core.pore.trapped_evacuation,
-        )
-        calculate_network_hinging_contact_angle(
-            pc,
-            self.network.pn_core.throat.corner_half_angle,
-            self.network.pn_core.throat.b,
-            self.network.pn_core.throat.n_corners,
-            self.network.pn_core.throat.receding_contact_angle,
-            self.network.pn_core.throat.advancing_contact_angle,
-            self.network.pn_core.throat.hinging_contact_angle,
-            self.network.pn_core.throat.trapped_evacuation,
-        )
+        pass
+
+    @abstractmethod
+    def _update_b(self, pc):
+        pass
+
+    @abstractmethod
+    def _update_oil_layers(self, pc):
+        pass
 
 
 class SubsequentSaturation(SaturationCalculator):
