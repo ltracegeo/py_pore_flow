@@ -1084,6 +1084,19 @@ class CycleSimulation:
 
         return border_pore_ids, border_throat_ids
 
+    def __check_for_inconsistent_elements(self):
+        wrong_pores = np.where(
+            (self.network.pn_core.pore.water_filled & (self.network.pn_core.pore.water_saturation == 0))
+            | (self.network.pn_core.pore.oil_filled & (self.network.pn_core.pore.oil_saturation == 0))
+        )[0]
+        wrong_throats = np.where(
+            (self.network.pn_core.throat.water_filled & (self.network.pn_core.throat.water_saturation == 0))
+            | (self.network.pn_core.throat.oil_filled & (self.network.pn_core.throat.oil_saturation == 0))
+        )[0]
+        if len(wrong_pores) > 0 or len(wrong_throats) > 0:
+            print("Wrong pores", wrong_pores)
+            print("Wrong throats", wrong_throats)
+
 
 class TrapChecker:
     def __init__(self, network, phase):
