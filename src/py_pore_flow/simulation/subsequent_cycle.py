@@ -264,13 +264,32 @@ class SubsequentCycleSimulation(CycleSimulation):
         pass
 
     def _update_network_geometry(self, pc):
-        pore_ids = self.network.pn_core.pore.id
-        throat_ids = self.network.pn_core.throat.id
+        pore_ids = self.__get_elements_to_update(
+            self.phase,
+            pc,
+            self.network.pn_core.pore.trapped_evacuation,
+            self.network.pn_core.pore.imminent_snap_off,
+            self.network.pn_core.pore.snap_off_pressure,
+        )
+        throat_ids = self.__get_elements_to_update(
+            self.phase,
+            pc,
+            self.network.pn_core.throat.trapped_evacuation,
+            self.network.pn_core.throat.imminent_snap_off,
+            self.network.pn_core.throat.snap_off_pressure,
+        )
         self._update_hinging_contact_angles(pore_ids, throat_ids, pc)
         self._update_b(pore_ids, throat_ids, pc)
         self._update_oil_layers(pore_ids, throat_ids, pc)
         self.__update_water_layers(pore_ids, throat_ids)
         super()._update_network_geometry(pc)
+
+    @staticmethod
+    def __get_elements_to_update(phase, pc, trapped_evacuation, imminent_snap_off, snap_off_pressure):
+        if phase == WATER:
+            return np.where(~trapped_evacuation & ~(imminent_snap_off & (snap_off_pressure >= pc)))[0]
+        else:
+            return np.where(~trapped_evacuation & ~(imminent_snap_off & (snap_off_pressure <= pc)))[0]
 
     def __clear_snapoff_lists(self):
         filled_pores = (
