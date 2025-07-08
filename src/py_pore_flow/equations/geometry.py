@@ -224,6 +224,7 @@ def calculate_C(theta, beta, n_corners):
 
 @njit(cache=True)
 def calculate_network_hinging_contact_angle(
+    element_ids,
     Pc,
     beta,
     b,
@@ -233,9 +234,7 @@ def calculate_network_hinging_contact_angle(
     theta_h,
     trapped,
 ):
-    number_of_elements = len(beta)
-
-    for i in range(number_of_elements):
+    for i in element_ids:
         if not trapped[i]:
             calculate_hinging_contact_angle(Pc, beta[i], b[i], n_corners[i], theta_r[i], theta_a[i], theta_h[i])
     return theta_h
@@ -284,11 +283,9 @@ def calculate_drainage_b(beta, theta, n_corners, max_b, Pc_max):
 
 @njit(cache=True)
 def calculate_imbibition_network_b(
-    b, trapped, beta, max_b, theta_r, theta_a, theta_h, has_water_layer, n_corners, pc, Rmin
+    b, element_ids, trapped, beta, max_b, theta_r, theta_a, theta_h, has_water_layer, n_corners, pc, Rmin
 ):
-    number_of_elements = len(beta)
-
-    for i in range(number_of_elements):
+    for i in element_ids:
         if not trapped[i]:
             b[i] = calculate_imbibition_element_b(
                 b[i], beta[i], max_b[i], theta_r[i], theta_a[i], theta_h[i], has_water_layer[i], n_corners[i], Rmin, pc
@@ -314,11 +311,9 @@ def calculate_imbibition_corner_b(b, beta, theta_r, theta_a, theta_h, R, Rmin):
 
 @njit(cache=True)
 def calculate_2nd_drainage_network_b(
-    b, trapped, oil_filled, beta, max_b, theta_r, theta_a, theta_h, has_water_layer, n_corners, pc, Rmin
+    b, element_ids, trapped, oil_filled, beta, max_b, theta_r, theta_a, theta_h, has_water_layer, n_corners, pc, Rmin
 ):
-    number_of_elements = len(beta)
-
-    for i in range(number_of_elements):
+    for i in element_ids:
         if not trapped[i]:
             if oil_filled[i]:
                 b[i] = calculate_2nd_drainage_element_b(
@@ -381,9 +376,8 @@ def calculate_corner_bi(beta, theta, R):
 
 
 @njit(cache=True)
-def calculate_imbibition_network_bo(bo, trapped, beta, max_b, theta_a, has_oil_layer, n_corners, pc):
-    number_of_elements = len(beta)
-    for i in range(number_of_elements):
+def calculate_imbibition_network_bo(bo, element_ids, trapped, beta, max_b, theta_a, has_oil_layer, n_corners, pc):
+    for i in element_ids:
         if not trapped[i]:
             bo[i] = calculate_imbibition_element_bo(beta[i], max_b[i], theta_a[i], has_oil_layer[i], n_corners[i], pc)
 
@@ -437,9 +431,8 @@ def check_water_layer(has_oil_layer, filled_with_oil):
 
 
 @njit(cache=True)
-def check_water_layer_network(corner_water_layer, trapped, corner_oil_layer, filled_with_oil):
-    number_of_elements = len(filled_with_oil)
-    for i in range(number_of_elements):
+def check_water_layer_network(corner_water_layer, element_ids, trapped, corner_oil_layer, filled_with_oil):
+    for i in element_ids:
         if not trapped[i]:
             corner_water_layer[i] = check_water_layer(corner_oil_layer[i], filled_with_oil[i])
 
@@ -457,9 +450,8 @@ def calculate_oil_layer_element(corner_oil_layer, oil_layer_collapse_pc, b, n_co
 
 
 @njit(cache=True)
-def calculate_oil_layer_network(corner_oil_layer, oil_layer_collapse_pc, trapped, b, n_corners, pc):
-    number_of_elements = len(trapped)
-    for i in range(number_of_elements):
+def calculate_oil_layer_network(corner_oil_layer, element_ids, oil_layer_collapse_pc, trapped, b, n_corners, pc):
+    for i in element_ids:
         if not trapped[i]:
             corner_oil_layer[i] = calculate_oil_layer_element(
                 corner_oil_layer[i],
@@ -538,6 +530,7 @@ def calculate_oil_layer_collapse_pc_corner(beta, theta_a, theta_r, Rmin):
 
 @njit(cache=True)
 def calculate_network_outter_hinging_contact_angle(
+    element_ids,
     Pc,
     beta,
     b,
@@ -549,9 +542,7 @@ def calculate_network_outter_hinging_contact_angle(
     has_oil_layer,
     max_b,
 ):
-    number_of_elements = len(beta)
-
-    for i in range(number_of_elements):
+    for i in element_ids:
         if not trapped[i]:
             calculate_outter_hinging_contact_angle(
                 Pc, beta[i], b[i], n_corners[i], theta_r[i], theta_a[i], theta_ho[i], has_oil_layer[i], max_b[i]
@@ -575,11 +566,9 @@ def calculate_outter_hinging_contact_angle(Pc, beta, b, n_corners, theta_r, thet
 
 @njit(cache=True)
 def calculate_2nd_drainage_network_bo(
-    b, trapped, beta, max_b, theta_r, theta_a, theta_ho, has_water_layer, n_corners, pc
+    b, element_ids, trapped, beta, max_b, theta_r, theta_a, theta_ho, has_water_layer, n_corners, pc
 ):
-    number_of_elements = len(beta)
-
-    for i in range(number_of_elements):
+    for i in element_ids:
         if not trapped[i]:
             b[i] = calculate_2nd_drainage_element_bo(
                 b[i], beta[i], max_b[i], theta_r[i], theta_a[i], theta_ho[i], has_water_layer[i], n_corners[i], pc

@@ -97,15 +97,17 @@ class SubsequentCycleSimulation(CycleSimulation):
             self.network.pn_core.pore.trapped_evacuation,
         )
 
-    def __update_water_layers(self):
+    def __update_water_layers(self, pore_ids, throat_ids):
         check_water_layer_network(
             self.network.pn_core.throat.corner_water_layer,
+            throat_ids,
             self.network.pn_core.throat.trapped_evacuation,
             self.network.pn_core.throat.corner_oil_layer,
             self.network.pn_core.throat.oil_filled,
         )
         check_water_layer_network(
             self.network.pn_core.pore.corner_water_layer,
+            pore_ids,
             self.network.pn_core.pore.trapped_evacuation,
             self.network.pn_core.pore.corner_oil_layer,
             self.network.pn_core.pore.oil_filled,
@@ -262,10 +264,12 @@ class SubsequentCycleSimulation(CycleSimulation):
         pass
 
     def _update_network_geometry(self, pc):
-        self._update_hinging_contact_angles(pc)
-        self._update_b(pc)
-        self._update_oil_layers(pc)
-        self.__update_water_layers()
+        pore_ids = self.network.pn_core.pore.id
+        throat_ids = self.network.pn_core.throat.id
+        self._update_hinging_contact_angles(pore_ids, throat_ids, pc)
+        self._update_b(pore_ids, throat_ids, pc)
+        self._update_oil_layers(pore_ids, throat_ids, pc)
+        self.__update_water_layers(pore_ids, throat_ids)
         super()._update_network_geometry(pc)
 
     def __clear_snapoff_lists(self):
@@ -289,15 +293,15 @@ class SubsequentCycleSimulation(CycleSimulation):
         )
 
     @abstractmethod
-    def _update_hinging_contact_angles(self, pc):
+    def _update_hinging_contact_angles(self, pore_ids, throat_ids, pc):
         pass
 
     @abstractmethod
-    def _update_b(self, pc):
+    def _update_b(self, pore_ids, throat_ids, pc):
         pass
 
     @abstractmethod
-    def _update_oil_layers(self, pc):
+    def _update_oil_layers(self, pore_ids, throat_ids, pc):
         pass
 
 
