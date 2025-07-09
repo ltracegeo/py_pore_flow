@@ -39,9 +39,13 @@ class SubsequentCycleSimulation(CycleSimulation):
         self.snap_off_throat_list = []
         self.snap_off_pore_list = []
 
+        self.new_snap_off_throats_array = np.empty(len(self.network.pn_core.throat.all), np.int64)
+        self.new_snap_off_pores_array = np.empty(len(self.network.pn_core.pore.all), np.int64)
+
     @staticmethod
     @nb.njit(cache=True)
     def _njit_snap_off(
+        snap_off_elements,
         element_imminent_snap_off,
         element_id_list,
         element_filled,
@@ -51,7 +55,7 @@ class SubsequentCycleSimulation(CycleSimulation):
         element_snap_off_pc,
         element_trapped,
     ):
-        snap_off_elements = []
+        snap_off_elements_count = 0
         for element_id in element_id_list:
             if (
                 element_snap_off_viability[element_id]
@@ -60,21 +64,20 @@ class SubsequentCycleSimulation(CycleSimulation):
                 and not element_trapped[element_id]
             ):
                 entry_pressure[element_id] = element_snap_off_pc[element_id]
-                snap_off_elements.append(element_id)
+                snap_off_elements[snap_off_elements_count] = element_id
+                snap_off_elements_count += 1
                 element_imminent_snap_off[element_id] = True
             else:
                 element_imminent_snap_off[element_id] = False
 
-        return np.array(snap_off_elements, dtype=np.int64)
+        return snap_off_elements[:snap_off_elements_count]
 
-    def _update_throats_snap_offs_pcs(self, pc, throat_ids=None):
-        if throat_ids == None:
-            throat_ids = self.network.pn.throats()
-
+    def _update_throats_snap_offs_pcs(self, throat_ids):
         throat_filled = (
             self.network.pn_core.throat.water_filled if self.phase == WATER else self.network.pn_core.throat.oil_filled
         )
         return self._njit_snap_off(
+            self.new_snap_off_throats_array,
             self.network.pn_core.throat.imminent_snap_off,
             throat_ids,
             throat_filled,
@@ -85,14 +88,12 @@ class SubsequentCycleSimulation(CycleSimulation):
             self.network.pn_core.throat.trapped_evacuation,
         )
 
-    def _update_pores_snap_offs_pcs(self, pc, pore_ids=None):
-        if pore_ids == None:
-            pore_ids = self.network.pn.pores()
-
+    def _update_pores_snap_offs_pcs(self, pore_ids):
         pore_filled = (
             self.network.pn_core.pore.water_filled if self.phase == WATER else self.network.pn_core.pore.oil_filled
         )
         return self._njit_snap_off(
+            self.new_snap_off_pores_array,
             self.network.pn_core.pore.imminent_snap_off,
             pore_ids,
             pore_filled,
@@ -102,10 +103,6 @@ class SubsequentCycleSimulation(CycleSimulation):
             self.network.pn_core.pore.snap_off_pressure,
             self.network.pn_core.pore.trapped_evacuation,
         )
-
-    def _update_snap_offs_pcs(self, pc):
-        self.snap_off_pore_list = self._update_pores_snap_offs_pcs(pc)
-        self.snap_off_throat_list = self._update_throats_snap_offs_pcs(pc)
 
     def _update_oil_layers(self, pc):
         calculate_oil_layer_network(
@@ -141,12 +138,20 @@ class SubsequentCycleSimulation(CycleSimulation):
         )
 
     def _update_entry_pressures(self, pc):
-        self._update_snap_offs_pcs(pc)
+        self._update_throat_entry_pc(self.border_elements.get_throats_ids(), True)
+        self._update_pore_entry_pc(self.border_elements.get_pores_ids(), pc, True)
 
-        self._update_throat_entry_pc(self.border_elements.get_throats_ids())
-        self._update_pore_entry_pc(self.border_elements.get_pores_ids(), pc)
+    def _update_pore_entry_pc(self, pore_id_list, pc, replace_snap_off=False):
+        if replace_snap_off:
+            self.snap_off_pore_list = self._update_pores_snap_offs_pcs(self.network.pn.pores())
+        else:
+            new_snap_off_pores = self._update_pores_snap_offs_pcs(pore_id_list)
+            if len(new_snap_off_pores) > 0:
+                self.snap_off_pore_list = np.unique(np.concatenate((self.snap_off_pore_list, new_snap_off_pores)))
 
-    def _update_pore_entry_pc(self, pore_id_list, pc):
+        self._update_border_pore_entry_pc(pore_id_list, pc)
+
+    def _update_border_pore_entry_pc(self, pore_id_list, pc):
         pore_limiting_contact_angle = (
             self.network.pn_core.pore.advancing_contact_angle
             if self.phase == WATER
@@ -234,11 +239,22 @@ class SubsequentCycleSimulation(CycleSimulation):
                     else:
                         pore_entry_pressure[pore_id] = pore_body_filling_pressure
 
-    def _update_throat_entry_pc(self, throat_id_list):
+    def _update_throat_entry_pc(self, throat_id_list, replace_snap_off=False):
+        if replace_snap_off:
+            self.snap_off_throat_list = self._update_throats_snap_offs_pcs(self.network.pn.throats())
+        else:
+            new_snap_off_throats = self._update_throats_snap_offs_pcs(throat_id_list)
+            if len(new_snap_off_throats) > 0:
+                self.snap_off_throat_list = np.unique(np.concatenate((self.snap_off_throat_list, new_snap_off_throats)))
+
+        self._update_border_throat_entry_pc(throat_id_list)
+
+    def _update_border_throat_entry_pc(self, throat_id_list):
         self.__njit_update_throat_entry_pc(
             throat_id_list,
             self.network.pn_core.throat.entry_pressure,
             self.network.pn_core.throat.piston_like_pressure,
+            self.network.pn_core.throat.in_border,
         )
 
     @staticmethod
@@ -247,9 +263,11 @@ class SubsequentCycleSimulation(CycleSimulation):
         throat_id_list,
         throat_entry_pressure,
         throat_piston_like_pressure,
+        throat_in_border,
     ):
         for throat_id in throat_id_list:
-            throat_entry_pressure[throat_id] = throat_piston_like_pressure[throat_id]
+            if throat_in_border[throat_id]:
+                throat_entry_pressure[throat_id] = throat_piston_like_pressure[throat_id]
 
     def _get_element_to_fill(self, pc, border_elements):
         self.__clear_snapoff_lists()
