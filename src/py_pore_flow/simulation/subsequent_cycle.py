@@ -35,6 +35,9 @@ class SubsequentCycleSimulation(CycleSimulation):
         self.new_snap_off_throats_array = np.empty(len(self.network.pn_core.throat.all), np.int64)
         self.new_snap_off_pores_array = np.empty(len(self.network.pn_core.pore.all), np.int64)
 
+        self.pores_to_update = np.empty(len(self.network.pn_core.pore.all), np.int64)
+        self.throats_to_update = np.empty(len(self.network.pn_core.throat.all), np.int64)
+
     @staticmethod
     @nb.njit(cache=True)
     def _njit_snap_off(
@@ -265,6 +268,7 @@ class SubsequentCycleSimulation(CycleSimulation):
 
     def _update_network_geometry(self, pc):
         pore_ids = self.__get_elements_to_update(
+            self.pores_to_update,
             self.phase,
             pc,
             self.network.pn_core.pore.trapped_evacuation,
@@ -272,6 +276,7 @@ class SubsequentCycleSimulation(CycleSimulation):
             self.network.pn_core.pore.snap_off_pressure,
         )
         throat_ids = self.__get_elements_to_update(
+            self.throats_to_update,
             self.phase,
             pc,
             self.network.pn_core.throat.trapped_evacuation,
@@ -285,11 +290,22 @@ class SubsequentCycleSimulation(CycleSimulation):
         super()._update_network_geometry(pc)
 
     @staticmethod
-    def __get_elements_to_update(phase, pc, trapped_evacuation, imminent_snap_off, snap_off_pressure):
+    @nb.njit(cache=True)
+    def __get_elements_to_update(
+        elements_to_update, phase, pc, trapped_evacuation, imminent_snap_off, snap_off_pressure
+    ):
+        j = 0
         if phase == WATER:
-            return np.where(~trapped_evacuation & ~(imminent_snap_off & (snap_off_pressure >= pc)))[0]
+            for i in range(len(trapped_evacuation)):
+                if not trapped_evacuation[i] and not (imminent_snap_off[i] and (snap_off_pressure[i] >= pc)):
+                    elements_to_update[j] = i
+                    j += 1
         else:
-            return np.where(~trapped_evacuation & ~(imminent_snap_off & (snap_off_pressure <= pc)))[0]
+            for i in range(len(trapped_evacuation)):
+                if not trapped_evacuation[i] and not (imminent_snap_off[i] and (snap_off_pressure[i] <= pc)):
+                    elements_to_update[j] = i
+                    j += 1
+        return elements_to_update[:j]
 
     def __clear_snapoff_lists(self):
         filled_pores = (
