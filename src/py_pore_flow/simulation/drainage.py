@@ -68,6 +68,9 @@ class DrainageSimulation(CycleSimulation):
                 min_pressure = pressure
                 pores_to_fill_list[0] = id
                 pore_to_fill_count = 1
+            elif pressure == min_pressure:
+                pores_to_fill_list[pore_to_fill_count] = id
+                pore_to_fill_count += 1
 
         for id in throat_id_list:
             pressure = throat_entry_pressure[id]
@@ -75,7 +78,9 @@ class DrainageSimulation(CycleSimulation):
                 min_pressure = pressure
                 throats_to_fill_list[0] = id
                 throat_to_fill_count = 1
-                pore_to_fill_count = 0
+            elif pressure == min_pressure:
+                throats_to_fill_list[throat_to_fill_count] = id
+                throat_to_fill_count += 1
 
         return (
             pores_to_fill_list[:pore_to_fill_count],
