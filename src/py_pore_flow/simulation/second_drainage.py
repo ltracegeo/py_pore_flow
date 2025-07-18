@@ -66,11 +66,11 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
         pore_entry_pressure,
         throat_id_list,
         throat_entry_pressure,
+        pores_to_fill_list,
+        throats_to_fill_list,
     ):
         min_pressure = np.inf
 
-        pores_to_fill_list = np.empty(len(pore_id_list), np.int64)
-        throats_to_fill_list = np.empty(len(throat_id_list), np.int64)
         pore_to_fill_count = 0
         throat_to_fill_count = 0
 

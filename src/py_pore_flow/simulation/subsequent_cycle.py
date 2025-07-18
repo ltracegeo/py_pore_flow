@@ -38,6 +38,9 @@ class SubsequentCycleSimulation(CycleSimulation):
         self.pores_to_update = np.empty(len(self.network.pn_core.pore.all), np.int64)
         self.throats_to_update = np.empty(len(self.network.pn_core.throat.all), np.int64)
 
+        self.pores_to_fill_list = np.empty(len(self.network.pn_core.pore.all), np.int64)
+        self.throats_to_fill_list = np.empty(len(self.network.pn_core.pore.all), np.int64)
+
     @staticmethod
     @nb.njit(cache=True)
     def _njit_snap_off(
@@ -258,6 +261,8 @@ class SubsequentCycleSimulation(CycleSimulation):
             self.network.pn_core.pore.entry_pressure,
             throat_id_list,
             self.network.pn_core.throat.entry_pressure,
+            self.pores_to_fill_list,
+            self.throats_to_fill_list,
         )
         return pores_to_fill, throats_to_fill, pressure
 
