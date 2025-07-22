@@ -792,7 +792,7 @@ class MultiStepSimulation(StepSimulation):
         return self.pc_incrementer.cycle_should_end() or self.get_pores_left() == 0 or self.no_invasion_left
 
     def _perform_step(self, pc):
-        if self.sw_step is None or self.is_first_step:
+        if self.sw_step is None:
             current_pc = super()._perform_step(pc)
         else:
             current_pc = self.__step_by_sw(pc)
