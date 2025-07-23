@@ -615,12 +615,15 @@ class CycleSimulation:
         invasion_pc = pc
         old_pc = pc
         total_sw_delta = 0.0
+        invasion_target_sw = None
 
         self._update_network_geometry(pc)
 
         while True:
+            if target_sw is not None:
+                invasion_target_sw = target_sw - total_sw_delta
             invaded_pc = invasion_pc
-            sw_delta, invasion_pc, no_invasion_left = self.__update_invasions(invasion_pc)
+            sw_delta, invasion_pc, no_invasion_left = self.__update_invasions(invasion_pc, invasion_target_sw)
             self._update_multiphase_mask(invaded_pc, old_pc)
             old_pc = invaded_pc
             total_sw_delta += sw_delta
@@ -687,7 +690,7 @@ class CycleSimulation:
     def _update_entry_pressures(self, pc):
         pass
 
-    def __update_invasions(self, pc):
+    def __update_invasions(self, pc, target_sw=None):
         sw_delta = 0.0
 
         self._update_entry_pressures(pc)
@@ -703,7 +706,7 @@ class CycleSimulation:
 
             element_type, element_id, invasion_pc = element_to_fill
 
-            if not self._can_be_filled(pc, invasion_pc):
+            if (target_sw is not None and sw_delta >= target_sw) or not self._can_be_filled(pc, invasion_pc):
                 break
 
             if element_type == PORE:
@@ -1080,6 +1083,19 @@ class CycleSimulation:
         border_throat_ids = np.unique(new_border_throats[:border_throat_count])
 
         return border_pore_ids, border_throat_ids
+
+    def __check_for_inconsistent_elements(self):
+        wrong_pores = np.where(
+            (self.network.pn_core.pore.water_filled & (self.network.pn_core.pore.water_saturation == 0))
+            | (self.network.pn_core.pore.oil_filled & (self.network.pn_core.pore.oil_saturation == 0))
+        )[0]
+        wrong_throats = np.where(
+            (self.network.pn_core.throat.water_filled & (self.network.pn_core.throat.water_saturation == 0))
+            | (self.network.pn_core.throat.oil_filled & (self.network.pn_core.throat.oil_saturation == 0))
+        )[0]
+        if len(wrong_pores) > 0 or len(wrong_throats) > 0:
+            print("Wrong pores", wrong_pores)
+            print("Wrong throats", wrong_throats)
 
 
 class TrapChecker:

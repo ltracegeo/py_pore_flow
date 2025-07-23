@@ -7,15 +7,10 @@ from py_pore_flow.equations.geometry import (
     check_water_layer,
     calculate_multiphase_mask_2nd_drainage,
     calculate_2nd_drainage_element_b,
-    calculate_imbibition_network_b,
     calculate_2nd_drainage_network_b,
     calculate_2nd_drainage_network_bo,
-    calculate_imbibition_network_bo,
     calculate_network_hinging_contact_angle,
     calculate_network_outter_hinging_contact_angle,
-    calculate_oil_layer,
-    calculate_r,
-    check_water_layer_network,
 )
 import py_pore_flow.constants as c
 from py_pore_flow.equations.entry_pressure import PORE_BODY_FILLING_STRATEGY
@@ -143,9 +138,10 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
             pc,
         )
 
-    def _update_b(self, pc):
+    def _update_b(self, pore_ids, throat_ids, pc):
         calculate_2nd_drainage_network_b(
             self.network.pn_core.pore.b,
+            pore_ids,
             self.network.pn_core.pore.trapped_evacuation,
             self.network.pn_core.pore.oil_filled,
             self.network.pn_core.pore.corner_half_angle,
@@ -160,6 +156,7 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
         )
         calculate_2nd_drainage_network_b(
             self.network.pn_core.throat.b,
+            throat_ids,
             self.network.pn_core.throat.trapped_evacuation,
             self.network.pn_core.throat.oil_filled,
             self.network.pn_core.throat.corner_half_angle,
@@ -175,6 +172,7 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
 
         calculate_2nd_drainage_network_bo(
             self.network.pn_core.pore.bo,
+            pore_ids,
             self.network.pn_core.pore.trapped_evacuation,
             self.network.pn_core.pore.corner_half_angle,
             self.network.pn_core.pore.max_b,
@@ -187,6 +185,7 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
         )
         calculate_2nd_drainage_network_bo(
             self.network.pn_core.throat.bo,
+            throat_ids,
             self.network.pn_core.throat.trapped_evacuation,
             self.network.pn_core.throat.corner_half_angle,
             self.network.pn_core.throat.max_b,
@@ -198,8 +197,9 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
             pc,
         )
 
-    def _update_hinging_contact_angles(self, pc):
+    def _update_hinging_contact_angles(self, pore_ids, throat_ids, pc):
         calculate_network_hinging_contact_angle(
+            pore_ids,
             pc,
             self.network.pn_core.pore.corner_half_angle,
             self.network.pn_core.pore.b,
@@ -210,6 +210,7 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
             self.network.pn_core.pore.trapped_evacuation,
         )
         calculate_network_hinging_contact_angle(
+            throat_ids,
             pc,
             self.network.pn_core.throat.corner_half_angle,
             self.network.pn_core.throat.b,
@@ -221,6 +222,7 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
         )
 
         calculate_network_outter_hinging_contact_angle(
+            pore_ids,
             pc,
             self.network.pn_core.pore.corner_half_angle,
             self.network.pn_core.pore.bo,
@@ -233,6 +235,7 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
             self.network.pn_core.pore.max_b,
         )
         calculate_network_outter_hinging_contact_angle(
+            throat_ids,
             pc,
             self.network.pn_core.throat.corner_half_angle,
             self.network.pn_core.throat.bo,
@@ -245,5 +248,5 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
             self.network.pn_core.throat.max_b,
         )
 
-    def _update_oil_layers(self, pc):
+    def _update_oil_layers(self, pore_ids, throat_ids, pc):
         pass
