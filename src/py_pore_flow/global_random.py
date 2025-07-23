@@ -23,6 +23,6 @@ def weibull(n_samples, delta, gamma, center, range):
     if delta < 0 or gamma < 0:
         term = x
     else:
-        term = abs(-delta * abs(np.log(abs(x * (1 - np.exp(-1 / delta)) + np.exp(-1 / delta)))) ** (1 / gamma))
+        term = (-delta * np.log(1.0 - x * (1.0 - np.exp(-1.0 / delta)))) ** (1 / gamma)
 
     return (theta_max - theta_min) * term + theta_min
