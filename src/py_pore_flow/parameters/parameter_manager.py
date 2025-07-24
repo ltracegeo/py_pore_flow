@@ -23,13 +23,15 @@ DEFAULT_PARAMETERS = {
     "interfacial_tension": 0.03,
     "initial_ca_center": 30,
     "initial_ca_range": 15,
-    "initial_ca_k": 3.5,
+    "initial_ca_gamma": -1,
+    "initial_ca_delta": -1,
     "initial_ca_correlation": UNCORRELATED,
     "initial_ca_model": 3,
     "initial_ca_separation": 25.2,
     "equilibrium_ca_center": 30,
     "equilibrium_ca_range": 15,
-    "equilibrium_ca_k": 3.5,
+    "equilibrium_ca_gamma": -1,
+    "equilibrium_ca_delta": -1,
     "equilibrium_ca_correlation": UNCORRELATED,
     "equilibrium_ca_model": 3,
     "equilibrium_ca_separation": 25.2,
@@ -228,11 +230,13 @@ class ParameterManager:
     def __generate_fraction_cas(self, prefix, size, radius_array):
         center = math.radians(self.parameters_dict[f"{prefix}_ca_center"])
         range = math.radians(self.parameters_dict[f"{prefix}_ca_range"])
-        k = self.parameters_dict[f"{prefix}_ca_k"]
+        gamma = self.parameters_dict[f"{prefix}_ca_gamma"]
+        delta = self.parameters_dict[f"{prefix}_ca_delta"]
         intrinsic_ca_array = self.__generate_ca_distribution(
+            delta,
+            gamma,
             center,
             range,
-            k,
             size,
             radius_array,
             self.parameters_dict[f"{prefix}_ca_correlation"],
@@ -240,10 +244,8 @@ class ParameterManager:
         return intrinsic_ca_array
 
     @staticmethod
-    def __generate_ca_distribution(center, range, k, size, radius_array, correlation):
-        loc = center - range / 2
-        scale = center - loc
-        reference_ca_array = weibull(k, loc=loc, scale=scale, size=size)
+    def __generate_ca_distribution(delta, gamma, center, range, size, radius_array, correlation):
+        reference_ca_array = weibull(size, delta, gamma, center, range)
         reference_ca_array[reference_ca_array < 0] = 0
         reference_ca_array[reference_ca_array > pi] = pi
 
