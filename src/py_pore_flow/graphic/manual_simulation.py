@@ -6,7 +6,7 @@ import pandas as pd
 from PySide2 import QtCore, QtGui, QtWidgets
 import pyqtgraph as pg
 
-from py_pore_flow.graphic.element_graphic import ElementPlotter
+from py_pore_flow.graphic.element_plotter import ElementPlotter
 from py_pore_flow.graphic.network_plot import ElementNotFoundException, PorePlot, ThroatPlot
 from py_pore_flow.simulation.simulation import StepSimulation
 

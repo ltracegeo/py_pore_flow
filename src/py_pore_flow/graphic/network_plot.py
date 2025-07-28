@@ -1,6 +1,7 @@
 import numpy as np
 
-from py_pore_flow.graphic.element_graphic import WATER, OIL, ElementGraphic, ElementPlotter
+from py_pore_flow.graphic.element_graphic import WATER, OIL, ElementGraphic
+from py_pore_flow.graphic.element_plotter import ElementPlotter
 
 
 class ElementNotFoundException(Exception):
