@@ -14,7 +14,9 @@ from PySide2 import QtWidgets
 import py_pore_flow as ppf
 from py_pore_flow.graphic.manual_simulation import ManualSimulationPlot
 from py_pore_flow.graphic.plot_krel import plot_krel
-from py_pore_flow.simulation.simulation import StepSimulation
+from py_pore_flow.network import initialize_pn, Network
+from py_pore_flow.output import element_to_openfoam
+from py_pore_flow.simulation.simulation import calculate_initial_values, StepSimulation
 
 
 def print_props():
@@ -203,28 +205,34 @@ if __name__ == "__main__":
 
     is_snapshot = args.snapshot
 
-    if is_snapshot:
-        snapshot_file = args.network_path
-        snapshot(snapshot_file)
-    else:
-        manual = args.manual
-        generate_vtu = args.vtu
-        debug = args.debug
-        show_final_plot = not args.nogui
-        enable_profiling = args.prof
-        drainage_snapshot_pc = args.drainage_snapshot_pc
-        imbibition_snapshot_pc = args.imbibition_snapshot_pc
-        second_drainage_snapshot_pc = args.second_drainage_snapshot_pc
+    # if is_snapshot:
+    #     snapshot_file = args.network_path
+    #     snapshot(snapshot_file)
+    # else:
+    #     manual = args.manual
+    #     generate_vtu = args.vtu
+    #     debug = args.debug
+    #     show_final_plot = not args.nogui
+    #     enable_profiling = args.prof
+    #     drainage_snapshot_pc = args.drainage_snapshot_pc
+    #     imbibition_snapshot_pc = args.imbibition_snapshot_pc
+    #     second_drainage_snapshot_pc = args.second_drainage_snapshot_pc
 
-        sample_directory = args.network_path
-        run(
-            sample_directory,
-            manual,
-            generate_vtu,
-            debug,
-            show_final_plot,
-            enable_profiling,
-            drainage_snapshot_pc,
-            imbibition_snapshot_pc,
-            second_drainage_snapshot_pc,
-        )
+    #     sample_directory = args.network_path
+    #     run(
+    #         sample_directory,
+    #         manual,
+    #         generate_vtu,
+    #         debug,
+    #         show_final_plot,
+    #         enable_profiling,
+    #         drainage_snapshot_pc,
+    #         imbibition_snapshot_pc,
+    #         second_drainage_snapshot_pc,
+    #     )
+
+    pn = load_network(args.network_path)
+    initialize_pn(pn)
+    network = Network(pn)
+    calculate_initial_values(network)
+    element_to_openfoam(network.pn_core, 1, 2)

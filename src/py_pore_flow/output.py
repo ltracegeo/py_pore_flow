@@ -4,6 +4,9 @@ import numpy as np
 import vtk
 from vtk.util.numpy_support import numpy_to_vtk
 
+from py_pore_flow.graphic.element_graphic import ElementGraphic
+from py_pore_flow.network import PORE, THROAT
+
 
 id_count = 0
 
@@ -122,3 +125,75 @@ def add_string_to_file(file_path, line_number, new_content):
 
     with open(file_path, "w") as file:
         file.writelines(lines)
+
+
+def element_to_openfoam(pn, element_type, element_id):
+    if element_type == PORE:
+        element_data = pn.pore
+        return
+    else:
+        element_data = pn.throat
+
+    if element_data.n_corners[element_id] != 3:
+        print("not triangle")
+        return
+
+    def get_element_vertices(element_data, element_id):
+        angles = element_data.corner_half_angle[element_id][: element_data.n_corners[element_id]] * 2
+        radius = element_data.radius[element_id]
+        vertices = ElementGraphic.triangle_vertices(angles, radius)
+        return vertices[0] + (0,), vertices[1] + (0,), vertices[2] + (0,)
+
+    A_coord, B_coord, C_coord = get_element_vertices(element_data, element_id)
+
+    # Triangle in XY plane
+    A = np.array(A_coord)
+    B = np.array(B_coord)
+    C = np.array(C_coord)
+
+    if element_type == THROAT:
+        length = element_data.length
+    else:
+        length = 0
+
+    # Extruded points
+    A1 = A + [0, 0, length]
+    B1 = B + [0, 0, length]
+    C1 = C + [0, 0, length]
+
+    # Create a block using 8 points
+    # We'll add a centroid to make a degenerate hex block (OpenFOAM allows that with care)
+    centroid = (A + B + C) / 3
+    centroid1 = centroid + [0, 0, length]
+
+    points = [A, B, C, centroid, A1, B1, C1, centroid1]
+
+    def foam_vertex_str(i, p):
+        return f"    ({p[0]:.6f} {p[1]:.6f} {p[2]:.6f}) // v{i}"
+
+    with open("blockMeshDict", "w") as f:
+        f.write(
+            "FoamFile\n{\n    version 2.0;\n    format ascii;\n    class dictionary;\n    object blockMeshDict;\n}\n\n"
+        )
+        f.write("convertToMeters 1.0;\n\n")
+
+        f.write("vertices\n(\n")
+        for i, p in enumerate(points):
+            f.write(foam_vertex_str(i, p) + "\n")
+        f.write(");\n\n")
+
+        f.write("blocks\n(\n")
+        f.write("    hex (0 1 2 3 4 5 6 7) (1 1 1) simpleGrading (1 1 1)\n")
+        f.write(");\n\n")
+
+        f.write("edges()\n;\n\n")
+
+        f.write("boundary\n(\n")
+        f.write("    walls\n    {\n        type wall;\n        faces\n        (\n")
+        f.write("            (0 1 5 4)\n")
+        f.write("            (1 2 6 5)\n")
+        f.write("            (2 0 4 6)\n")
+        f.write("        );\n    }\n")
+        f.write(");\n\n")
+
+        f.write("mergePatchPairs()\n(\n);\n")
