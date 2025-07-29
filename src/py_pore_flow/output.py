@@ -142,7 +142,8 @@ def element_to_openfoam(pn, element_type, element_id):
         angles = element_data.corner_half_angle[element_id][: element_data.n_corners[element_id]] * 2
         radius = element_data.radius[element_id]
         vertices = ElementGraphic.triangle_vertices(angles, radius)
-        return vertices[0] + (0,), vertices[1] + (0,), vertices[2] + (0,)
+        vertices = np.pad(vertices, ((0,0), (0,1)), "constant", constant_values=0)
+        return vertices[0], vertices[1], vertices[2]
 
     A_coord, B_coord, C_coord = get_element_vertices(element_data, element_id)
 
@@ -152,7 +153,7 @@ def element_to_openfoam(pn, element_type, element_id):
     C = np.array(C_coord)
 
     if element_type == THROAT:
-        length = element_data.length
+        length = element_data.length[element_id]
     else:
         length = 0
 
