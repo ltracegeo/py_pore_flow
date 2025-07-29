@@ -24,6 +24,24 @@ def print_props():
     print(pn.props())
 
 
+def load_network(directory_path):
+    network_name = ""
+    my_path = Path(directory_path)
+    pattern = re.compile("(\S+)_node1.dat")
+    for filepath in my_path.iterdir():
+        re_match = pattern.match(filepath.name)
+        if re_match:
+            network_name = re_match[1]
+
+    pn = openpnm.io.network_from_statoil(directory_path, network_name)
+
+    pore_N, throat_N = load_multiscale_values_from_dir(directory_path, network_name, pn)
+    if pore_N is not None and throat_N is not None:
+        pn["pore.N"], pn["throat.N"] = pore_N, throat_N
+
+    return pn
+
+
 def load_multiscale_values_from_dir(directory, network_name, pn):
     link3_path = Path(directory) / f"{network_name}_link3.dat"
     node3_path = Path(directory) / f"{network_name}_node3.dat"
@@ -94,23 +112,11 @@ def run_simulation(
     imbibition_snapshot_pc=None,
     second_drainage_snapshot_pc=None,
 ):
-    network_name = ""
-    my_path = Path(directory_path)
-    pattern = re.compile("(\S+)_node1.dat")
-    for filepath in my_path.iterdir():
-        re_match = pattern.match(filepath.name)
-        if re_match:
-            network_name = re_match[1]
-
-    pn = openpnm.io.network_from_statoil(directory_path, network_name)
-
-    pore_N, throat_N = load_multiscale_values_from_dir(directory_path, network_name, pn)
-    if pore_N is not None and throat_N is not None:
-        pn["pore.N"], pn["throat.N"] = pore_N, throat_N
+    pn = load_network(directory_path)
 
     if not parameters:
         try:
-            with open(my_path / "input.txt", "r") as f:
+            with open(Path(directory_path) / "input.txt", "r") as f:
                 parameters = json.loads(f.read())
         except FileNotFoundError:
             pass
