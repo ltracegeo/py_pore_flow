@@ -142,15 +142,14 @@ def element_to_openfoam(pn, element_type, element_id):
         angles = element_data.corner_half_angle[element_id][: element_data.n_corners[element_id]] * 2
         radius = element_data.radius[element_id]
         vertices = ElementGraphic.triangle_vertices(angles, radius)
-        vertices = np.pad(vertices, ((0,0), (0,1)), "constant", constant_values=0)
         return vertices[0], vertices[1], vertices[2]
 
     A_coord, B_coord, C_coord = get_element_vertices(element_data, element_id)
 
     # Triangle in XY plane
-    A = np.array(A_coord)
-    B = np.array(B_coord)
-    C = np.array(C_coord)
+    A = np.array([A_coord[0], 0, A_coord[1]])
+    B = np.array([B_coord[0], 0, B_coord[1]])
+    C = np.array([C_coord[0], 0, C_coord[1]])
 
     if element_type == THROAT:
         length = element_data.length[element_id]
@@ -158,16 +157,14 @@ def element_to_openfoam(pn, element_type, element_id):
         length = 0
 
     # Extruded points
-    A1 = A + [0, 0, length]
-    B1 = B + [0, 0, length]
-    C1 = C + [0, 0, length]
+    A1 = A + [0, length, 0]
+    B1 = B + [0, length, 0]
+    C1 = C + [0, length, 0]
 
     # Create a block using 8 points
     # We'll add a centroid to make a degenerate hex block (OpenFOAM allows that with care)
-    centroid = (A + B + C) / 3
-    centroid1 = centroid + [0, 0, length]
 
-    points = [A, B, C, centroid, A1, B1, C1, centroid1]
+    points = [A, B, C, C, A1, B1, C1, C1]
 
     def foam_vertex_str(i, p):
         return f"    ({p[0]:.6f} {p[1]:.6f} {p[2]:.6f}) // v{i}"
@@ -184,17 +181,45 @@ def element_to_openfoam(pn, element_type, element_id):
         f.write(");\n\n")
 
         f.write("blocks\n(\n")
-        f.write("    hex (0 1 2 3 4 5 6 7) (1 1 1) simpleGrading (1 1 1)\n")
+        f.write("    hex (1 5 4 0 2 6 6 2) (10 10 10) simpleGrading (1 1 1)\n")
         f.write(");\n\n")
 
         f.write("edges()\n;\n\n")
 
         f.write("boundary\n(\n")
-        f.write("    walls\n    {\n        type wall;\n        faces\n        (\n")
-        f.write("            (0 1 5 4)\n")
-        f.write("            (1 2 6 5)\n")
-        f.write("            (2 0 4 6)\n")
-        f.write("        );\n    }\n")
+        f.write("    inlet\n")
+        f.write("    {\n")
+        f.write("        type patch;\n")
+        f.write("        faces\n        (\n")
+        f.write("            (0 1 2 2)\n")
+        f.write("        );\n")
+        f.write("    }\n")
+        f.write("    outlet\n")
+        f.write("    {\n")
+        f.write("        type patch;\n")
+        f.write("        faces\n        (\n")
+        f.write("            (4 6 6 5)\n")
+        f.write("        );\n")
+        f.write("    }\n")
+
+        f.write("    walls\n")
+        f.write("    {\n")
+        f.write("        type wall;\n")
+        f.write("        faces\n        (\n")
+        f.write("            (0 4 5 1)  // bottom\n")
+        f.write("            (0 2 6 4)  // left\n")
+        f.write("            (5 6 2 1)  // right\n")
+        f.write("        );\n")
+        f.write("    }\n")
+
+        f.write("    empty\n")
+        f.write("    {\n")
+        f.write("        type empty;\n")
+        f.write("        faces\n        (\n")
+        f.write("            (2 2 6 6)  // top\n")
+        f.write("        );\n")
+        f.write("    }\n")
+
         f.write(");\n\n")
 
         f.write("mergePatchPairs()\n(\n);\n")
