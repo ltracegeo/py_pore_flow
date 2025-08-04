@@ -15,7 +15,7 @@ import py_pore_flow as ppf
 from py_pore_flow.graphic.manual_simulation import ManualSimulationPlot
 from py_pore_flow.graphic.plot_krel import plot_krel
 from py_pore_flow.network import initialize_pn, Network
-from py_pore_flow.output import element_to_openfoam
+from py_pore_flow.output import element_to_openfoam, openfoam_script
 from py_pore_flow.simulation.simulation import calculate_initial_values, StepSimulation
 
 
@@ -242,3 +242,4 @@ if __name__ == "__main__":
     network = Network(pn)
     calculate_initial_values(network)
     element_to_openfoam(network.pn_core, 1, 2)
+    openfoam_script()
