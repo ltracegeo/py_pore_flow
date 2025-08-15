@@ -6,7 +6,7 @@ import numpy as np
 
 from py_pore_flow import constants
 from py_pore_flow import global_random
-from py_pore_flow.global_random import random, weibull
+from py_pore_flow.global_random import random, weibull, gaussian
 
 
 UNCORRELATED = 0
@@ -25,20 +25,25 @@ DEFAULT_PARAMETERS = {
     "initial_ca_range": 15,
     "initial_ca_gamma": -1,
     "initial_ca_delta": -1,
+    "initial_ca_sigma": 5,
     "initial_ca_correlation": UNCORRELATED,
     "initial_ca_model": 3,
+    "initial_ca_distribution": "weibull",
     "initial_ca_separation": 25.2,
     "equilibrium_ca_center": 30,
     "equilibrium_ca_range": 15,
     "equilibrium_ca_gamma": -1,
     "equilibrium_ca_delta": -1,
+    "equilibrium_ca_sigma": 5,
     "equilibrium_ca_correlation": UNCORRELATED,
     "equilibrium_ca_model": 3,
+    "equilibrium_ca_distribution": "weibull",
     "equilibrium_ca_separation": 25.2,
     "second_ca_center": 140,
     "second_ca_range": 15,
     "second_ca_k": 3.5,
     "second_ca_correlation": UNCORRELATED,
+    "second_ca_distribution": "weibull",
     "second_ca_fraction": 0.5,
     "pc_initial": 0,
     "pc_maximum": 40000,
@@ -232,20 +237,26 @@ class ParameterManager:
         range = math.radians(self.parameters_dict[f"{prefix}_ca_range"])
         gamma = self.parameters_dict[f"{prefix}_ca_gamma"]
         delta = self.parameters_dict[f"{prefix}_ca_delta"]
+        sigma = self.parameters_dict[f"{prefix}_ca_sigma"]
         intrinsic_ca_array = self.__generate_ca_distribution(
             delta,
             gamma,
+            sigma,
             center,
             range,
             size,
             radius_array,
             self.parameters_dict[f"{prefix}_ca_correlation"],
+            self.parameters_dict[f"{prefix}_ca_distribution"],
         )
         return intrinsic_ca_array
 
     @staticmethod
-    def __generate_ca_distribution(delta, gamma, center, range, size, radius_array, correlation):
-        reference_ca_array = weibull(size, delta, gamma, center, range)
+    def __generate_ca_distribution(delta, gamma, sigma, center, range, size, radius_array, correlation, distribution):
+        if distribution == "weibull":
+            reference_ca_array = weibull(size, delta, gamma, center, range)
+        elif distribution == "gaussian":
+            reference_ca_array = gaussian(size, sigma, center, range)
         reference_ca_array[reference_ca_array < 0] = 0
         reference_ca_array[reference_ca_array > pi] = pi
 
