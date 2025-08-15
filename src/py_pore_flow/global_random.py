@@ -17,8 +17,8 @@ def numba_set_seed(seed):
 
 
 def gaussian(n_samples, sigma, center, range_):
-    theta_min = max(center - 2 * range_, 0)
-    theta_max = min(center + 2 * range_, np.pi)
+    theta_min = max(center - range_ / 2.0, 0)
+    theta_max = min(center + range_ / 2.0, np.pi)
 
     if sigma < 0:
         x = np.random.uniform(0, 1, size=n_samples)
