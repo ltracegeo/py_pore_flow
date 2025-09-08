@@ -173,10 +173,10 @@ def automatic_simulation(
         plot_krel(cycle, Sw, Krw, Kro)
 
 
-def snapshot(snapshot_file):
+def snapshot(snapshot_file, debug):
     pn, parameters, config = StepSimulation.load_snapshot(snapshot_file)
 
-    automatic_simulation(pn, parameters, False, False, True, setup_network=False, config=config)
+    automatic_simulation(pn, parameters, False, debug, True, setup_network=False, config=config)
 
 
 if __name__ == "__main__":
@@ -189,9 +189,7 @@ if __name__ == "__main__":
     arg_parser.add_argument("--debug", action="store_true", help="Enable debug messages")
     arg_parser.add_argument("--nogui", action="store_true", help="Disable graphical window")
     arg_parser.add_argument("--snapshot", action="store_true", help="Input is a snapshot instead of a statoil")
-    arg_parser.add_argument(
-        "--drainage_snapshot_pc", type=float, default=None, help="Pc to take snapshotin drainage cycle"
-    )
+    arg_parser.add_argument("--drainage_snapshot_pc", default=None, help="Pc to take snapshotin drainage cycle")
     arg_parser.add_argument(
         "--imbibition_snapshot_pc", type=float, default=None, help="Pc to take snapshotin imbibition cycle"
     )
@@ -202,19 +200,22 @@ if __name__ == "__main__":
     args = arg_parser.parse_args()
 
     is_snapshot = args.snapshot
+    debug = args.debug
 
     if is_snapshot:
         snapshot_file = args.network_path
-        snapshot(snapshot_file)
+        snapshot(snapshot_file, debug)
     else:
         manual = args.manual
         generate_vtu = args.vtu
-        debug = args.debug
         show_final_plot = not args.nogui
         enable_profiling = args.prof
         drainage_snapshot_pc = args.drainage_snapshot_pc
         imbibition_snapshot_pc = args.imbibition_snapshot_pc
         second_drainage_snapshot_pc = args.second_drainage_snapshot_pc
+
+        if drainage_snapshot_pc is not None and drainage_snapshot_pc != "final":
+            drainage_snapshot_pc = float(drainage_snapshot_pc)
 
         sample_directory = args.network_path
         run(

@@ -21,13 +21,13 @@ def gaussian(n_samples, sigma, center, range_):
     theta_max = min(center + range_ / 2.0, np.pi)
 
     if sigma < 0:
-        x = np.random.uniform(0, 1, size=n_samples)
+        x = random.uniform(0, 1, size=n_samples)
         samples = (theta_max - theta_min) * x + theta_min
     else:
         scale = sigma * np.pi / 180.0
         a = (theta_min - center) / scale
         b = (theta_max - center) / scale
-        samples = scipy.stats.truncnorm.rvs(a, b, loc=center, scale=scale, size=n_samples)
+        samples = scipy.stats.truncnorm.rvs(a, b, loc=center, scale=scale, size=n_samples, random_state=random)
 
     return samples
 
