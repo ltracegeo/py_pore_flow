@@ -216,7 +216,9 @@ class Simulation:
                 elif self.step_simulation.cycle_should_end():
                     simulation_end = True
                     break
-                elif self.Sw_array[-1] <= self.parameter_manager.enforced_swi_1 and cycle_name == "drainage":
+                elif self.Sw_array[-1] <= self.parameter_manager.enforced_swi_1 and (
+                    cycle_name == "drainage" or cycle_name == "2nd_drainage"
+                ):
                     simulation_end = True
                     break
                 elif self.Sw_array[-1] >= self.parameter_manager.enforced_swi_2 and cycle_name == "imbibition":
