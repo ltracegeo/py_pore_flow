@@ -1,5 +1,6 @@
 import pickle
 import sys
+import time
 
 import numpy as np
 import openpnm
@@ -52,6 +53,7 @@ def run_two_phase_simulation(
     imbibition_snapshot_pc=None,
     second_drainage_snapshot_pc=None,
     config=None,
+    progress_callback=None,
 ):
     previous_limit = sys.getrecursionlimit()
 
@@ -77,6 +79,7 @@ def run_two_phase_simulation(
         imbibition_snapshot_pc,
         second_drainage_snapshot_pc,
         config,
+        progress_callback,
     )
 
     skip_drainage = config is not None and config["skip_drainage"]
@@ -120,13 +123,17 @@ class Simulation:
         imbibition_snapshot_pc=None,
         second_drainage_snapshot_pc=None,
         config=None,
+        progress_callback=None,
     ):
         self.pn = pn
         self.drainage_snapshot_pc = drainage_snapshot_pc
         self.imbibition_snapshot_pc = imbibition_snapshot_pc
         self.second_drainage_snapshot_pc = second_drainage_snapshot_pc
+        self.progress_callback = progress_callback
         generate_cas = generate_cas
         set_initial_values = setup_network
+
+        self.progress_time = 0
 
         self.step_simulation = MultiStepSimulation(
             self.pn,
@@ -171,10 +178,13 @@ class Simulation:
         log.info(f"Start {cycle_name}")
 
         if cycle_name == "drainage":
+            self.current_cycle_number = 1
             self.pc_incrementer.set_cycle(self.pc_incrementer.DRAINAGE_CYCLE)
         elif cycle_name == "imbibition":
+            self.current_cycle_number = 2
             self.pc_incrementer.set_cycle(self.pc_incrementer.IMBIBITION_CYCLE)
         else:
+            self.current_cycle_number = 3
             self.pc_incrementer.set_cycle(self.pc_incrementer.SECOND_DRAINAGE_CYCLE)
         self.step_simulation.set_cycle(cycle_name)
 
@@ -200,13 +210,7 @@ class Simulation:
                 current_pc = self.__update_step_simulation(current_pc)
 
                 if self.generate_vtu:
-                    if cycle_name == "drainage":
-                        cycle_number = 1
-                    elif cycle_name == "imbibition":
-                        cycle_number = 2
-                    elif cycle_name == "2nd_drainage":
-                        cycle_number = 3
-                    pn_to_vtu(self.pn, current_pc, self.Sw_array[-1], cycle_number)
+                    pn_to_vtu(self.pn, current_pc, self.Sw_array[-1], self.current_cycle_number)
 
                 self.pc_incrementer.set_pc(current_pc)
 
@@ -248,9 +252,16 @@ class Simulation:
         self.Krw_array.append(Krw)
         self.Kro_array.append(Kro)
 
+        percentage_100 = int(percentage * 100)
+
         log.info(
-            f"Pc: {current_pc:8.2f}, Sw: {Sw:.6f}, Krw: {Krw:.6f}, Kro: {Kro:.6f}, Filled: {pores_filled:4}/{total_pores} ({percentage:2}%)."
+            f"Pc: {current_pc:8.2f}, Sw: {Sw:.6f}, Krw: {Krw:.6f}, Kro: {Kro:.6f}, Filled: {pores_filled:4}/{total_pores} ({percentage_100:2}%)."
         )
+
+        if self.progress_callback is not None:
+            if (time.time() - self.progress_time) >= 60:
+                self.progress_time = time.time()
+                self.progress_callback(self.current_cycle_number, percentage)
 
         return current_pc
 

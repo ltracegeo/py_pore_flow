@@ -653,7 +653,7 @@ class CycleSimulation:
     def get_oil_filled_percentage(self):
         total_pores = self.network.get_number_of_pores()
         pores_filled = self.network.pn_core.pore.oil_filled.sum()
-        return pores_filled, total_pores, int((pores_filled / total_pores) * 100)
+        return pores_filled, total_pores, (pores_filled / total_pores)
 
     @abstractmethod
     def _check_invasion_condition(self, pc, element):
