@@ -309,21 +309,25 @@ class Simulation:
 
 
 def calculate_initial_values(network):
-    for pore in network.pore_list:
-        calculate_element_initial_values(pore)
+    pore = network.pore
+    for pore_id in network.get_pores_ids():
+        calculate_element_initial_values(pore, pore_id)
 
-    for throat in network.throat_list:
-        calculate_element_initial_values(throat)
+    throat = network.throat
+    for throat_id in network.get_throats_ids():
+        calculate_element_initial_values(throat, throat_id)
 
     return network
 
 
 def calculate_drainage_values(network, max_pc):
-    for pore in network.pore_list:
-        calculate_element_drainage_values(pore, max_pc)
+    pore = network.pore
+    for pore_id in network.get_pores_ids():
+        calculate_element_drainage_values(pore, pore_id, max_pc)
 
-    for throat in network.throat_list:
-        calculate_element_drainage_values(throat, max_pc)
+    throat = network.throat
+    for throat_id in network.get_throats_ids():
+        calculate_element_drainage_values(throat, throat_id, max_pc)
 
     conductance_calculator = ConductanceCalculator(network)
     conductance_calculator.calculate_singlephase_conductance(OIL)
@@ -360,11 +364,13 @@ def calculate_drainage_pinned_b(network, max_pc):
 
 
 def calculate_imbibition_values(network, max_pc):
-    for pore in network.pore_list:
-        calculate_element_imbibition_values(pore, max_pc)
+    pore = network.pore
+    for pore_id in network.get_pores_ids():
+        calculate_element_imbibition_values(pore, pore_id, max_pc)
 
-    for throat in network.throat_list:
-        calculate_element_imbibition_values(throat, max_pc)
+    throat = network.throat
+    for throat_id in network.get_throats_ids():
+        calculate_element_imbibition_values(throat, throat_id, max_pc)
 
     conductance_calculator = ConductanceCalculator(network)
     conductance_calculator.calculate_singlephase_conductance(OIL)
@@ -600,53 +606,98 @@ def calculate_2nd_drainage_snap_off_values(network, min_pc):
 
 
 def calculate_element_initial_values(
-    element,
+    element, element_id
 ):
-    element.shape, element.G = calculate_shape(element.G)
-    element.A = calculate_area(element.r, element.G)
-    element.beta = calculate_beta(element.G, element.shape)
-    element.sides = calculate_sides(element.beta, element.r, element.n_corners)
-    element.max_b = calculate_max_b(element.sides, element.n_corners)
+    new_shape, new_G = calculate_shape(element.get_G(element_id))
+    element.set_shape(element_id, new_shape)
+    element.set_G(element_id, new_G)
+    element_r = element.get_r(element_id)
+    element.set_A(element_id, calculate_area(element_r, new_G))
+    new_beta = calculate_beta(new_G, new_shape)
+    element.set_beta(element_id, new_beta)
+    element_n_corners = element.get_n_corners(element_id)
+    new_sides = calculate_sides(new_beta, element_r, element.get_n_corners(element_id))
+    element.set_sides(element_id, new_sides)
+    element.set_max_b(element_id, calculate_max_b(new_sides, element_n_corners))
 
 
-def calculate_element_drainage_values(element, max_pc):
+def calculate_element_drainage_values(element, element_id, max_pc):
     element.b = calculate_drainage_b(
-        element.beta,
-        np.full(element.n_corners, element.receding_contact_angle),
-        element.n_corners,
-        element.max_b,
+        element.get_beta(element_id),
+        np.full(
+            element.get_n_corners(element_id), 
+            element.get_receding_contact_angle(element_id),
+            ),
+        element.get_n_corners(element_id),
+        element.get_max_b(element_id),
         max_pc,
     )
-    element.C_r = calculate_C(
-        np.full(element.n_corners, element.receding_contact_angle), element.beta, element.n_corners
+    element.set_C_r(
+        element_id, 
+        calculate_C(
+            np.full(
+                element.get_n_corners(element_id), 
+                element.get_receding_contact_angle(element_id),
+                ), 
+            element.get_beta(element_id), 
+            element.get_n_corners(element_id),
+        ),
     )
-    element.C_a = calculate_C(
-        np.full(element.n_corners, element.advancing_contact_angle), element.beta, element.n_corners
+    element.set_C_a(
+        element_id, 
+        calculate_C(
+            np.full(
+                element.get_n_corners(element_id), 
+                element.get_advancing_contact_angle(element_id),
+                ), 
+            element.get_beta(element_id), 
+            element.get_n_corners(element_id),
+        ),
     )
     element.set_pc(
+        element_id,
         calculate_drainage_pc(
-            element.G,
-            element.r,
-            element.receding_contact_angle,
-            element.shape,
-            element.beta,
-            element.n_corners,
-        )
+            element.get_G(element_id),
+            element.get_r(element_id),
+            element.get_receding_contact_angle(element_id),
+            element.get_shape(element_id),
+            element.get_beta(element_id),
+            element.get_n_corners(element_id),
+        ),
     )
 
 
-def calculate_element_imbibition_values(element, max_pc):
-    element.C_r = calculate_C(
-        np.full(element.n_corners, element.receding_contact_angle), element.beta, element.n_corners
+def calculate_element_imbibition_values(element, element_id, max_pc):
+    element.set_C_r(
+        element_id,
+        calculate_C(
+            np.full(
+                element.get_n_corners(element_id), 
+                element.get_receding_contact_angle(element_id),
+                ), 
+            element.get_beta(element_id), 
+            element.get_n_corners(element_id),
+        ),
     )
-    element.C_a = calculate_C(
-        np.full(element.n_corners, element.advancing_contact_angle), element.beta, element.n_corners
+    element.set_C_a(
+        element_id,
+        calculate_C(
+            np.full(
+                element.get_n_corners(element_id), 
+                element.get_advancing_contact_angle(element_id),
+                ), 
+            element.get_beta(element_id), 
+            element.get_n_corners(element_id),
+        ),
     )
 
-    element.snap_off_viability = calculate_imbibition_snap_off_viability(
-        element.receding_contact_angle,
-        element.beta,
-        element.n_corners,
+    element.set_snap_off_viability(
+        element_id,
+        calculate_imbibition_snap_off_viability(
+            element.get_receding_contact_angle(element_id),
+            element.get_beta(element_id),
+            element.get_n_corners(element_id),
+        ),
     )
 
 

@@ -81,10 +81,16 @@ class DrainageSimulation(CycleSimulation):
     def _can_be_filled(self, current_pc, invasion_pc):
         return current_pc >= invasion_pc
 
-    def _update_element_filled_geometry(self, pc, element):
-        element.corner_water_layer = check_water_layer(element.corner_oil_layer, element.oil_filled)
-        self._update_element_hinging_contact_angles(element.type, element.id, pc)
-        return super()._update_element_filled_geometry(pc, element)
+    def _update_element_filled_geometry(self, pc, element, element_id):
+        element.set_corner_water_layer(
+            element_id,
+            check_water_layer(
+                element.get_corner_oil_layer(element_id), 
+                element.get_oil_filled(element_id),
+            ),
+        )
+        self._update_element_hinging_contact_angles(element.type, element_id, pc)
+        return super()._update_element_filled_geometry(pc, element, element_id)
 
 
 class DrainageSaturation(SaturationCalculator):

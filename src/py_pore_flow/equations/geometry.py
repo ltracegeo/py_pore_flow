@@ -188,7 +188,8 @@ def calculate_shape(G):
         G: shape_factor
 
     Return:
-        TRIANGLE, SQUARE or CIRCLE
+        shape: TRIANGLE, SQUARE or CIRCLE
+        G: float
     """
     if G > 0 and G <= sqrt(3) / 36:
         return TRIANGLE, G

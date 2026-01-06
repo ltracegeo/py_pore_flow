@@ -90,14 +90,20 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
 
         return (min_type, min_id, max(min_pressure, pc))
 
-    def _update_element_filled_geometry(self, pc, element):
-        element.corner_oil_layer = False
-        element.bo = 0.0
-        element.corner_water_layer = check_water_layer(element.corner_oil_layer, element.oil_filled)
-        self.__update_element_pinned_b(element.type, element.id, pc)
-        self._update_element_hinging_contact_angles(element.type, element.id, pc)
-        self.__update_element_b(element.type, element.id, pc)
-        return super()._update_element_filled_geometry(pc, element)
+    def _update_element_filled_geometry(self, pc, element, element_id):
+        element.set_corner_oil_layer(element_id, False)
+        element.set_bo(element_id, 0.0)
+        element.set_corner_water_layer(
+            element_id, 
+            check_water_layer(
+                element.get_corner_oil_layer(element_id),
+                element.get_oil_filled(element_id),
+            ),
+        )
+        self.__update_element_pinned_b(element.type, element_id, pc)
+        self._update_element_hinging_contact_angles(element.type, element_id, pc)
+        self.__update_element_b(element.type, element_id, pc)
+        return super()._update_element_filled_geometry(pc, element,element_id)
 
     def __update_element_pinned_b(self, element_type, id, pc):
         if element_type == PORE:

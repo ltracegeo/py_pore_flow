@@ -605,7 +605,7 @@ class CycleSimulation:
         self.trap_checker.update_trapped_pores()
 
         self.border_elements = BorderElements()
-        self.__refresh_border_elements(True, None)
+        self.__refresh_border_elements(True, None, None)
 
         self.saturation_calculator = None
 
@@ -659,9 +659,9 @@ class CycleSimulation:
     def _check_invasion_condition(self, pc, element):
         pass
 
-    def _update_element_filled_geometry(self, pc, element):
-        self._update_element_hinging_contact_angles(element.type, element.id, pc)
-        return self.saturation_calculator.update_element_saturations(element.type, element.id, pc)
+    def _update_element_filled_geometry(self, pc, element, element_id):
+        self._update_element_hinging_contact_angles(element.type, element_id, pc)
+        return self.saturation_calculator.update_element_saturations(element.type, element_id, pc)
 
     def _update_network_geometry(self, pc):
         self.saturation_calculator.update_saturations(pc)
@@ -710,22 +710,22 @@ class CycleSimulation:
                 break
 
             if element_type == PORE:
-                element = self.network.get_pore(element_id)
+                element = self.network.pore
             else:
-                element = self.network.get_throat(element_id)
+                element = self.network.throat
 
             log.debug(
-                f"Invasion {element.type_name:6} ID: {element.id:6} Pc: {element.pc:.5f} Radius: {element.r:.2e} G: {element.G:.4f} n_corners: {element.n_corners} area: {element.A}"
+                f"Invasion {element.type_name:6} ID: {element_id:6} Pc: {element.get_pc(element_id):.5f} Radius: {element.get_r(element_id):.2e} G: {element.get_G(element_id):.4f} n_corners: {element.get_n_corners(element_id)} area: {element.get_A(element_id)}"
             )
 
-            self.__fill_element(element, invasion_pc)
-            reached_bubble = self.__check_for_bubble(element)
-            sw_delta += self._update_element_filled_geometry(invasion_pc, element)
+            self.__fill_element(element, element_id, invasion_pc)
+            reached_bubble = self.__check_for_bubble(element, element_id)
+            sw_delta += self._update_element_filled_geometry(invasion_pc, element, element_id)
             if element.is_pore():
-                self.phase_connection_checker.update_phase_connections(PORE, element.id)
+                self.phase_connection_checker.update_phase_connections(PORE, element_id)
             else:
-                self.phase_connection_checker.update_phase_connections(THROAT, element.id)
-            if (self.phase == OIL and element.So == 1.0) or (self.phase == WATER and element.Sw == 1.0):
+                self.phase_connection_checker.update_phase_connections(THROAT, element_id)
+            if (self.phase == OIL and element.get_So(element_id) == 1.0) or (self.phase == WATER and element.get_Sw(element_id) == 1.0):
                 (
                     new_trapped_pores,
                     new_trapped_throats,
@@ -733,18 +733,17 @@ class CycleSimulation:
                     new_untrapped_throats,
                 ) = self.trap_checker.update_trapped_pores()
                 new_border_pores, new_border_throats = self.__refresh_border_elements(
-                    reached_bubble, element, new_trapped_pores, new_trapped_throats
+                    reached_bubble, element, element_id, new_trapped_pores, new_trapped_throats
                 )
                 self._update_pore_entry_pc(new_untrapped_pores, pc)
                 self._update_throat_entry_pc(new_untrapped_throats)
             else:
-                new_border_pores, new_border_throats = self.__refresh_border_elements(reached_bubble, element)
+                new_border_pores, new_border_throats = self.__refresh_border_elements(reached_bubble, element, element_id)
             self._update_border_pore_entry_pc(new_border_pores, pc)
             self._update_border_throat_entry_pc(new_border_throats)
         return sw_delta, invasion_pc, no_invasion_left
 
-    def __check_for_bubble(self, element):
-        element_id = element.id
+    def __check_for_bubble(self, element, element_id):
 
         if element.type == PORE:
             element_data = self.network.pn_core.pore
@@ -775,6 +774,7 @@ class CycleSimulation:
         self,
         reached_bubble,
         filled_element,
+        filled_element_id,
         new_trapped_pores=np.empty(0, np.int64),
         new_trapped_throats=np.empty(0, np.int64),
     ):
@@ -796,20 +796,21 @@ class CycleSimulation:
                 self.border_elements,
                 self.phase,
                 filled_element,
+                filled_element_id,
                 new_trapped_pores,
                 new_trapped_throats,
             )
 
         return new_pores, new_throats
 
-    def __fill_element(self, element, pc):
-        element.set_filled(self.phase, True)
+    def __fill_element(self, element, element_id, pc):
+        element.set_filled(element_id, self.phase, True)
         if element.type == PORE:
-            self.network.pn_core.pore.trapped[element.id] = False
-            self.network.pn_core.pore.trapped_evacuation[element.id] = False
+            self.network.pn_core.pore.trapped[element_id] = False
+            self.network.pn_core.pore.trapped_evacuation[element_id] = False
         else:
-            self.network.pn_core.throat.trapped[element.id] = False
-            self.network.pn_core.throat.trapped_evacuation[element.id] = False
+            self.network.pn_core.throat.trapped[element_id] = False
+            self.network.pn_core.throat.trapped_evacuation[element_id] = False
 
     def _update_element_hinging_contact_angles(self, element_type, id, pc):
         if element_type == PORE:
@@ -882,6 +883,7 @@ class CycleSimulation:
         border_elements,
         phase,
         filled_element,
+        filled_element_id,
         new_trapped_pores,
         new_trapped_throats,
     ):
@@ -892,7 +894,7 @@ class CycleSimulation:
             old_border_throats_array,
             phase,
             filled_element.type,
-            filled_element.id,
+            filled_element_id,
             pn.pore.trapped,
             pn.pore.conns,
             pn.pore.n_conns,

@@ -87,20 +87,26 @@ class ImbibitionSimulation(SubsequentCycleSimulation):
 
         return (max_type, max_id, min(max_pressure, pc))
 
-    def _update_element_filled_geometry(self, pc, element):
-        self.__update_element_pinned_hinging_contact_angles(element.type, element.id, pc)
-        self.__update_element_pinned_b(element.type, element.id, pc)
-        element.corner_oil_layer = calculate_oil_layer(
-            element.advancing_contact_angle, element.beta, element.n_corners, pc
+    def _update_element_filled_geometry(self, pc, element, element_id):
+        self.__update_element_pinned_hinging_contact_angles(element.type, element_id, pc)
+        self.__update_element_pinned_b(element.type, element_id, pc)
+        element.set_corner_oil_layer(
+            element_id, 
+            calculate_oil_layer(
+                element.get_advancing_contact_angle(element_id), 
+                element.get_beta(element_id), 
+                element.get_n_corners(element_id), 
+                pc,
+            ),
         )
-        self.__update_oil_layer_element(element.type, element.id, pc)
+        self.__update_oil_layer_element(element.type, element_id, pc)
 
-        self.__update_element_bo(element.type, element.id, pc)
-        self.__check_water_layer(element.type, element.id)
-        self._update_element_hinging_contact_angles(element.type, element.id, pc)
-        self.__update_element_b(element.type, element.id, pc)
+        self.__update_element_bo(element.type, element_id, pc)
+        self.__check_water_layer(element.type, element_id)
+        self._update_element_hinging_contact_angles(element.type, element_id, pc)
+        self.__update_element_b(element.type, element_id, pc)
 
-        return super()._update_element_filled_geometry(pc, element)
+        return super()._update_element_filled_geometry(pc, element, element_id)
 
     def __update_element_pinned_b(self, element_type, id, pc):
         if element_type == PORE:
