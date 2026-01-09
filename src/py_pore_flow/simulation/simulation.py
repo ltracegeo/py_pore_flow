@@ -605,9 +605,7 @@ def calculate_2nd_drainage_snap_off_values(network, min_pc):
     )
 
 
-def calculate_element_initial_values(
-    element, element_id
-):
+def calculate_element_initial_values(element, element_id):
     new_shape, new_G = calculate_shape(element.get_G(element_id))
     element.set_shape(element_id, new_shape)
     element.set_G(element_id, new_G)
@@ -625,32 +623,32 @@ def calculate_element_drainage_values(element, element_id, max_pc):
     element.b = calculate_drainage_b(
         element.get_beta(element_id),
         np.full(
-            element.get_n_corners(element_id), 
+            element.get_n_corners(element_id),
             element.get_receding_contact_angle(element_id),
-            ),
+        ),
         element.get_n_corners(element_id),
         element.get_max_b(element_id),
         max_pc,
     )
     element.set_C_r(
-        element_id, 
+        element_id,
         calculate_C(
             np.full(
-                element.get_n_corners(element_id), 
+                element.get_n_corners(element_id),
                 element.get_receding_contact_angle(element_id),
-                ), 
-            element.get_beta(element_id), 
+            ),
+            element.get_beta(element_id),
             element.get_n_corners(element_id),
         ),
     )
     element.set_C_a(
-        element_id, 
+        element_id,
         calculate_C(
             np.full(
-                element.get_n_corners(element_id), 
+                element.get_n_corners(element_id),
                 element.get_advancing_contact_angle(element_id),
-                ), 
-            element.get_beta(element_id), 
+            ),
+            element.get_beta(element_id),
             element.get_n_corners(element_id),
         ),
     )
@@ -672,10 +670,10 @@ def calculate_element_imbibition_values(element, element_id, max_pc):
         element_id,
         calculate_C(
             np.full(
-                element.get_n_corners(element_id), 
+                element.get_n_corners(element_id),
                 element.get_receding_contact_angle(element_id),
-                ), 
-            element.get_beta(element_id), 
+            ),
+            element.get_beta(element_id),
             element.get_n_corners(element_id),
         ),
     )
@@ -683,10 +681,10 @@ def calculate_element_imbibition_values(element, element_id, max_pc):
         element_id,
         calculate_C(
             np.full(
-                element.get_n_corners(element_id), 
+                element.get_n_corners(element_id),
                 element.get_advancing_contact_angle(element_id),
-                ), 
-            element.get_beta(element_id), 
+            ),
+            element.get_beta(element_id),
             element.get_n_corners(element_id),
         ),
     )

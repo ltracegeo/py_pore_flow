@@ -725,7 +725,9 @@ class CycleSimulation:
                 self.phase_connection_checker.update_phase_connections(PORE, element_id)
             else:
                 self.phase_connection_checker.update_phase_connections(THROAT, element_id)
-            if (self.phase == OIL and element.get_So(element_id) == 1.0) or (self.phase == WATER and element.get_Sw(element_id) == 1.0):
+            if (self.phase == OIL and element.get_So(element_id) == 1.0) or (
+                self.phase == WATER and element.get_Sw(element_id) == 1.0
+            ):
                 (
                     new_trapped_pores,
                     new_trapped_throats,
@@ -738,7 +740,9 @@ class CycleSimulation:
                 self._update_pore_entry_pc(new_untrapped_pores, pc)
                 self._update_throat_entry_pc(new_untrapped_throats)
             else:
-                new_border_pores, new_border_throats = self.__refresh_border_elements(reached_bubble, element, element_id)
+                new_border_pores, new_border_throats = self.__refresh_border_elements(
+                    reached_bubble, element, element_id
+                )
             self._update_border_pore_entry_pc(new_border_pores, pc)
             self._update_border_throat_entry_pc(new_border_throats)
         return sw_delta, invasion_pc, no_invasion_left

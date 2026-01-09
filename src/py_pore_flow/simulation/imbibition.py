@@ -91,11 +91,11 @@ class ImbibitionSimulation(SubsequentCycleSimulation):
         self.__update_element_pinned_hinging_contact_angles(element.type, element_id, pc)
         self.__update_element_pinned_b(element.type, element_id, pc)
         element.set_corner_oil_layer(
-            element_id, 
+            element_id,
             calculate_oil_layer(
-                element.get_advancing_contact_angle(element_id), 
-                element.get_beta(element_id), 
-                element.get_n_corners(element_id), 
+                element.get_advancing_contact_angle(element_id),
+                element.get_beta(element_id),
+                element.get_n_corners(element_id),
                 pc,
             ),
         )

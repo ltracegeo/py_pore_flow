@@ -85,7 +85,7 @@ class DrainageSimulation(CycleSimulation):
         element.set_corner_water_layer(
             element_id,
             check_water_layer(
-                element.get_corner_oil_layer(element_id), 
+                element.get_corner_oil_layer(element_id),
                 element.get_oil_filled(element_id),
             ),
         )
