@@ -620,15 +620,18 @@ def calculate_element_initial_values(element, element_id):
 
 
 def calculate_element_drainage_values(element, element_id, max_pc):
-    element.b = calculate_drainage_b(
-        element.get_beta(element_id),
-        np.full(
+    element.set_b(
+        element_id,
+        calculate_drainage_b(
+            element.get_beta(element_id),
+            np.full(
+                element.get_n_corners(element_id),
+                element.get_receding_contact_angle(element_id),
+            ),
             element.get_n_corners(element_id),
-            element.get_receding_contact_angle(element_id),
+            element.get_max_b(element_id),
+            max_pc,
         ),
-        element.get_n_corners(element_id),
-        element.get_max_b(element_id),
-        max_pc,
     )
     element.set_C_r(
         element_id,
