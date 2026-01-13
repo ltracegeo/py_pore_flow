@@ -1,0 +1,2 @@
+PORE = 0
+THROAT = 1
