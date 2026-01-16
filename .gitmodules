@@ -1,0 +1,3 @@
+[submodule "src/py_pore_flow/pyflowsolver"]
+	path = src/py_pore_flow/pyflowsolver
+	url = https://github.com/Arenhart/PyFlowSolver.git
