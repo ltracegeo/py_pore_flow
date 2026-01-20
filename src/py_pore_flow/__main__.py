@@ -9,12 +9,10 @@ import os
 
 import numpy as np
 import openpnm
-from PySide2 import QtWidgets
 
 import py_pore_flow as ppf
-from py_pore_flow.graphic.manual_simulation import ManualSimulationPlot
-from py_pore_flow.graphic.plot_krel import plot_krel
 from py_pore_flow.simulation.simulation import StepSimulation
+
 
 
 def print_props():
@@ -130,6 +128,9 @@ def run_simulation(
 
 
 def manual_simulation(pn, parameters):
+    from py_pore_flow.graphic.manual_simulation import ManualSimulationPlot
+    from PySide2 import QtWidgets
+
     simulation = ManualSimulationPlot(pn, parameters)
 
     app = QtWidgets.QApplication([])
@@ -170,6 +171,8 @@ def automatic_simulation(
     print(f"Time elapsed: {time_elapsed}")
 
     if show_final_plot:
+        from py_pore_flow.graphic.plot_krel import plot_krel
+
         plot_krel(cycle, Sw, Krw, Kro)
 
 

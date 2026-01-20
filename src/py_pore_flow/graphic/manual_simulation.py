@@ -3,16 +3,10 @@ import re
 
 import numpy as np
 import pandas as pd
-from PySide2 import QtCore, QtGui, QtWidgets
-import pyqtgraph as pg
-
-from py_pore_flow.graphic.element_graphic import ElementPlotter
-from py_pore_flow.graphic.network_plot import ElementNotFoundException, PorePlot, ThroatPlot
-from py_pore_flow.simulation.simulation import StepSimulation
-
-
 class ManualSimulationPlot:
     def __init__(self, pn, parameters_dict={}, generate_cas=True, set_initial_values=True):
+        from PySide2 import QtCore
+        
         self.pn = pn
         self.manual_simulation = StepSimulation(
             pn,
@@ -35,6 +29,9 @@ class ManualSimulationPlot:
         self.__update_conn_combobox(self.element_widget.get_conns(), "Pore")
 
     def show(self):
+        from PySide2 import QtGui, QtWidgets
+        import pyqtgraph as pg
+        
         self.element_type_combobox = QtWidgets.QComboBox()
         self.element_type_combobox.addItem("Throat")
         self.element_type_combobox.addItem("Pore")
@@ -137,6 +134,11 @@ class ManualSimulationPlot:
 
 class ElementWidget(QtWidgets.QFrame):
     def __init__(self):
+        from PySide2 import QtCore, QtGui, QtWidgets
+        import pyqtgraph as pg
+        from py_pore_flow.graphic.element_graphic import ElementPlotter
+        from py_pore_flow.graphic.network_plot import PorePlot, ThroatPlot
+        
         super().__init__()
 
         self.pn = None
@@ -295,6 +297,8 @@ class ElementWidget(QtWidgets.QFrame):
 
 class ConductanceBarWidget(QtWidgets.QProgressBar):
     def __init__(self, color="#05B8CC"):
+        from PySide2 import QtCore
+
         super().__init__()
         self.setOrientation(QtCore.Qt.Orientation.Vertical)
         self.setTextVisible(False)

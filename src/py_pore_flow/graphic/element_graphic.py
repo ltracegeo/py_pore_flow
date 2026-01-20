@@ -1,9 +1,8 @@
+import sys
 import math
 
 import matplotlib.pyplot as plt
 import numpy as np
-from PySide2 import QtCore, QtGui, QtWidgets
-import pyqtgraph as pg
 
 
 WATER = 0
@@ -121,6 +120,9 @@ class ElementPlotter:
     def plot_pyqtgraph_graphic(
         plot, name, vertices, inner_arcs, outter_arcs, center_color, inner_layers_color, outter_layers_color, line_color
     ):
+        if "pyqtgraph" not in sys.modules:
+            global pg
+            import pyqtgraph as pg
         element_item = ElementItem(
             name, vertices, inner_arcs, outter_arcs, center_color, inner_layers_color, outter_layers_color, line_color
         )
@@ -304,6 +306,9 @@ class ElementItem(pg.GraphicsObject):
     def __init__(
         self, name, vertices, inner_arcs, outter_arcs, center_color, inner_layers_color, outter_layers_color, line_color
     ):
+        if "PySide2" not in sys.modules:
+            global QtCore, QtGui, QtWidgets
+            from PySide2 import QtCore, QtGui, QtWidgets
         super().__init__()
 
         self.picture = QtGui.QPicture()

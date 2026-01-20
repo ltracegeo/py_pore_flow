@@ -1,8 +1,7 @@
-from PySide2 import QtWidgets, QtGui
-import pyqtgraph as pg
-
-
 def plot_krel(cycle, Sw, Krw, Kro):
+    from PySide2 import QtWidgets, QtGui
+    import pyqtgraph as pg
+
     pg.setConfigOption("background", "w")
     pg.setConfigOption("foreground", "k")
 

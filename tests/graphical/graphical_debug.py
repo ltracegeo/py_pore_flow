@@ -1,11 +1,11 @@
 import numpy as np
 import openpnm as op
-from PySide2 import QtWidgets
 
 from py_pore_flow.graphic.manual_simulation import ManualSimulationPlot
 
 
 if __name__ == "__main__":
+    from PySide2 import QtWidgets
     pn = op.network.Network()
     pn_dict = {
         "throat.conns": np.array([[0, 1]]),

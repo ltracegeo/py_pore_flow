@@ -1,7 +1,5 @@
 import numpy as np
 import openpnm as op
-from PySide2 import QtCore, QtGui, QtTest, QtWidgets
-import pyqtgraph as pg
 
 from py_pore_flow.graphic.manual_simulation import ElementWidget
 from py_pore_flow.simulation.simulation import StepSimulation
@@ -382,6 +380,8 @@ class GraphicalTests:
 
 
 if __name__ == "__main__":
+    from PySide2 import QtCore, QtGui, QtTest, QtWidgets
+    import pyqtgraph as pg  
     app = QtWidgets.QApplication([])
     graphical_test = GraphicalTests()
     QtCore.QTimer.singleShot(1, graphical_test.run)
