@@ -63,7 +63,9 @@ def run(
     sample_directory = Path(sample_directory).as_posix()
     if enable_profiling:
         prof = cProfile.Profile()
-        prof.run(f'run_simulation("{sample_directory}", {{}}, {manual}, {generate_vtu}, {debug})')
+        prof.run(
+            f'run_simulation("{sample_directory}", {{}}, {manual}, {generate_vtu}, {debug}, show_final_plot={show_final_plot})'
+        )
         prof.dump_stats("output.prof")
     else:
         run_simulation(
