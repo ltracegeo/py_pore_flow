@@ -34,7 +34,7 @@ from py_pore_flow.simulation.clusters import PhaseConnectionChecker
 # Flags
 USE_OPENPNM_SOLVER = False
 SOLVER = "petsc"  # "pypardiso" or "petsc"
-PETSC_USE_PARDISO_PRECONDITIONER = True
+PETSC_USE_PARDISO_PRECONDITIONER = False
 
 ENABLE_TRAPPING_FROM_INLET = True
 
@@ -268,7 +268,7 @@ class FlowRateCalculator:
                 def __init__(self, A_csr_matrix):
                     self.A = A_csr_matrix
 
-                def apply(self, pc, x, y):
+                def solve(self, pc, x, y):
                     # This is the `apply` method for the preconditioner.
                     # It solves Mz = r. Here M=A.
                     # In PETSc's PCPYTHON, `apply` takes `pc, x, y` where x is input vec, y is output vec.
