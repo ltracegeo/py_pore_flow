@@ -268,7 +268,7 @@ class FlowRateCalculator:
                 def __init__(self, A_csr_matrix):
                     self.A = A_csr_matrix
 
-                def solve(self, pc, x, y):
+                def apply(self, pc, x, y):
                     # This is the `apply` method for the preconditioner.
                     # It solves Mz = r. Here M=A.
                     # In PETSc's PCPYTHON, `apply` takes `pc, x, y` where x is input vec, y is output vec.
