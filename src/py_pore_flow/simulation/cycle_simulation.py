@@ -262,25 +262,7 @@ class FlowRateCalculator:
         ksp = PETSc.KSP().create()
         ksp.setOperators(A_petsc)
 
-        if PETSC_USE_PARDISO_PRECONDITIONER:
-
-            class PardisoPreconditioner:
-                def __init__(self, A_csr_matrix):
-                    self.A = A_csr_matrix
-
-                def solve(self, pc, x, y):
-                    # This is the `apply` method for the preconditioner.
-                    # It solves Mz = r. Here M=A.
-                    # In PETSc's PCPYTHON, `apply` takes `pc, x, y` where x is input vec, y is output vec.
-                    # So it computes y = M^-1 x
-                    x_arr = x.getArray(readonly=True)
-                    y_arr = spsolve(self.A, x_arr)
-                    y.setArray(y_arr)
-
-            pc = ksp.getPC()
-            pc.setType(PETSc.PC.Type.PYTHON)
-            pc.setPythonContext(PardisoPreconditioner(A_csr))
-
+        # Removed custom PardisoPreconditioner for using PETSc's default or configured preconditioner.
         ksp.setFromOptions()
         ksp.solve(b_petsc, x_petsc)
 
