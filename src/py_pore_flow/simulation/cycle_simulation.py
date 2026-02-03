@@ -755,10 +755,11 @@ class CycleSimulation:
                 element = self.network.pore
             else:
                 element = self.network.throat
-
-            log.debug(
-                f"Invasion {element.type_name:6} ID: {element_id:6} Pc: {element.get_pc(element_id):.5f} Radius: {element.get_r(element_id):.2e} G: {element.get_G(element_id):.4f} n_corners: {element.get_n_corners(element_id)} area: {element.get_A(element_id)}"
-            )
+                
+            if False:
+                log.debug(
+                    f"Invasion {element.type_name:6} ID: {element_id:6} Pc: {element.get_pc(element_id):.5f} Radius: {element.get_r(element_id):.2e} G: {element.get_G(element_id):.4f} n_corners: {element.get_n_corners(element_id)} area: {element.get_A(element_id)}"
+                )
 
             self.__fill_element(element, element_id, invasion_pc)
             reached_bubble = self.__check_for_bubble(element, element_id)
