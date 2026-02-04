@@ -33,7 +33,7 @@ from py_pore_flow.simulation.clusters import PhaseConnectionChecker
 
 # Flags
 USE_OPENPNM_SOLVER = False
-SOLVER = "petsc"  # "pypardiso" or "petsc"
+SOLVER = "pypardiso"  # "pypardiso" or "petsc"
 PETSC_USE_PARDISO_PRECONDITIONER = False
 
 ENABLE_TRAPPING_FROM_INLET = True
