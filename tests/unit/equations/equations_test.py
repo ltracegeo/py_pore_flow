@@ -115,7 +115,13 @@ class TestEquations(unittest.TestCase):
         shape = 0
         Rmin = c.sigma / pc
         entry_pc = calculate_imbibition_piston_like_displacement_pc_element(
-            shape_factor, radius, b, advancing_contact_angle, receding_contact_angle, shape, beta, len(beta), Rmin
+            shape_factor, 
+            radius, 
+            advancing_contact_angle, 
+            receding_contact_angle, 
+            beta,
+            n_corners=len(beta),
+            Rmin=Rmin,
         )
         self.assertEqual(entry_pc, 6600.634402546918)
 
@@ -128,7 +134,13 @@ class TestEquations(unittest.TestCase):
         shape = 1
         Rmin = c.sigma / pc
         entry_pc = calculate_imbibition_piston_like_displacement_pc_element(
-            shape_factor, radius, b, advancing_contact_angle, receding_contact_angle, shape, beta, len(beta), Rmin
+            shape_factor, 
+            radius, 
+            advancing_contact_angle, 
+            receding_contact_angle, 
+            beta,
+            n_corners=len(beta),
+            Rmin=Rmin,
         )
         self.assertEqual(entry_pc, 5001.326695864241)
 
@@ -141,7 +153,13 @@ class TestEquations(unittest.TestCase):
         shape = 2
         Rmin = c.sigma / pc
         entry_pc = calculate_imbibition_piston_like_displacement_pc_element(
-            shape_factor, radius, b, advancing_contact_angle, receding_contact_angle, shape, beta, len(beta), Rmin
+            shape_factor, 
+            radius, 
+            advancing_contact_angle, 
+            receding_contact_angle, 
+            beta,
+            n_corners=len(beta),
+            Rmin=Rmin,
         )
         self.assertEqual(entry_pc, 7477.34261076128)
 

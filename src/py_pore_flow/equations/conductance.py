@@ -98,6 +98,9 @@ def calculate_conductance(L, gp):
     j = 2  # Throat connecting pore 0 and 1
     k = 1  # Pore 2
 
+    if gp[i] == 0.0 or gp[j] == 0.0 or gp[k] == 0.0:
+        return 0.0
+
     Gp = 1 / ((L[i] / gp[i]) + (L[j] / gp[j]) + (L[k] / gp[k]))
     return Gp
 

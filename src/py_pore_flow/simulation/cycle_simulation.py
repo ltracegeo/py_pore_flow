@@ -644,10 +644,11 @@ class CycleSimulation:
         self.old_border_throats_array = np.empty(len(self.network.pn_core.throat.all), np.int64)
 
         self.trap_checker = TrapChecker(network, self.phase)
-        self.trap_checker.update_trapped_pores()
 
         self.border_elements = BorderElements()
         self.__refresh_border_elements(True, None, None)
+
+        self.trap_checker.update_trapped_pores()
 
         self.saturation_calculator = None
 
@@ -817,6 +818,13 @@ class CycleSimulation:
         else:
             return False
 
+    def _refresh_border_elements(
+        self,
+        *args,
+        **kwargs,
+    ):
+        self.__refresh_border_elements(*args, **kwargs)
+        
     def __refresh_border_elements(
         self,
         reached_bubble,
@@ -1162,44 +1170,75 @@ class TrapChecker:
 
     def update_trapped_pores(self):
         if self.phase == WATER:
+            evading_filled_pore = self.network.pn_core.pore.oil_filled
+            evading_connected_to_outlet_pore = self.network.pn_core.pore.oil_connected_to_outlet
+            if not ENABLE_TRAPPING_FROM_INLET:
+                evading_connected_to_outlet_pore = (
+                    evading_connected_to_outlet_pore | self.network.pn_core.pore.oil_connected_to_inlet
+                )
+
             new_trapped_pores, new_untrapped_pores = self.__njit_update_trapped_elements(
                 self.pore_new_trapped,
                 self.pore_new_untrapped,
                 self.network.pn_core.pore.trapped,
                 self.network.pn_core.pore.trapped_evacuation,
-                self.network.pn_core.pore.oil_filled,
-                self.network.pn_core.pore.oil_connected_to_outlet,
+                evading_filled_pore,
+                evading_connected_to_outlet_pore,
                 self.network.pn_core.pore.water_connected_to_inlet,
             )
+
+            evading_filled_throat = self.network.pn_core.throat.oil_filled
+            evading_connected_to_outlet_throat = self.network.pn_core.throat.oil_connected_to_outlet
+            if not ENABLE_TRAPPING_FROM_INLET:
+                evading_connected_to_outlet_throat = (
+                    evading_connected_to_outlet_throat | self.network.pn_core.throat.oil_connected_to_inlet
+                )
+
             new_trapped_throats, new_untrapped_throats = self.__njit_update_trapped_elements(
                 self.throat_new_trapped,
                 self.throat_new_untrapped,
                 self.network.pn_core.throat.trapped,
                 self.network.pn_core.throat.trapped_evacuation,
-                self.network.pn_core.throat.oil_filled,
-                self.network.pn_core.throat.oil_connected_to_outlet,
+                evading_filled_throat,
+                evading_connected_to_outlet_throat,
                 self.network.pn_core.throat.water_connected_to_inlet,
             )
         else:
+            evading_filled_pore = self.network.pn_core.pore.water_filled
+            evading_connected_to_outlet_pore = self.network.pn_core.pore.water_connected_to_outlet
+            if not ENABLE_TRAPPING_FROM_INLET:
+                evading_connected_to_outlet_pore = (
+                    evading_connected_to_outlet_pore | self.network.pn_core.pore.water_connected_to_inlet
+                )
+
             new_trapped_pores, new_untrapped_pores = self.__njit_update_trapped_elements(
                 self.pore_new_trapped,
                 self.pore_new_untrapped,
                 self.network.pn_core.pore.trapped,
                 self.network.pn_core.pore.trapped_evacuation,
-                self.network.pn_core.pore.water_filled,
-                self.network.pn_core.pore.water_connected_to_outlet,
+                evading_filled_pore,
+                evading_connected_to_outlet_pore,
                 self.network.pn_core.pore.oil_connected_to_inlet,
             )
+
+            evading_filled_throat = self.network.pn_core.throat.water_filled
+            evading_connected_to_outlet_throat = self.network.pn_core.throat.water_connected_to_outlet
+            if not ENABLE_TRAPPING_FROM_INLET:
+                evading_connected_to_outlet_throat = (
+                    evading_connected_to_outlet_throat | self.network.pn_core.throat.water_connected_to_inlet
+                )
+
             new_trapped_throats, new_untrapped_throats = self.__njit_update_trapped_elements(
                 self.throat_new_trapped,
                 self.throat_new_untrapped,
                 self.network.pn_core.throat.trapped,
                 self.network.pn_core.throat.trapped_evacuation,
-                self.network.pn_core.throat.water_filled,
-                self.network.pn_core.throat.water_connected_to_outlet,
+                evading_filled_throat,
+                evading_connected_to_outlet_throat,
                 self.network.pn_core.throat.oil_connected_to_inlet,
             )
         return new_trapped_pores, new_trapped_throats, new_untrapped_pores, new_untrapped_throats
+        
 
     @staticmethod
     @nb.njit(cache=True)

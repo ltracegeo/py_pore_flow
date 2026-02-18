@@ -275,6 +275,7 @@ class ReductiblePhaseConnectionChecker2(PhaseConnectionChecker2):
         self.pore_old_cluster = None
         self.throat_old_cluster = None
         self.max_cluster_id = None
+        self.reset_connections()
 
     def reset_connections(self):
         if self.phase == WATER:

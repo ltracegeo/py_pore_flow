@@ -70,7 +70,13 @@ def calculate_imbibition_piston_like_displacement_pc_network(
 
 @njit(cache=True)
 def calculate_imbibition_piston_like_displacement_pc_element(
-    shape_factor, radius, advancing_contact_angle, receding_contact_angle, beta, n_corners, Rmin
+    shape_factor, 
+    radius, 
+    advancing_contact_angle, 
+    receding_contact_angle, 
+    beta, 
+    n_corners, 
+    Rmin,
 ):
     b = np.empty(n_corners, np.float64)
     theta_h = np.empty(n_corners, np.float64)

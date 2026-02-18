@@ -23,6 +23,14 @@ class TestCycleSimulation(unittest.TestCase):
         #                   /
         #  -> 0--@--@--0--O
         #
+        #  -> 0-----1----2---3---4 ----->
+        #            \
+        #             5-------6
+        #            /         \
+        #  -> 7--8--9          10---11 ->
+        #                      /
+        #  -> 12--13--14--15--16
+        #
         #
         #  Legend:
         #  -> inlet/outlet
@@ -31,6 +39,8 @@ class TestCycleSimulation(unittest.TestCase):
         #  @  pore with oil in center and water in corners
         #  -- throat
 
+        Np = 17
+        Nt = 16
         pn_dict = {
             "throat.conns": np.array(
                 [
@@ -197,38 +207,49 @@ class TestCycleSimulation(unittest.TestCase):
                     True,
                 ]
             ),
-            "throat.shape_factor": np.array([]),
-            "throat.radius": np.array([]),
-            "throat.volume": np.array([]),
-            "throat.clay_volume": np.array([]),
-            "throat.cross_sectional_area": np.array([]),
-            "throat.length": np.array([]),
-            "pore.shape_factor": np.array([]),
-            "pore.radius": np.array([]),
-            "pore.volume": np.array([]),
-            "pore.clay_volume": np.array([]),
-            "pore.area": np.array([]),
-            "pore.length": np.array([]),
+            "throat.shape_factor": np.ones(Nt)*0.1,
+            "throat.radius": np.ones(Nt),
+            "throat.volume": np.ones(Nt),
+            "throat.clay_volume": np.zeros(Nt),
+            "throat.cross_sectional_area": np.ones(Nt),
+            "throat.length": np.ones(Nt),
+            "pore.shape_factor": np.ones(Np)*0.1,
+            "pore.radius": np.ones(Np),
+            "pore.volume": np.ones(Np),
+            "pore.clay_volume": np.zeros(Np),
+            "pore.area": np.ones(Np),
+            "pore.length": np.ones(Np),
         }
 
         pn = op.network.Network()
         pn.update(pn_dict)
         initialize_pn(pn)
         pn.update(pn_dict)
+        
+        # After update, we need to ensure all properties are synced correctly
         pn["pore.oil_saturation"] = 1.0 - pn["pore.water_saturation"]
         pn["throat.oil_saturation"] = 1.0 - pn["throat.water_saturation"]
         pn["pore.oil_filled"] = ~pn["pore.water_filled"]
         pn["throat.oil_filled"] = ~pn["throat.water_filled"]
+        
+        # Re-calculate is_multiphase after update because it depends on saturation
+        for element_type in ["pore", "throat"]:
+             pn[f"{element_type}.is_multiphase"] = (pn[f"{element_type}.water_saturation"] > 0) & (
+                pn[f"{element_type}.water_saturation"] < 1.0
+            )
 
         network = Network(pn)
-        phase_connection_checker = PhaseConnectionChecker(network)
-        phase_connection_checker.update_phase_connections()
+        
+        cicle_simluation = CycleSimulation(
+            network=network, 
+            phase=WATER, 
+            calculate_full_conductance=False
+            )
+        
+        cicle_simluation._refresh_border_elements(True, None, None)
 
-        border_elements = BorderElements()
-        CycleSimulation._find_border_elements(network.pn_core, border_elements, WATER)
-
-        np.testing.assert_equal(border_elements.get_pores_ids(), [3, 6, 7, 9, 13, 14, 16])
-        np.testing.assert_equal(border_elements.get_throats_ids(), [])
+        np.testing.assert_equal(cicle_simluation.border_elements.get_pores_ids(), [3, 6, 16])
+        np.testing.assert_equal(cicle_simluation.border_elements.get_throats_ids(), [])
 
         # Trapping
         trap_checker = TrapChecker(network, WATER)

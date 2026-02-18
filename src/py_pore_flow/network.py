@@ -20,13 +20,17 @@ THROAT = 1
 
 
 def initialize_pn(pn):
+    def set_default(pn, key, value):
+        if key not in pn:
+            pn[key] = value
+
     for element_type in ["pore", "throat"]:
         number_of_elements = len(pn[f"{element_type}.all"])
 
-        pn[f"{element_type}.oil_filled"] = False
-        pn[f"{element_type}.water_filled"] = True
-        pn[f"{element_type}.oil_saturation"] = 0.0
-        pn[f"{element_type}.water_saturation"] = 1.0
+        set_default(pn, f"{element_type}.oil_filled", False)
+        set_default(pn, f"{element_type}.water_filled", True)
+        set_default(pn, f"{element_type}.oil_saturation", 0.0)
+        set_default(pn, f"{element_type}.water_saturation", 1.0)
         pn[f"{element_type}.corner_half_angle"] = np.empty((number_of_elements, MAX_NUMBER_OF_CORNERS), np.float64)
         pn[f"{element_type}.sides"] = np.empty((number_of_elements, MAX_NUMBER_OF_CORNERS), np.float64)
         pn[f"{element_type}.hinging_contact_angle"] = np.empty((number_of_elements, MAX_NUMBER_OF_CORNERS), np.float64)
@@ -80,13 +84,17 @@ def initialize_pn(pn):
         pn[f"{element_type}.oil_connected_to_outlet"] = False
         pn[f"{element_type}.water_connected_to_inlet"] = True
         pn[f"{element_type}.water_connected_to_outlet"] = True
+
+        pn[f"{element_type}.is_multiphase"] = (pn[f"{element_type}.water_saturation"] > 0) & (
+            pn[f"{element_type}.water_saturation"] < 1.0
+        )
+
         pn[f"{element_type}.id"] = list(range(len(pn[f"{element_type}.all"])))
         if f"{element_type}.N" not in pn:
             pn[f"{element_type}.N"] = 1
         pn[f"{element_type}.changed_wettability"] = False
         pn[f"{element_type}.imminent_snap_off"] = False
         pn[f"{element_type}.in_border"] = False
-        pn[f"{element_type}.is_multiphase"] = False
 
     pn["throat.oil_singlephase_conductance"] = 0.0
     pn["throat.water_singlephase_conductance"] = 0.0
