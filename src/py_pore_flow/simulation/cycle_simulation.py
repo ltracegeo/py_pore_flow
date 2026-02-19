@@ -46,14 +46,14 @@ class ConductanceCalculator:
         self.network = network
 
     def calculate_singlephase_conductance(self, phase):
-        self.__calculate_singlephase_conductivity(phase)
-        self.__calculate_singlephase_conductance(phase)
+        self._calculate_singlephase_conductivity(phase)
+        self._calculate_singlephase_conductance(phase)
 
     def calculate_multiphase_conductance(self, phase):
-        self.__calculate_multiphase_conductivity(phase)
-        self.__calculate_multiphase_conductance(phase)
+        self._calculate_multiphase_conductivity(phase)
+        self._calculate_multiphase_conductance(phase)
 
-    def __calculate_singlephase_conductance(self, phase):
+    def _calculate_singlephase_conductance(self, phase):
         if phase == WATER:
             calculate_network_conductance(
                 self.network.pn_core.throat.water_singlephase_conductance,
@@ -73,7 +73,7 @@ class ConductanceCalculator:
                 self.network.pn_core.pore.radius,
             )
 
-    def __calculate_multiphase_conductance(self, phase):
+    def _calculate_multiphase_conductance(self, phase):
         if phase == WATER:
             calculate_network_conductance(
                 self.network.pn_core.throat.water_multiphase_conductance,
@@ -93,7 +93,7 @@ class ConductanceCalculator:
                 self.network.pn_core.pore.radius,
             )
 
-    def __calculate_singlephase_conductivity(self, phase):
+    def _calculate_singlephase_conductivity(self, phase):
         for element_type in [PORE, THROAT]:
             if element_type == PORE:
                 pn_element = self.network.pn_core.pore
@@ -116,7 +116,7 @@ class ConductanceCalculator:
             )
             singlephase_conductivity *= pn_element.N
 
-    def __calculate_multiphase_conductivity(self, phase):
+    def _calculate_multiphase_conductivity(self, phase):
         for element_type in [PORE, THROAT]:
             if element_type == PORE:
                 pn_element = self.network.pn_core.pore
@@ -166,12 +166,12 @@ class FlowRateCalculator:
             f"throat.{phase_name}_singlephase_conductance"
         ]
 
-        return self.__solve_flow_rate(phase)
+        return self._solve_flow_rate(phase)
 
     def calculate_total_flow_rate(self, phase, update_hydraulic_conductance=True, initial_guess=None):
         if update_hydraulic_conductance:
             self.update_hydraulic_conductance(phase)
-        return self.__solve_flow_rate(phase, initial_guess=initial_guess)
+        return self._solve_flow_rate(phase, initial_guess=initial_guess)
 
     def update_hydraulic_conductance(self, phase):
         if phase == WATER:
@@ -186,9 +186,9 @@ class FlowRateCalculator:
             f"throat.{phase_name}_multiphase_conductance"
         ]
 
-    def __solve_flow_rate(self, phase, initial_guess=None):
+    def _solve_flow_rate(self, phase, initial_guess=None):
         if USE_OPENPNM_SOLVER:
-            return self.__openpnm_solver(phase)
+            return self._openpnm_solver(phase)
         else:
             sub_network = self.solver.get_sub_network()
             if sub_network is False:
@@ -237,19 +237,19 @@ class FlowRateCalculator:
             )
 
             if SOLVER == "petsc":
-                x = self.__petsc_solver(A_csr, b_array, initial_guess=initial_guess)
+                x = self._petsc_solver(A_csr, b_array, initial_guess=initial_guess)
             else:
-                x = self.__pypardiso_solver(A_csr, b_array)
+                x = self._pypardiso_solver(A_csr, b_array)
 
             pressure = network_manager.get_pressure_list(x)
             flow_rate = network_manager.get_flow_rate(pressure)
 
             return flow_rate * factor
 
-    def __pypardiso_solver(self, A_csr, b_array):
+    def _pypardiso_solver(self, A_csr, b_array):
         return spsolve(A_csr, b_array)
 
-    def __petsc_solver(self, A_csr, b_array, initial_guess=None):
+    def _petsc_solver(self, A_csr, b_array, initial_guess=None):
         if PETSc is None:
             raise ImportError("petsc4py is not installed, which is required for using the PETSc solver.")
 
@@ -268,7 +268,7 @@ class FlowRateCalculator:
 
         return x_petsc.getArray()
 
-    def __openpnm_solver(self, phase):
+    def _openpnm_solver(self, phase):
         if phase == WATER:
             phase = openpnm.phase.Water(network=self.network.pn)
         else:
@@ -290,15 +290,15 @@ class FlowRateCalculator:
 class Solver:
     def __init__(self, spy_network):
         self.spy_network = spy_network
-        self.connected_pores, self.connected_throats = self.__get_connected_spy_network(
+        self.connected_pores, self.connected_throats = self._get_connected_spy_network(
             self.spy_network,
         )
 
     def get_sub_network(self):
-        return self.__get_sub_spy(self.spy_network, self.connected_pores, self.connected_throats)
+        return self._get_sub_spy(self.spy_network, self.connected_pores, self.connected_throats)
 
     @staticmethod
-    def __get_sub_spy(spy_network, sub_pores, sub_throats):
+    def _get_sub_spy(spy_network, sub_pores, sub_throats):
         sub_pn = {}
         for prop in spy_network.keys():
             if prop.split(".")[0] == "pore":
@@ -323,8 +323,8 @@ class Solver:
         return sub_pn
 
     @staticmethod
-    def __get_connected_spy_network(network):
-        _, cluster_labels = Solver.__get_clusters(network)
+    def _get_connected_spy_network(network):
+        _, cluster_labels = Solver._get_clusters(network)
         in_labels = np.unique(cluster_labels[network[f"pore.inlets"]])
         out_labels = np.unique(cluster_labels[network[f"pore.outlets"]])
         common_labels = np.intersect1d(in_labels, out_labels, assume_unique=True)
@@ -337,7 +337,7 @@ class Solver:
         return np.isin(cluster_labels, common_labels), np.isin(network["throat.conns"], connected_pores).all(axis=1)
 
     @staticmethod
-    def __get_clusters(network):
+    def _get_clusters(network):
         """
         clusters are numbered starting at 0
         """
@@ -360,7 +360,7 @@ class KrelCalculator:
         self.singlephase_flow_rate = [0.0] * 2
         self.singlephase_flow_rate[WATER] = flow_rate_calculator.calculate_singlephase_flow_rate(WATER)
         self.singlephase_flow_rate[OIL] = flow_rate_calculator.calculate_singlephase_flow_rate(OIL)
-        self.absolute_permeability = self.__calculate_K()
+        self.absolute_permeability = self._calculate_K()
 
     def calculate_kro(self):
         if self.calculate_full_conductance:
@@ -375,13 +375,13 @@ class KrelCalculator:
         pore_id_to_remove_list = np.where(self.network_clone["pore.oil_saturation"] == 0)[0]
         throat_id_to_remove_list = np.where(self.network_clone["throat.oil_saturation"] == 0)[0]
         try:
-            valid_clusters_list = self.__trim(
+            valid_clusters_list = self._trim(
                 self.network_clone, pores=pore_id_to_remove_list, throats=throat_id_to_remove_list
             )
         except ValueError:
             return 0
 
-        flow_rate = self.__calculate_network_flowrate(
+        flow_rate = self._calculate_network_flowrate(
             self.network_clone, update_hydraulic_conductance, valid_clusters_list, OIL
         )
 
@@ -400,13 +400,13 @@ class KrelCalculator:
         pore_id_to_remove_list = np.where(self.network_clone["pore.water_saturation"] == 0)[0]
         throat_id_to_remove_list = np.where(self.network_clone["throat.water_saturation"] == 0)[0]
         try:
-            valid_clusters_list = self.__trim(
+            valid_clusters_list = self._trim(
                 self.network_clone, pores=pore_id_to_remove_list, throats=throat_id_to_remove_list
             )
         except ValueError:
             return 0
 
-        flow_rate = self.__calculate_network_flowrate(
+        flow_rate = self._calculate_network_flowrate(
             self.network_clone, update_hydraulic_conductance, valid_clusters_list, WATER
         )
         return flow_rate / self.singlephase_flow_rate[WATER]
@@ -414,21 +414,21 @@ class KrelCalculator:
     def get_absolute_permeability(self):
         return self.absolute_permeability
 
-    def __calculate_network_flowrate(self, network_clone, update_hydraulic_conductance, valid_clusters_list, phase):
+    def _calculate_network_flowrate(self, network_clone, update_hydraulic_conductance, valid_clusters_list, phase):
         if len(valid_clusters_list) > 0:
             flow_rate = 0.0
             for valid_cluster_id in valid_clusters_list:
                 self.sub_network_clone.clear()
                 self.sub_network_clone.update(network_clone.copy())
-                self.__trim_cluster(self.sub_network_clone, valid_cluster_id)
-                flow_rate += self.__calculate_subnetwork_flowrate(
+                self._trim_cluster(self.sub_network_clone, valid_cluster_id)
+                flow_rate += self._calculate_subnetwork_flowrate(
                     self.sub_network_clone, update_hydraulic_conductance, phase
                 )
         else:
-            flow_rate = self.__calculate_subnetwork_flowrate(network_clone, update_hydraulic_conductance, phase)
+            flow_rate = self._calculate_subnetwork_flowrate(network_clone, update_hydraulic_conductance, phase)
         return flow_rate
 
-    def __calculate_subnetwork_flowrate(self, network_clone, update_hydraulic_conductance, phase):
+    def _calculate_subnetwork_flowrate(self, network_clone, update_hydraulic_conductance, phase):
         if len(network_clone.throats()) == 0 or len(network_clone.pores()) == 0:
             return 0
         new_network = Network(network_clone)
@@ -438,13 +438,13 @@ class KrelCalculator:
         flow_rate = flow_rate_calculator.calculate_total_flow_rate(phase, update_hydraulic_conductance)
         return flow_rate
 
-    def __calculate_K(self):
-        A, L = self.__get_network_size(self.network.pn)
+    def _calculate_K(self):
+        A, L = self._get_network_size(self.network.pn)
         qtsp = self.singlephase_flow_rate[WATER]
         return calculate_absolute_permeability(WATER, qtsp, A, L, 101325, 0)
 
     @staticmethod
-    def __trim(pn, pores=[], throats=[]):
+    def _trim(pn, pores=[], throats=[]):
         if len(pores) == 0 and len(throats) == 0:
             return []
         if len(pores) == len(pn.pores()) or len(throats) == len(pn.throats()):
@@ -464,13 +464,13 @@ class KrelCalculator:
         return valid_clusters
 
     @staticmethod
-    def __trim_cluster(pn, choosen_cluster):
+    def _trim_cluster(pn, choosen_cluster):
         clustered_pores = pn[pn["pore.cluster_number"] != choosen_cluster]
 
         openpnm.topotools.trim(network=pn, pores=clustered_pores)
 
     @staticmethod
-    def __get_network_size(pn):
+    def _get_network_size(pn):
         dimension_list = [0, 1, 2]
         element_max = [0.0] * len(dimension_list)
         element_min = [0.0] * len(dimension_list)
@@ -646,7 +646,7 @@ class CycleSimulation:
         self.trap_checker = TrapChecker(network, self.phase)
 
         self.border_elements = BorderElements()
-        self.__refresh_border_elements(True, None, None)
+        self._refresh_border_elements(True, None, None)
 
         self.trap_checker.update_trapped_pores()
 
@@ -666,7 +666,7 @@ class CycleSimulation:
             if target_sw is not None:
                 invasion_target_sw = target_sw - total_sw_delta
             invaded_pc = invasion_pc
-            sw_delta, invasion_pc, no_invasion_left = self.__update_invasions(invasion_pc, invasion_target_sw)
+            sw_delta, invasion_pc, no_invasion_left = self._update_invasions(invasion_pc, invasion_target_sw)
             self._update_multiphase_mask(invaded_pc, old_pc)
             old_pc = invaded_pc
             total_sw_delta += sw_delta
@@ -733,7 +733,7 @@ class CycleSimulation:
     def _update_entry_pressures(self, pc):
         pass
 
-    def __update_invasions(self, pc, target_sw=None):
+    def _update_invasions(self, pc, target_sw=None):
         sw_delta = 0.0
 
         self._update_entry_pressures(pc)
@@ -762,8 +762,8 @@ class CycleSimulation:
                     f"Invasion {element.type_name:6} ID: {element_id:6} Pc: {element.get_pc(element_id):.5f} Radius: {element.get_r(element_id):.2e} G: {element.get_G(element_id):.4f} n_corners: {element.get_n_corners(element_id)} area: {element.get_A(element_id)}"
                 )
 
-            self.__fill_element(element, element_id, invasion_pc)
-            reached_bubble = self.__check_for_bubble(element, element_id)
+            self._fill_element(element, element_id, invasion_pc)
+            reached_bubble = self._check_for_bubble(element, element_id)
             sw_delta += self._update_element_filled_geometry(invasion_pc, element, element_id)
             if element.is_pore():
                 self.phase_connection_checker.update_phase_connections(PORE, element_id)
@@ -778,20 +778,20 @@ class CycleSimulation:
                     new_untrapped_pores,
                     new_untrapped_throats,
                 ) = self.trap_checker.update_trapped_pores()
-                new_border_pores, new_border_throats = self.__refresh_border_elements(
+                new_border_pores, new_border_throats = self._refresh_border_elements(
                     reached_bubble, element, element_id, new_trapped_pores, new_trapped_throats
                 )
                 self._update_pore_entry_pc(new_untrapped_pores, pc)
                 self._update_throat_entry_pc(new_untrapped_throats)
             else:
-                new_border_pores, new_border_throats = self.__refresh_border_elements(
+                new_border_pores, new_border_throats = self._refresh_border_elements(
                     reached_bubble, element, element_id
                 )
             self._update_border_pore_entry_pc(new_border_pores, pc)
             self._update_border_throat_entry_pc(new_border_throats)
         return sw_delta, invasion_pc, no_invasion_left
 
-    def __check_for_bubble(self, element, element_id):
+    def _check_for_bubble(self, element, element_id):
 
         if element.type == PORE:
             element_data = self.network.pn_core.pore
@@ -823,9 +823,9 @@ class CycleSimulation:
         *args,
         **kwargs,
     ):
-        self.__refresh_border_elements(*args, **kwargs)
+        self._refresh_border_elements(*args, **kwargs)
         
-    def __refresh_border_elements(
+    def _refresh_border_elements(
         self,
         reached_bubble,
         filled_element,
@@ -834,7 +834,7 @@ class CycleSimulation:
         new_trapped_throats=np.empty(0, np.int64),
     ):
         if reached_bubble:
-            new_pores, new_throats = self.__reset_border_elements(
+            new_pores, new_throats = self._reset_border_elements(
                 self.new_border_pores_array,
                 self.new_border_throats_array,
                 self.network.pn_core,
@@ -842,7 +842,7 @@ class CycleSimulation:
                 self.phase,
             )
         else:
-            new_pores, new_throats = self.__update_border_elements(
+            new_pores, new_throats = self._update_border_elements(
                 self.new_border_pores_array,
                 self.new_border_throats_array,
                 self.old_border_pores_array,
@@ -858,7 +858,7 @@ class CycleSimulation:
 
         return new_pores, new_throats
 
-    def __fill_element(self, element, element_id, pc):
+    def _fill_element(self, element, element_id, pc):
         element.set_filled(element_id, self.phase, True)
         if element.type == PORE:
             self.network.pn_core.pore.trapped[element_id] = False
@@ -883,14 +883,14 @@ class CycleSimulation:
         )
 
     @staticmethod
-    def __reset_border_elements(
+    def _reset_border_elements(
         new_border_pores,
         new_border_throats,
         pn,
         border_elements,
         phase,
     ):
-        border_pore_ids, border_throat_ids = CycleSimulation.__njit_reset_border_elements(
+        border_pore_ids, border_throat_ids = CycleSimulation._njit_reset_border_elements(
             new_border_pores,
             new_border_throats,
             phase,
@@ -929,7 +929,7 @@ class CycleSimulation:
         return new_pores, new_throats
 
     @staticmethod
-    def __update_border_elements(
+    def _update_border_elements(
         new_border_pores_array,
         new_border_throats_array,
         old_border_pores_array,
@@ -942,7 +942,7 @@ class CycleSimulation:
         new_trapped_pores,
         new_trapped_throats,
     ):
-        new_border_pores, new_border_throats, old_pores, old_throats = CycleSimulation.__njit_update_border_elements(
+        new_border_pores, new_border_throats, old_pores, old_throats = CycleSimulation._njit_update_border_elements(
             new_border_pores_array,
             new_border_throats_array,
             old_border_pores_array,
@@ -975,7 +975,7 @@ class CycleSimulation:
 
     @staticmethod
     @nb.njit(cache=True)
-    def __njit_update_border_elements(
+    def _njit_update_border_elements(
         new_border_pores_array,
         new_border_throats_array,
         old_border_pores_array,
@@ -1070,7 +1070,7 @@ class CycleSimulation:
 
     @staticmethod
     @nb.njit(cache=True)
-    def __njit_reset_border_elements(
+    def _njit_reset_border_elements(
         new_border_pores,
         new_border_throats,
         phase,
@@ -1141,7 +1141,7 @@ class CycleSimulation:
 
         return border_pore_ids, border_throat_ids
 
-    def __check_for_inconsistent_elements(self):
+    def _check_for_inconsistent_elements(self):
         wrong_pores = np.where(
             (self.network.pn_core.pore.water_filled & (self.network.pn_core.pore.water_saturation == 0))
             | (self.network.pn_core.pore.oil_filled & (self.network.pn_core.pore.oil_saturation == 0))
@@ -1177,7 +1177,7 @@ class TrapChecker:
                     evading_connected_to_outlet_pore | self.network.pn_core.pore.oil_connected_to_inlet
                 )
 
-            new_trapped_pores, new_untrapped_pores = self.__njit_update_trapped_elements(
+            new_trapped_pores, new_untrapped_pores = self._njit_update_trapped_elements(
                 self.pore_new_trapped,
                 self.pore_new_untrapped,
                 self.network.pn_core.pore.trapped,
@@ -1194,7 +1194,7 @@ class TrapChecker:
                     evading_connected_to_outlet_throat | self.network.pn_core.throat.oil_connected_to_inlet
                 )
 
-            new_trapped_throats, new_untrapped_throats = self.__njit_update_trapped_elements(
+            new_trapped_throats, new_untrapped_throats = self._njit_update_trapped_elements(
                 self.throat_new_trapped,
                 self.throat_new_untrapped,
                 self.network.pn_core.throat.trapped,
@@ -1211,7 +1211,7 @@ class TrapChecker:
                     evading_connected_to_outlet_pore | self.network.pn_core.pore.water_connected_to_inlet
                 )
 
-            new_trapped_pores, new_untrapped_pores = self.__njit_update_trapped_elements(
+            new_trapped_pores, new_untrapped_pores = self._njit_update_trapped_elements(
                 self.pore_new_trapped,
                 self.pore_new_untrapped,
                 self.network.pn_core.pore.trapped,
@@ -1228,7 +1228,7 @@ class TrapChecker:
                     evading_connected_to_outlet_throat | self.network.pn_core.throat.water_connected_to_inlet
                 )
 
-            new_trapped_throats, new_untrapped_throats = self.__njit_update_trapped_elements(
+            new_trapped_throats, new_untrapped_throats = self._njit_update_trapped_elements(
                 self.throat_new_trapped,
                 self.throat_new_untrapped,
                 self.network.pn_core.throat.trapped,
@@ -1242,7 +1242,7 @@ class TrapChecker:
 
     @staticmethod
     @nb.njit(cache=True)
-    def __njit_update_trapped_elements(
+    def _njit_update_trapped_elements(
         new_trapped,
         new_untrapped,
         element_trapped,
@@ -1341,14 +1341,14 @@ class PcIncrementer:
         self.pc = self.pc_maximum
 
     def increment(self, sw_current):
-        self.__adjust_pc_step(sw_current)
+        self._adjust_pc_step(sw_current)
         self.pc = min(self.pc + self.pc_step, self.pc_maximum)
         self.sw_last = sw_current
         self.first_step = False
         return self.pc
 
     def decrement(self, sw_current):
-        self.__adjust_pc_step(sw_current)
+        self._adjust_pc_step(sw_current)
         self.pc = max(self.pc - self.pc_step, self.pc_minimum)
         self.sw_last = sw_current
         self.first_step = False
@@ -1366,7 +1366,7 @@ class PcIncrementer:
         else:
             return self.pc <= self.get_pc_min()
 
-    def __adjust_pc_step(self, sw_current):
+    def _adjust_pc_step(self, sw_current):
         if self.enable_control and not self.first_step:
             sw_diff = abs(self.sw_last - sw_current)
             if sw_diff > 0:

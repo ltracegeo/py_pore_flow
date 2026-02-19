@@ -100,12 +100,12 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
                 element.get_oil_filled(element_id),
             ),
         )
-        self.__update_element_pinned_b(element.type, element_id, pc)
+        self._update_element_pinned_b(element.type, element_id, pc)
         self._update_element_hinging_contact_angles(element.type, element_id, pc)
-        self.__update_element_b(element.type, element_id, pc)
+        self._update_element_b(element.type, element_id, pc)
         return super()._update_element_filled_geometry(pc, element, element_id)
 
-    def __update_element_pinned_b(self, element_type, id, pc):
+    def _update_element_pinned_b(self, element_type, id, pc):
         if element_type == PORE:
             element = self.network.pn_core.pore
         else:
@@ -125,7 +125,7 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
             pc,
         )
 
-    def __update_element_b(self, element_type, id, pc):
+    def _update_element_b(self, element_type, id, pc):
         if element_type == PORE:
             element = self.network.pn_core.pore
         else:

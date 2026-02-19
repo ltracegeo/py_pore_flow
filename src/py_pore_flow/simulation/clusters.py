@@ -65,7 +65,7 @@ class PhaseConnectionChecker2:
 
     def reset_connections(self):
         if self.phase == WATER:
-            self.__reset_connections(
+            self._reset_connections(
                 self.pn.pore.water_connected_to_inlet,
                 self.pn.pore.water_connected_to_outlet,
                 self.pn.throat.water_connected_to_inlet,
@@ -74,7 +74,7 @@ class PhaseConnectionChecker2:
                 self.pn.throat.is_multiphase | self.pn.throat.water_filled,
             )
         else:
-            self.__reset_connections(
+            self._reset_connections(
                 self.pn.pore.oil_connected_to_inlet,
                 self.pn.pore.oil_connected_to_outlet,
                 self.pn.throat.oil_connected_to_inlet,
@@ -85,7 +85,7 @@ class PhaseConnectionChecker2:
 
     def update_connections(self, pore_id_list, throat_id_list):
         if self.phase == WATER:
-            self.__update_connections(
+            self._update_connections(
                 self.pn.pore.water_connected_to_inlet,
                 self.pn.pore.water_connected_to_outlet,
                 self.pn.throat.water_connected_to_inlet,
@@ -96,7 +96,7 @@ class PhaseConnectionChecker2:
                 throat_id_list,
             )
         else:
-            self.__update_connections(
+            self._update_connections(
                 self.pn.pore.oil_connected_to_inlet,
                 self.pn.pore.oil_connected_to_outlet,
                 self.pn.throat.oil_connected_to_inlet,
@@ -107,7 +107,7 @@ class PhaseConnectionChecker2:
                 throat_id_list,
             )
 
-    def __update_connections(
+    def _update_connections(
         self,
         pore_connected_to_inlet,
         pore_connected_to_outlet,
@@ -118,7 +118,7 @@ class PhaseConnectionChecker2:
         pore_id_list,
         throat_id_list,
     ):
-        self.__jit_update_connections(
+        self._jit_update_connections(
             self.wqupc.parent_array,
             self.wqupc.size_array,
             self.wqupc.nP,
@@ -140,7 +140,7 @@ class PhaseConnectionChecker2:
             throat_id_list,
         )
 
-    def __reset_connections(
+    def _reset_connections(
         self,
         pore_connected_to_inlet,
         pore_connected_to_outlet,
@@ -171,7 +171,7 @@ class PhaseConnectionChecker2:
 
     @staticmethod
     @nb.njit(cache=True)
-    def __jit_update_connections(
+    def _jit_update_connections(
         parent_array,
         size_array,
         nP,
@@ -313,16 +313,16 @@ class ReductiblePhaseConnectionChecker2(PhaseConnectionChecker2):
         # self.pore_old_cluster = self.pore_cluster.copy()
         # self.throat_old_cluster = self.throat_cluster.copy()
         # for pore_id in np.where(pore_has_phase_diff)[0]:
-        #     self.__delete_connections(PORE, pore_id)
+        #     self._delete_connections(PORE, pore_id)
         # for throat_id in np.where(throat_has_phase_diff)[0]:
-        #     self.__delete_connections(THROAT, throat_id)
-        self.__delete_connections(np.where(pore_has_phase_diff)[0], np.where(throat_has_phase_diff)[0])
+        #     self._delete_connections(THROAT, throat_id)
+        self._delete_connections(np.where(pore_has_phase_diff)[0], np.where(throat_has_phase_diff)[0])
 
-        # self.__update_element_connection()
+        # self._update_element_connection()
 
-    def __delete_connections(self, pores_changed, throats_changed):
+    def _delete_connections(self, pores_changed, throats_changed):
         if self.phase == WATER:
-            self.max_cluster_id = self.__njit_delete_connections(
+            self.max_cluster_id = self._njit_delete_connections(
                 pores_changed,
                 throats_changed,
                 self.pore_cluster,
@@ -337,7 +337,7 @@ class ReductiblePhaseConnectionChecker2(PhaseConnectionChecker2):
                 self.max_cluster_id,
             )
         else:
-            self.max_cluster_id = self.__njit_delete_connections(
+            self.max_cluster_id = self._njit_delete_connections(
                 pores_changed,
                 throats_changed,
                 self.pore_cluster,
@@ -354,7 +354,7 @@ class ReductiblePhaseConnectionChecker2(PhaseConnectionChecker2):
 
     @staticmethod
     @nb.njit(cache=True)
-    def __njit_delete_connections(
+    def _njit_delete_connections(
         pores_changed,
         throats_changed,
         pore_cluster,
@@ -438,9 +438,9 @@ class ReductiblePhaseConnectionChecker2(PhaseConnectionChecker2):
 
         return max_cluster_id
 
-    def __update_element_connection(self):
+    def _update_element_connection(self):
         if self.phase == WATER:
-            self.__njit_update_element_connection(
+            self._njit_update_element_connection(
                 self.pn.pore.water_connected_to_inlet,
                 self.pn.pore.water_connected_to_outlet,
                 self.pore_old_cluster,
@@ -453,7 +453,7 @@ class ReductiblePhaseConnectionChecker2(PhaseConnectionChecker2):
                 self.pn.pore.outlets,
             )
         else:
-            self.__njit_update_element_connection(
+            self._njit_update_element_connection(
                 self.pn.pore.oil_connected_to_inlet,
                 self.pn.pore.oil_connected_to_outlet,
                 self.pore_old_cluster,
@@ -468,7 +468,7 @@ class ReductiblePhaseConnectionChecker2(PhaseConnectionChecker2):
 
     @staticmethod
     @nb.njit(cache=True)
-    def __njit_update_element_connection(
+    def _njit_update_element_connection(
         pore_connected_to_inlet,
         pore_connected_to_outlet,
         pore_old_cluster,

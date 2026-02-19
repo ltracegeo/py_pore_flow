@@ -100,7 +100,7 @@ class SubsequentCycleSimulation(CycleSimulation):
             self.network.pn_core.pore.trapped_evacuation,
         )
 
-    def __update_water_layers(self, pore_ids, throat_ids):
+    def _update_water_layers(self, pore_ids, throat_ids):
         check_water_layer_network(
             self.network.pn_core.throat.corner_water_layer,
             throat_ids,
@@ -139,7 +139,7 @@ class SubsequentCycleSimulation(CycleSimulation):
         throat_receding_phase_filled = (
             self.network.pn_core.throat.oil_filled if self.phase == WATER else self.network.pn_core.throat.water_filled
         )
-        self.__njit_update_pore_entry_pc(
+        self._njit_update_pore_entry_pc(
             self.network.pn_core.pore.entry_pressure,
             pore_id_list,
             pc,
@@ -159,7 +159,7 @@ class SubsequentCycleSimulation(CycleSimulation):
 
     @staticmethod
     @nb.njit(cache=True)
-    def __njit_update_pore_entry_pc(
+    def _njit_update_pore_entry_pc(
         pore_entry_pressure,
         pore_id_list,
         pc,
@@ -229,7 +229,7 @@ class SubsequentCycleSimulation(CycleSimulation):
         self._update_border_throat_entry_pc(throat_id_list)
 
     def _update_border_throat_entry_pc(self, throat_id_list):
-        self.__njit_update_throat_entry_pc(
+        self._njit_update_throat_entry_pc(
             throat_id_list,
             self.network.pn_core.throat.entry_pressure,
             self.network.pn_core.throat.piston_like_pressure,
@@ -238,7 +238,7 @@ class SubsequentCycleSimulation(CycleSimulation):
 
     @staticmethod
     @nb.njit(cache=True)
-    def __njit_update_throat_entry_pc(
+    def _njit_update_throat_entry_pc(
         throat_id_list,
         throat_entry_pressure,
         throat_piston_like_pressure,
@@ -249,7 +249,7 @@ class SubsequentCycleSimulation(CycleSimulation):
                 throat_entry_pressure[throat_id] = throat_piston_like_pressure[throat_id]
 
     def _get_element_to_fill(self, pc, border_elements):
-        self.__clear_snapoff_lists()
+        self._clear_snapoff_lists()
         pore_id_list = np.concatenate((border_elements.get_pores_ids(), self.snap_off_pore_list))
         throat_id_list = np.concatenate((border_elements.get_throats_ids(), self.snap_off_throat_list))
         element_to_fill = self._jit_pore_throats_element_to_fill(
@@ -267,7 +267,7 @@ class SubsequentCycleSimulation(CycleSimulation):
         pass
 
     def _update_network_geometry(self, pc):
-        pore_ids = self.__get_elements_to_update(
+        pore_ids = self._get_elements_to_update(
             self.pores_to_update,
             self.phase,
             pc,
@@ -275,7 +275,7 @@ class SubsequentCycleSimulation(CycleSimulation):
             self.network.pn_core.pore.imminent_snap_off,
             self.network.pn_core.pore.snap_off_pressure,
         )
-        throat_ids = self.__get_elements_to_update(
+        throat_ids = self._get_elements_to_update(
             self.throats_to_update,
             self.phase,
             pc,
@@ -286,12 +286,12 @@ class SubsequentCycleSimulation(CycleSimulation):
         self._update_hinging_contact_angles(pore_ids, throat_ids, pc)
         self._update_b(pore_ids, throat_ids, pc)
         self._update_oil_layers(pore_ids, throat_ids, pc)
-        self.__update_water_layers(pore_ids, throat_ids)
+        self._update_water_layers(pore_ids, throat_ids)
         super()._update_network_geometry(pc)
 
     @staticmethod
     @nb.njit(cache=True)
-    def __get_elements_to_update(
+    def _get_elements_to_update(
         elements_to_update, phase, pc, trapped_evacuation, imminent_snap_off, snap_off_pressure
     ):
         j = 0
@@ -307,7 +307,7 @@ class SubsequentCycleSimulation(CycleSimulation):
                     j += 1
         return elements_to_update[:j]
 
-    def __clear_snapoff_lists(self):
+    def _clear_snapoff_lists(self):
         filled_pores = (
             self.network.pn_core.pore.water_filled[self.snap_off_pore_list]
             if self.phase == WATER

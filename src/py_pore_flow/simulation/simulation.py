@@ -166,15 +166,15 @@ class Simulation:
 
     def run_drainage(self):
         self.step_simulation.set_max_pc(self.parameter_manager.pc_maximum)
-        return self.__run_cycle("drainage")
+        return self._run_cycle("drainage")
 
     def run_imbibition(self):
-        return self.__run_cycle("imbibition")
+        return self._run_cycle("imbibition")
 
     def run_2nd_drainage(self):
-        return self.__run_cycle("2nd_drainage")
+        return self._run_cycle("2nd_drainage")
 
-    def __run_cycle(self, cycle_name):
+    def _run_cycle(self, cycle_name):
         log.info(f"Start {cycle_name}")
 
         if cycle_name == "drainage":
@@ -195,7 +195,7 @@ class Simulation:
 
         current_pc = self.pc_incrementer.get_pc()
 
-        self.__update_step_simulation(current_pc, first_step=True)
+        self._update_step_simulation(current_pc, first_step=True)
 
         simulation_end = False
 
@@ -205,9 +205,9 @@ class Simulation:
 
             while current_pc != last_pc:
                 last_pc = current_pc
-                self.__check_snapshot(cycle_name, current_pc)
+                self._check_snapshot(cycle_name, current_pc)
 
-                current_pc = self.__update_step_simulation(current_pc)
+                current_pc = self._update_step_simulation(current_pc)
 
                 if self.generate_vtu:
                     pn_to_vtu(self.pn, current_pc, self.Sw_array[-1], self.current_cycle_number)
@@ -232,11 +232,11 @@ class Simulation:
             if self.parameter_manager.control_by_pc:
                 self.pc_incrementer.update_pc(self.Sw_array[-1])
 
-        self.__check_snapshot_final(cycle_name, current_pc)
+        self._check_snapshot_final(cycle_name, current_pc)
 
         return self.Pc_array, self.Sw_array, self.Krw_array, self.Kro_array
 
-    def __update_step_simulation(self, current_pc, first_step=False):
+    def _update_step_simulation(self, current_pc, first_step=False):
         (
             current_pc,
             Sw,
@@ -265,7 +265,7 @@ class Simulation:
 
         return current_pc
 
-    def __check_snapshot(self, cycle_name, current_pc):
+    def _check_snapshot(self, cycle_name, current_pc):
         if (
             (
                 isinstance(self.drainage_snapshot_pc, int)
@@ -288,9 +288,9 @@ class Simulation:
             )
         ):
             snapshot_dict = self.step_simulation.get_snapshot(current_pc)
-            self.__save_snapshot(snapshot_dict)
+            self._save_snapshot(snapshot_dict)
 
-    def __check_snapshot_final(self, cycle_name, current_pc):
+    def _check_snapshot_final(self, cycle_name, current_pc):
         if (
             isinstance(self.drainage_snapshot_pc, str)
             and self.drainage_snapshot_pc == "final"
@@ -299,9 +299,9 @@ class Simulation:
         ):
             snapshot_dict = self.step_simulation.get_snapshot(current_pc)
             snapshot_dict["cycle"] = "imbibition"
-            self.__save_snapshot(snapshot_dict)
+            self._save_snapshot(snapshot_dict)
 
-    def __save_snapshot(self, snapshot_dict):
+    def _save_snapshot(self, snapshot_dict):
         with open("snapshot.bin", "wb") as fp:
             pickle.dump(snapshot_dict, fp)
         self.snapshot_not_taken = False
@@ -816,9 +816,9 @@ class StepSimulation:
         return pn, parameters, config
 
     def _perform_step(self, pc):
-        return self.__step_by_pc(pc)
+        return self._step_by_pc(pc)
 
-    def __step_by_pc(self, pc):
+    def _step_by_pc(self, pc):
         self.simulation.update_pc(pc)
         self.max_pc = max(self.max_pc, pc)
         self.min_pc = min(self.min_pc, pc)
@@ -860,11 +860,11 @@ class MultiStepSimulation(StepSimulation):
         if self.sw_step is None or self.is_first_step:
             current_pc = super()._perform_step(pc)
         else:
-            current_pc = self.__step_by_sw(pc)
+            current_pc = self._step_by_sw(pc)
         self.is_first_step = False
         return current_pc
 
-    def __step_by_sw(self, pc):
+    def _step_by_sw(self, pc):
         total_sw_delta = 0.0
         next_pc = pc
         while True:

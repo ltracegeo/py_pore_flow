@@ -22,11 +22,11 @@ class ManualSimulationPlot:
 
     def set_pore(self, pore_id):
         self.element_widget.set_pore(pore_id)
-        self.__update_conn_combobox(self.element_widget.get_conns(), "Throat")
+        self._update_conn_combobox(self.element_widget.get_conns(), "Throat")
 
     def set_throat(self, throat_id):
         self.element_widget.set_throat(throat_id)
-        self.__update_conn_combobox(self.element_widget.get_conns(), "Pore")
+        self._update_conn_combobox(self.element_widget.get_conns(), "Pore")
 
     def show(self):
         from PySide2 import QtGui, QtWidgets
@@ -36,24 +36,24 @@ class ManualSimulationPlot:
         self.element_type_combobox.addItem("Throat")
         self.element_type_combobox.addItem("Pore")
         self.element_type_combobox.currentTextChanged.connect(
-            lambda text: self.__on_element_changed(self.element_id_input.text())
+            lambda text: self._on_element_changed(self.element_id_input.text())
         )
         self.element_id_input = QtWidgets.QLineEdit()
         self.element_id_input.setValidator(QtGui.QIntValidator())
-        self.element_id_input.editingFinished.connect(lambda: self.__on_element_changed(self.element_id_input.text()))
+        self.element_id_input.editingFinished.connect(lambda: self._on_element_changed(self.element_id_input.text()))
         self.element_conn_combobox = QtWidgets.QComboBox()
         self.element_conn_combobox.setPlaceholderText("Go to connection")
-        self.element_conn_combobox.currentTextChanged.connect(self.__on_element_conn_changed)
+        self.element_conn_combobox.currentTextChanged.connect(self._on_element_conn_changed)
         pg.setConfigOption("background", "w")
         pg.setConfigOption("foreground", "k")
         self.cycle_combobox = QtWidgets.QComboBox()
         self.cycle_combobox.addItem("drainage")
         self.cycle_combobox.addItem("imbibition")
         self.cycle_combobox.addItem("2nd_drainage")
-        self.cycle_combobox.currentTextChanged.connect(self.__on_cycle_changed)
+        self.cycle_combobox.currentTextChanged.connect(self._on_cycle_changed)
         self.pc_input = QtWidgets.QLineEdit()
         self.pc_input.setValidator(QtGui.QDoubleValidator())
-        self.pc_input.editingFinished.connect(self.__on_pc_changed)
+        self.pc_input.editingFinished.connect(self._on_pc_changed)
         self.status_label = QtWidgets.QLabel()
 
         element_selection_layout = QtWidgets.QHBoxLayout()
@@ -77,11 +77,11 @@ class ManualSimulationPlot:
         self.win.setCentralWidget(central_widget)
         self.win.show()
 
-        self.__on_cycle_changed("drainage")
+        self._on_cycle_changed("drainage")
         self.pc_input.setText("0.0")
-        self.__on_pc_changed()
+        self._on_pc_changed()
 
-    def __on_element_changed(self, text):
+    def _on_element_changed(self, text):
         if not text:
             return
 
@@ -96,14 +96,14 @@ class ManualSimulationPlot:
             self.element_id_input.setText("")
             self.element_id_input.blockSignals(False)
 
-    def __update_conn_combobox(self, conns, element_type):
+    def _update_conn_combobox(self, conns, element_type):
         self.element_conn_combobox.blockSignals(True)
         self.element_conn_combobox.clear()
         for conn_id in conns:
             self.element_conn_combobox.addItem(f"{element_type} {conn_id}")
         self.element_conn_combobox.blockSignals(False)
 
-    def __on_element_conn_changed(self, text):
+    def _on_element_conn_changed(self, text):
         pattern = re.compile("(Throat|Pore) (\d+)")
         re_match = pattern.match(text)
         if re_match:
@@ -113,14 +113,14 @@ class ManualSimulationPlot:
             self.element_type_combobox.setCurrentText(element_type)
             self.element_type_combobox.blockSignals(False)
             self.element_id_input.setText(str(element_id))
-            self.__on_element_changed(str(element_id))
+            self._on_element_changed(str(element_id))
 
-    def __on_cycle_changed(self, text):
+    def _on_cycle_changed(self, text):
         self.manual_simulation.set_cycle(text)
-        self.__on_pc_changed()
+        self._on_pc_changed()
         self.element_widget.update()
 
-    def __on_pc_changed(self):
+    def _on_pc_changed(self):
         try:
             pc = float(self.pc_input.text())
         except ValueError:
@@ -178,7 +178,7 @@ class ElementWidget(QtWidgets.QFrame):
 
         self.element_plot.update()
         self.element_plotter.plot_pyqtgraph_element(self.plot, self.element_plot.get_graphic())
-        self.__update_table(self.element_plot)
+        self._update_table(self.element_plot)
 
     def get_conns(self):
         if not self.element_plot:
@@ -187,17 +187,17 @@ class ElementWidget(QtWidgets.QFrame):
         id = self.element_plot.id
         return np.resize(self.pn[f"{element_type}.conns"][id], self.pn[f"{element_type}.n_conns"][id])
 
-    def __update_table(self, element_plot):
+    def _update_table(self, element_plot):
         element_type = element_plot.element_type
         id = element_plot.id
         n_corners = element_plot.n_corners
 
-        G = self.__pad_with_nan(self.pn[f"{element_type}.shape_factor"][id], n_corners)
-        radius = self.__pad_with_nan(self.pn[f"{element_type}.radius"][id], n_corners)
+        G = self._pad_with_nan(self.pn[f"{element_type}.shape_factor"][id], n_corners)
+        radius = self._pad_with_nan(self.pn[f"{element_type}.radius"][id], n_corners)
         beta = np.degrees(np.resize(self.pn[f"{element_type}.corner_half_angle"][id], n_corners))
         conns = np.resize(self.pn[f"{element_type}.conns"][id], self.pn[f"{element_type}.n_conns"][id])
         oil_filled = self.pn[f"{element_type}.oil_filled"][id]
-        sw = self.__pad_with_nan(self.pn[f"{element_type}.water_saturation"][id], n_corners)
+        sw = self._pad_with_nan(self.pn[f"{element_type}.water_saturation"][id], n_corners)
         theta_h = np.degrees(np.resize(self.pn[f"{element_type}.hinging_contact_angle"][id], n_corners))
         theta_ho = np.degrees(np.resize(self.pn[f"{element_type}.hinging_contact_angle_o"][id], n_corners))
         theta_a = np.degrees(np.resize(self.pn[f"{element_type}.advancing_contact_angle"][id], max(n_corners, 1)))
@@ -211,9 +211,9 @@ class ElementWidget(QtWidgets.QFrame):
             b[corner_oil_layer] = np.resize(self.pn[f"{element_type}.b"][id], n_corners)[corner_oil_layer]
         bo = np.resize(self.pn[f"{element_type}.bo"][id], n_corners)
         oil_layer_collapse_pressure = self.pn[f"{element_type}.oil_layer_collapse_pressure"][id][:n_corners]
-        entry_pressure = self.__pad_with_nan(self.pn[f"{element_type}.entry_pressure"][id], n_corners)
-        piston_like_pressure = self.__pad_with_nan(self.pn[f"{element_type}.piston_like_pressure"][id], n_corners)
-        snap_off_pressure = self.__pad_with_nan(self.pn[f"{element_type}.snap_off_pressure"][id], n_corners)
+        entry_pressure = self._pad_with_nan(self.pn[f"{element_type}.entry_pressure"][id], n_corners)
+        piston_like_pressure = self._pad_with_nan(self.pn[f"{element_type}.piston_like_pressure"][id], n_corners)
+        snap_off_pressure = self._pad_with_nan(self.pn[f"{element_type}.snap_off_pressure"][id], n_corners)
 
         if element_type == "pore":
             if self.pn["pore.inlets"][id]:
@@ -258,7 +258,7 @@ class ElementWidget(QtWidgets.QFrame):
             orient="index",
         )
 
-        self.__df_to_widget(df, self.table)
+        self._df_to_widget(df, self.table)
 
         if element_type == "throat":
             self.water_conductance_bar.set_max_conductance(water_single_conductance)
@@ -269,7 +269,7 @@ class ElementWidget(QtWidgets.QFrame):
             self.oil_conductance_bar.update()
 
     @staticmethod
-    def __df_to_widget(dataframe, table_widget: QtWidgets.QTableWidget):
+    def _df_to_widget(dataframe, table_widget: QtWidgets.QTableWidget):
         num_rows, num_cols = dataframe.shape
         table_widget.setRowCount(num_rows)
         table_widget.setColumnCount(num_cols)
@@ -288,7 +288,7 @@ class ElementWidget(QtWidgets.QFrame):
         table_widget.resizeRowsToContents()
 
     @staticmethod
-    def __pad_with_nan(value, size):
+    def _pad_with_nan(value, size):
         if size > 1:
             return np.pad(np.array([value], dtype="float64"), (0, size - 1), constant_values=np.nan)
         else:

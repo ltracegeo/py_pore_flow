@@ -34,7 +34,7 @@ class DrainageSimulation(CycleSimulation):
         super()._update_multiphase_mask(pc, pc_old)
 
     def _get_element_to_fill(self, pc, border_elements):
-        element_to_fill = self.__jit_pore_throats_element_to_fill(
+        element_to_fill = self._jit_pore_throats_element_to_fill(
             pc,
             border_elements.get_pores_ids(),
             self.network.pn_core.pore.entry_pressure,
@@ -45,7 +45,7 @@ class DrainageSimulation(CycleSimulation):
 
     @staticmethod
     @nb.njit(cache=True)
-    def __jit_pore_throats_element_to_fill(
+    def _jit_pore_throats_element_to_fill(
         pc,
         pore_id_list,
         pore_entry_pressure,
