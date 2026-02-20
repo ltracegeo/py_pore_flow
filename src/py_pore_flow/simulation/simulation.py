@@ -42,6 +42,16 @@ from py_pore_flow.simulation.drainage import DrainageSimulation
 from py_pore_flow.simulation.imbibition import ImbibitionSimulation
 from py_pore_flow.simulation.cycle_simulation import ConductanceCalculator, PcIncrementer
 
+INITIAL = 0
+FIRST_DRAINAGE = 1
+IMBIBITION = 2
+SECOND_DRAINAGE = 3
+CYCLE_NAME = {
+    INITIAL: "Initial state",
+    FIRST_DRAINAGE: "First drainage",
+    IMBIBITION: "First imbibition",
+    SECOND_DRAINAGE: "Second drainage",
+}
 
 def run_two_phase_simulation(
     pn,
@@ -86,15 +96,16 @@ def run_two_phase_simulation(
     skip_imbibition = simulation.parameter_manager.skip_imbibition or config is not None and config["skip_imbibition"]
     skip_2nd_drainage = simulation.parameter_manager.skip_2nd_drainage
 
-    if not skip_drainage:
-        Pc[0], Sw[0], Krw[0], Kro[0] = simulation.run_drainage()
-        cycle[0] = [1] * len(Pc[0])
-    if not skip_imbibition:
-        Pc[1], Sw[1], Krw[1], Kro[1] = simulation.run_imbibition()
-        cycle[1] = [2] * len(Pc[1])
-    if not skip_2nd_drainage:
-        Pc[2], Sw[2], Krw[2], Kro[2] = simulation.run_2nd_drainage()
-        cycle[2] = [3] * len(Pc[2])
+    for i, cycle_skip_setting in enumerate(
+        skip_drainage, 
+        skip_imbibition, 
+        skip_2nd_drainage,
+    ):
+        if not cycle_skip_setting:
+            Pc[i], Sw[i], Krw[i], Kro[i] = simulation.run_next_cycle()
+            cycle[i] = [i+1] * len(Pc[i])
+        else:
+            simulation.skip_cycle()
 
     sys.setrecursionlimit(previous_limit)
 
@@ -132,6 +143,7 @@ class Simulation:
         self.progress_callback = progress_callback
         generate_cas = generate_cas
         set_initial_values = setup_network
+        self.current_cycle_number = INITIAL
 
         self.progress_time = 0
 
@@ -173,8 +185,30 @@ class Simulation:
 
     def run_2nd_drainage(self):
         return self._run_cycle("2nd_drainage")
+    
+    def skip_cycle(self):
+        self.current_cycle_number += 1
+    
+    def run_next_cycle(self, return_generator=False):
+        if self.current_cycle_number == INITIAL:
+            self.step_simulation.set_max_pc(self.parameter_manager.pc_maximum)
+            generator = self._get_run_cycle_generator("drainage")
+        elif self.current_cycle_number == FIRST_DRAINAGE:
+            generator = self._get_run_cycle_generator("imbibition")
+        elif self.current_cycle_number == IMBIBITION:
+            generator = self._get_run_cycle_generator("2nd_drainage")
+        else:
+            raise Exception("All cycles have already been run")
+        self.current_cycle_number += 1
 
-    def _run_cycle(self, cycle_name):
+        if not return_generator:
+            for Pc, Sw, Krw, Kro in generator:
+                pass
+            return Pc, Sw, Krw, Kro
+        else:
+            return generator
+
+    def _get_run_cycle_generator(self, cycle_name):
         log.info(f"Start {cycle_name}")
 
         if cycle_name == "drainage":
@@ -228,13 +262,14 @@ class Simulation:
                 elif self.Sw_array[-1] >= self.parameter_manager.enforced_swi_2 and cycle_name == "imbibition":
                     simulation_end = True
                     break
+                yield self.Pc_array, self.Sw_array, self.Krw_array, self.Kro_array
 
             if self.parameter_manager.control_by_pc:
                 self.pc_incrementer.update_pc(self.Sw_array[-1])
 
         self._check_snapshot_final(cycle_name, current_pc)
 
-        return self.Pc_array, self.Sw_array, self.Krw_array, self.Kro_array
+        yield self.Pc_array, self.Sw_array, self.Krw_array, self.Kro_array
 
     def _update_step_simulation(self, current_pc, first_step=False):
         (

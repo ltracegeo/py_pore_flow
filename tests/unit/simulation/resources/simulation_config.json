@@ -1,0 +1,24 @@
+{
+  "parameters": {
+    "pc_step": 100,
+    "pc_step_min": 10,
+    "pc_step_max": 1000,
+    "drainage_sw_step": 0.05,
+    "imbibition_sw_step": 0.05,
+    "pc_maximum": 10000,
+    "pc_minimum": -10000,
+    "pc_initial": 0,
+    "control_by_pc": true,
+    "skip_imbibition": false,
+    "skip_2nd_drainage": true
+  },
+  "config": {
+    "pc": 0,
+    "max_pc": 0,
+    "skip_drainage": false,
+    "skip_imbibition": false,
+    "generate_vtu": false,
+    "generate_cas": true,
+    "setup_network": false
+  }
+}
