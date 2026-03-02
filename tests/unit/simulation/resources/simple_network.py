@@ -1,17 +1,29 @@
 import numpy as np
 import openpnm as op
+from typing import Literal
 
-def get_simple_network():
+
+def get_simple_network(
+    initial_saturation: Literal["water_filled", "oil_filled", "mix_filled"] = "water_filled"
+    ) -> op.network.Network:
     """
     Returns a simple network for testing purposes.
     The network structure is as follows:
-    #  -> 0-----0----0---O---O ->
-    #            
+    #  -> 0-----0----0---O---O-->
+    #            \
     #             0----O
-    #            /      
-    #  -> O--O--O        O---O ->
+    #            /      \
+    #  -> O--O--O        O---O-->
     #                   /
     #  -> 0--@--@--0--O
+    #
+    #  -> 0-----1----2---3---4------>
+    #            \
+    #             5-------6
+    #            /         \
+    #  -> 7--8--9          10---11-->
+    #                      /
+    #  -> 12--13--14--15--16
     """
     Np = 17
     Nt = 16
@@ -38,18 +50,6 @@ def get_simple_network():
         "pore.inlets": np.array(
             [True, False, False, False, False, False, False, True, False, False, False, False, True, False, False, False, False]
         ),
-        "pore.water_saturation": np.array(
-            [1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.5, 0.5, 1.0, 0.0]
-        ),
-        "throat.water_saturation": np.array(
-            [1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0]
-        ),
-        "pore.water_filled": np.array(
-            [True, True, True, False, False, True, False, False, False, False, False, False, True, False, False, True, False]
-        ),
-        "throat.water_filled": np.array(
-            [True, True, True, False, True, True, True, False, False, False, False, False, True, True, True, True]
-        ),
         "throat.shape_factor": np.ones(Nt)*0.1,
         "throat.radius": np.ones(Nt) * 5e-6,
         "throat.volume": np.ones(Nt) * 1e-15,
@@ -63,6 +63,26 @@ def get_simple_network():
         "pore.area": np.ones(Np) * 1e-9,
         "pore.length": np.ones(Np) * 1e-5,
     }
+    if initial_saturation == "water_filled":
+        pn_dict["pore.water_saturation"] = np.zeros(Np)
+        pn_dict["throat.water_saturation"] = np.ones(Nt)
+        pn_dict["pore.water_filled"] = np.array([True,] * Np)
+        pn_dict["throat.water_filled"] = np.array([True,] * Nt)
+    elif initial_saturation == "mix_filled":
+        pn_dict["pore.water_saturation"] = np.array(
+            [1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.5, 0.5, 1.0, 0.0]
+        )
+        pn_dict["throat.water_saturation"] = np.array(
+            [1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0]
+        )
+        pn_dict["pore.water_filled"] = np.array(
+            [True, True, True, False, False, True, False, False, False, False, False, False, True, False, False, True, False]
+        )
+        pn_dict["throat.water_filled"] = np.array(
+            [True, True, True, False, True, True, True, False, False, False, False, False, True, True, True, True]
+        )
+    else:
+        raise ValueError(f"Invalid initial_saturation value: {initial_saturation}")
     
     pn = op.network.Network()
     pn.update(pn_dict)

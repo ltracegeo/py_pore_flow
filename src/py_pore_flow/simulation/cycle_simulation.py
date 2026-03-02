@@ -654,19 +654,24 @@ class CycleSimulation:
 
         self.current_pc = None
 
-    def update_pc(self, pc, target_sw=None):
+    def update_pc(self, pc, target_sw=None, verbose=False):
         invasion_pc = pc
         old_pc = pc
         total_sw_delta = 0.0
         invasion_target_sw = None
 
+        if verbose: yield "Updating network geometry"
         self._update_network_geometry(pc)
 
         while True:
             if target_sw is not None:
                 invasion_target_sw = target_sw - total_sw_delta
             invaded_pc = invasion_pc
-            sw_delta, invasion_pc, no_invasion_left = self._update_invasions(invasion_pc, invasion_target_sw)
+            
+            if verbose: yield f"Updating invasions at Pc: {invasion_pc:.2f}"
+            sw_delta, invasion_pc, no_invasion_left = yield from self._update_invasions(invasion_pc, invasion_target_sw, verbose=verbose)
+            
+            if verbose: yield "Updating multiphase mask"
             self._update_multiphase_mask(invaded_pc, old_pc)
             old_pc = invaded_pc
             total_sw_delta += sw_delta
@@ -674,6 +679,7 @@ class CycleSimulation:
             if (target_sw is None) or (total_sw_delta >= target_sw) or (no_invasion_left):
                 break
 
+        if verbose: yield "Finalizing network geometry update"
         self._update_network_geometry(invaded_pc)
 
         return total_sw_delta, invaded_pc, invasion_pc, no_invasion_left
@@ -733,9 +739,10 @@ class CycleSimulation:
     def _update_entry_pressures(self, pc):
         pass
 
-    def _update_invasions(self, pc, target_sw=None):
+    def _update_invasions(self, pc, target_sw=None, verbose=False):
         sw_delta = 0.0
 
+        if verbose: yield "Updating entry pressures"
         self._update_entry_pressures(pc)
 
         no_invasion_left = False
@@ -757,10 +764,7 @@ class CycleSimulation:
             else:
                 element = self.network.throat
                 
-            if False:
-                log.debug(
-                    f"Invasion {element.type_name:6} ID: {element_id:6} Pc: {element.get_pc(element_id):.5f} Radius: {element.get_r(element_id):.2e} G: {element.get_G(element_id):.4f} n_corners: {element.get_n_corners(element_id)} area: {element.get_A(element_id)}"
-                )
+            if verbose: yield f"Filling {'pore' if element_type == PORE else 'throat'} {element_id} at Pc: {invasion_pc:.2f}"
 
             self._fill_element(element, element_id, invasion_pc)
             reached_bubble = self._check_for_bubble(element, element_id)
@@ -772,21 +776,29 @@ class CycleSimulation:
             if (self.phase == OIL and element.get_So(element_id) == 1.0) or (
                 self.phase == WATER and element.get_Sw(element_id) == 1.0
             ):
+                if verbose: yield "Updating trapping"
                 (
                     new_trapped_pores,
                     new_trapped_throats,
                     new_untrapped_pores,
                     new_untrapped_throats,
                 ) = self.trap_checker.update_trapped_pores()
+                
+                if verbose: yield "Refreshing border elements"
                 new_border_pores, new_border_throats = self._refresh_border_elements(
                     reached_bubble, element, element_id, new_trapped_pores, new_trapped_throats
                 )
+                
+                if verbose: yield "Updating untrapped entry pressures"
                 self._update_pore_entry_pc(new_untrapped_pores, pc)
                 self._update_throat_entry_pc(new_untrapped_throats)
             else:
+                if verbose: yield "Refreshing border elements"
                 new_border_pores, new_border_throats = self._refresh_border_elements(
                     reached_bubble, element, element_id
                 )
+            
+            if verbose: yield "Updating border entry pressures"
             self._update_border_pore_entry_pc(new_border_pores, pc)
             self._update_border_throat_entry_pc(new_border_throats)
         return sw_delta, invasion_pc, no_invasion_left

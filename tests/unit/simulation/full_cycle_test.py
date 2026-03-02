@@ -16,7 +16,7 @@ class TestFullCycle(unittest.TestCase):
         config = full_config["config"]
         
         # Get the simple network
-        pn = get_simple_network()
+        pn = get_simple_network(initial_saturation="water_filled")
         
         # Initialize the network
         initialize_pn(pn)

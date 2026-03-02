@@ -16,7 +16,7 @@ from tests.unit.simulation.resources.simple_network import get_simple_network
 
 class TestCycleSimulation(unittest.TestCase):
     def test_find_initial_border_elements(self):
-        pn = get_simple_network()
+        pn = get_simple_network(initial_saturation="mix_filled")
         
         # Save original state for re-application after initialize_pn
         water_sat_p = pn["pore.water_saturation"].copy()

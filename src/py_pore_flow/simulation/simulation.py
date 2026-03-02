@@ -96,11 +96,11 @@ def run_two_phase_simulation(
     skip_imbibition = simulation.parameter_manager.skip_imbibition or config is not None and config["skip_imbibition"]
     skip_2nd_drainage = simulation.parameter_manager.skip_2nd_drainage
 
-    for i, cycle_skip_setting in enumerate(
+    for i, cycle_skip_setting in enumerate([
         skip_drainage, 
         skip_imbibition, 
         skip_2nd_drainage,
-    ):
+    ]):
         if not cycle_skip_setting:
             Pc[i], Sw[i], Krw[i], Kro[i] = simulation.run_next_cycle()
             cycle[i] = [i+1] * len(Pc[i])
@@ -189,36 +189,36 @@ class Simulation:
     def skip_cycle(self):
         self.current_cycle_number += 1
     
-    def run_next_cycle(self, return_generator=False):
+    def run_next_cycle(self, return_generator=False, verbose=False):
         if self.current_cycle_number == INITIAL:
             self.step_simulation.set_max_pc(self.parameter_manager.pc_maximum)
-            generator = self._get_run_cycle_generator("drainage")
+            generator = self._get_run_cycle_generator("drainage", verbose=verbose)
         elif self.current_cycle_number == FIRST_DRAINAGE:
-            generator = self._get_run_cycle_generator("imbibition")
+            generator = self._get_run_cycle_generator("imbibition", verbose=verbose)
         elif self.current_cycle_number == IMBIBITION:
-            generator = self._get_run_cycle_generator("2nd_drainage")
+            generator = self._get_run_cycle_generator("2nd_drainage", verbose=verbose)
         else:
             raise Exception("All cycles have already been run")
         self.current_cycle_number += 1
 
         if not return_generator:
-            for Pc, Sw, Krw, Kro in generator:
-                pass
+            Pc, Sw, Krw, Kro = None, None, None, None
+            for item in generator:
+                if isinstance(item, tuple) and len(item) == 4 and not isinstance(item[0], str):
+                    Pc, Sw, Krw, Kro = item
             return Pc, Sw, Krw, Kro
         else:
             return generator
 
-    def _get_run_cycle_generator(self, cycle_name):
+    def _get_run_cycle_generator(self, cycle_name, verbose=False):
+        if verbose: yield f"Start {cycle_name}"
         log.info(f"Start {cycle_name}")
 
         if cycle_name == "drainage":
-            self.current_cycle_number = 1
             self.pc_incrementer.set_cycle(self.pc_incrementer.DRAINAGE_CYCLE)
         elif cycle_name == "imbibition":
-            self.current_cycle_number = 2
             self.pc_incrementer.set_cycle(self.pc_incrementer.IMBIBITION_CYCLE)
         else:
-            self.current_cycle_number = 3
             self.pc_incrementer.set_cycle(self.pc_incrementer.SECOND_DRAINAGE_CYCLE)
         self.step_simulation.set_cycle(cycle_name)
 
@@ -229,7 +229,7 @@ class Simulation:
 
         current_pc = self.pc_incrementer.get_pc()
 
-        self._update_step_simulation(current_pc, first_step=True)
+        yield from self._update_step_simulation(current_pc, first_step=True, verbose=verbose)
 
         simulation_end = False
 
@@ -239,39 +239,48 @@ class Simulation:
 
             while current_pc != last_pc:
                 last_pc = current_pc
+                
+                if verbose: yield "Checking snapshots"
                 self._check_snapshot(cycle_name, current_pc)
 
-                current_pc = self._update_step_simulation(current_pc)
+                current_pc = yield from self._update_step_simulation(current_pc, verbose=verbose)
 
                 if self.generate_vtu:
                     pn_to_vtu(self.pn, current_pc, self.Sw_array[-1], self.current_cycle_number)
 
                 self.pc_incrementer.set_pc(current_pc)
 
+                if verbose: yield "Checking end conditions"
                 if self.parameter_manager.end_at_sor and cycle_name == "imbibition" and self.Kro_array[-1] <= 0:
+                    if verbose: yield "End condition met: SOR reached"
                     simulation_end = True
                     break
                 elif self.step_simulation.cycle_should_end():
+                    if verbose: yield "End condition met: Cycle should end"
                     simulation_end = True
                     break
                 elif self.Sw_array[-1] <= self.parameter_manager.enforced_swi_1 and (
                     cycle_name == "drainage" or cycle_name == "2nd_drainage"
                 ):
+                    if verbose: yield f"End condition met: Swi reached ({self.Sw_array[-1]:.6f})"
                     simulation_end = True
                     break
                 elif self.Sw_array[-1] >= self.parameter_manager.enforced_swi_2 and cycle_name == "imbibition":
+                    if verbose: yield f"End condition met: Swi reached ({self.Sw_array[-1]:.6f})"
                     simulation_end = True
                     break
+                
                 yield self.Pc_array, self.Sw_array, self.Krw_array, self.Kro_array
 
             if self.parameter_manager.control_by_pc:
+                if verbose: yield "Updating PC incrementer"
                 self.pc_incrementer.update_pc(self.Sw_array[-1])
 
         self._check_snapshot_final(cycle_name, current_pc)
 
         yield self.Pc_array, self.Sw_array, self.Krw_array, self.Kro_array
 
-    def _update_step_simulation(self, current_pc, first_step=False):
+    def _update_step_simulation(self, current_pc, first_step=False, verbose=False):
         (
             current_pc,
             Sw,
@@ -280,7 +289,7 @@ class Simulation:
             pores_filled,
             total_pores,
             percentage,
-        ) = self.step_simulation.update(current_pc, skip_invasions=first_step)
+        ) = yield from self.step_simulation.update(current_pc, skip_invasions=first_step, verbose=verbose)
 
         self.Pc_array.append(current_pc)
         self.Sw_array.append(Sw)
@@ -797,13 +806,18 @@ class StepSimulation:
             calculate_2nd_drainage_values(self.network, self.min_pc)
             self.simulation = SecondDrainageSimulation(self.network, self.max_pc, self.calculate_full_conductance)
 
-    def update(self, pc, skip_invasions=False):
+    def update(self, pc, skip_invasions=False, verbose=False):
         if skip_invasions:
+            if verbose: yield "Skipping invasions"
             self.current_pc = pc
         else:
-            self.current_pc = self._perform_step(pc)
+            if verbose: yield "Performing simulation step"
+            self.current_pc = yield from self._perform_step(pc, verbose=verbose)
 
+        if verbose: yield "Calculating saturations"
         Sw = self.simulation.calculate_sw_total()
+        
+        if verbose: yield "Calculating relative permeability"
         Krw, Kro = self.simulation.calculate_krel()
 
         pores_filled, total_pores, percentage = self.simulation.get_oil_filled_percentage()
@@ -850,11 +864,11 @@ class StepSimulation:
 
         return pn, parameters, config
 
-    def _perform_step(self, pc):
-        return self._step_by_pc(pc)
+    def _perform_step(self, pc, verbose=False):
+        return (yield from self._step_by_pc(pc, verbose=verbose))
 
-    def _step_by_pc(self, pc):
-        self.simulation.update_pc(pc)
+    def _step_by_pc(self, pc, verbose=False):
+        yield from self.simulation.update_pc(pc, verbose=verbose)
         self.max_pc = max(self.max_pc, pc)
         self.min_pc = min(self.min_pc, pc)
         return pc
@@ -891,19 +905,19 @@ class MultiStepSimulation(StepSimulation):
     def cycle_should_end(self):
         return self.pc_incrementer.cycle_should_end() or self.get_pores_left() == 0 or self.no_invasion_left
 
-    def _perform_step(self, pc):
+    def _perform_step(self, pc, verbose=False):
         if self.sw_step is None or self.is_first_step:
-            current_pc = super()._perform_step(pc)
+            current_pc = yield from super()._perform_step(pc, verbose=verbose)
         else:
-            current_pc = self._step_by_sw(pc)
+            current_pc = yield from self._step_by_sw(pc, verbose=verbose)
         self.is_first_step = False
         return current_pc
 
-    def _step_by_sw(self, pc):
+    def _step_by_sw(self, pc, verbose=False):
         total_sw_delta = 0.0
         next_pc = pc
         while True:
-            sw_delta, current_pc, next_pc, self.no_invasion_left = self.simulation.update_pc(next_pc, self.sw_step)
+            sw_delta, current_pc, next_pc, self.no_invasion_left = yield from self.simulation.update_pc(next_pc, self.sw_step, verbose=verbose)
             self.max_pc = max(self.max_pc, current_pc)
             self.min_pc = min(self.min_pc, current_pc)
             total_sw_delta += sw_delta
