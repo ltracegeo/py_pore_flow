@@ -107,7 +107,7 @@ class ManualSimulationPlot:
         self.element_conn_combobox.blockSignals(False)
 
     def __on_element_conn_changed(self, text):
-        pattern = re.compile("(Throat|Pore) (\d+)")
+        pattern = re.compile(r"(Throat|Pore) (\d+)")
         re_match = pattern.match(text)
         if re_match:
             element_type = re_match[1]

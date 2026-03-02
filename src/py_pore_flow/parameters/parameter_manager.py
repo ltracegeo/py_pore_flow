@@ -349,9 +349,9 @@ class ParameterManager:
         plot_item = win.addPlot(left="quant", bottom="angle")
 
         hist, edges = np.histogram(data, bins=90)
-        curve_item0 = pg.PlotCurveItem(edges, hist, stepMode=True, pen=pg.mkPen(QtGui.QColor(0, 255, 255), width=2))
+        curve_item0 = pg.PlotCurveItem(edges, hist, stepMode="center", pen=pg.mkPen(QtGui.QColor(0, 255, 255), width=2))
         # hist, edges = np.histogram(data2, bins=50)
-        # curve_item1 = pg.PlotCurveItem(edges, hist, stepMode=True, pen=pg.mkPen(QtGui.QColor(255, 0, 255), width=2))
+        # curve_item1 = pg.PlotCurveItem(edges, hist, stepMode="center", pen=pg.mkPen(QtGui.QColor(255, 0, 255), width=2))
         plot_item.addItem(curve_item0)
         # plot_item.addItem(curve_item1)
 
