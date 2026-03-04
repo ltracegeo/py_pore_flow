@@ -510,8 +510,8 @@ class SaturationCalculator:
             self.network.pn_core.throat.volume * self.network.pn_core.throat.N
         ).sum()
 
-    def update_saturations(self, pc):
-        pore_sw, pore_so = self._get_pores_saturations(pc)
+    def update_saturations(self, pc, verbose=False):
+        pore_sw, pore_so = self._get_pores_saturations(pc, verbose=verbose)
         if self.phase == WATER:
             update_mask = pore_sw > self.network.pn_core.pore.water_saturation
         else:
@@ -519,7 +519,7 @@ class SaturationCalculator:
         self.network.pn_core.pore.water_saturation[update_mask] = pore_sw[update_mask]
         self.network.pn_core.pore.oil_saturation[update_mask] = pore_so[update_mask]
 
-        throat_sw, throat_so = self._get_throats_saturations(pc)
+        throat_sw, throat_so = self._get_throats_saturations(pc, verbose=verbose)
         if self.phase == WATER:
             update_mask = throat_sw > self.network.pn_core.throat.water_saturation
         else:
@@ -528,24 +528,24 @@ class SaturationCalculator:
         self.network.pn_core.throat.oil_saturation[update_mask] = throat_so[update_mask]
 
     @abstractmethod
-    def _get_pores_saturations(self, pc):
+    def _get_pores_saturations(self, pc, verbose=False):
         pass
 
     @abstractmethod
-    def _get_throats_saturations(self, pc):
+    def _get_throats_saturations(self, pc, verbose=False):
         pass
 
     @abstractmethod
-    def _get_element_saturations(self, element_type, id, pc):
+    def _get_element_saturations(self, element_type, id, pc, verbose=False):
         pass
 
-    def update_element_saturations(self, element_type, id, pc):
+    def update_element_saturations(self, element_type, id, pc, verbose=False):
         if element_type == PORE:
             element_data = self.network.pn_core.pore
         else:
             element_data = self.network.pn_core.throat
 
-        sw, so = self._get_element_saturations(element_type, id, pc)
+        sw, so = self._get_element_saturations(element_type, id, pc, verbose=verbose)
         if self.phase == WATER:
             should_update = sw > element_data.water_saturation[id]
         else:
@@ -699,6 +699,12 @@ class CycleSimulation:
         else:
             return np.logical_not(self.network.pn_core.pore.oil_filled | self.network.pn_core.pore.trapped).sum()
 
+    def get_throats_left(self):
+        if self.phase == WATER:
+            return np.logical_not(self.network.pn_core.throat.water_filled | self.network.pn_core.throat.trapped).sum()
+        else:
+            return np.logical_not(self.network.pn_core.throat.oil_filled | self.network.pn_core.throat.trapped).sum()
+
     def get_oil_filled_percentage(self):
         total_pores = self.network.get_number_of_pores()
         pores_filled = self.network.pn_core.pore.oil_filled.sum()
@@ -708,12 +714,12 @@ class CycleSimulation:
     def _check_invasion_condition(self, pc, element):
         pass
 
-    def _update_element_filled_geometry(self, pc, element, element_id):
-        self._update_element_hinging_contact_angles(element.type, element_id, pc)
-        return self.saturation_calculator.update_element_saturations(element.type, element_id, pc)
+    def _update_element_filled_geometry(self, pc, element, element_id, verbose=False):
+        self._update_element_hinging_contact_angles(element.type, element_id, pc, verbose=verbose)
+        return self.saturation_calculator.update_element_saturations(element.type, element_id, pc, verbose=verbose)
 
-    def _update_network_geometry(self, pc):
-        self.saturation_calculator.update_saturations(pc)
+    def _update_network_geometry(self, pc, verbose=False):
+        self.saturation_calculator.update_saturations(pc, verbose=verbose)
 
     @abstractmethod
     def _update_pore_entry_pc(self, pore_id, pc):
@@ -732,24 +738,32 @@ class CycleSimulation:
         pass
 
     @abstractmethod
-    def _get_element_to_fill(self, pc, border_elements):
+    def _get_element_to_fill(self, pc, border_elements, verbose=False):
         pass
 
     @abstractmethod
-    def _update_entry_pressures(self, pc):
+    def _update_entry_pressures(self, pc, verbose=False):
         pass
 
     def _update_invasions(self, pc, target_sw=None, verbose=False):
         sw_delta = 0.0
 
         if verbose: yield "Updating entry pressures"
-        self._update_entry_pressures(pc)
+        self._update_entry_pressures(pc, verbose=verbose)
 
         no_invasion_left = False
 
+
         invasion_pc = pc
         while True:
-            element_to_fill = self._get_element_to_fill(pc, self.border_elements)
+            try:
+                element_to_fill = self._get_element_to_fill(pc, self.border_elements, verbose=verbose)
+            except TypeError as e:
+                print(f"DEBUG: Actual class is {type(self)}")
+                print(f"DEBUG: Inheritance MRO: {type(self).mro()}")
+                print(e)
+                raise e
+
             if element_to_fill is None:
                 no_invasion_left = True
                 break
@@ -879,7 +893,7 @@ class CycleSimulation:
             self.network.pn_core.throat.trapped[element_id] = False
             self.network.pn_core.throat.trapped_evacuation[element_id] = False
 
-    def _update_element_hinging_contact_angles(self, element_type, id, pc):
+    def _update_element_hinging_contact_angles(self, element_type, id, pc, verbose=False):
         if element_type == PORE:
             element_data = self.network.pn_core.pore
         else:
@@ -892,6 +906,7 @@ class CycleSimulation:
             element_data.receding_contact_angle[id],
             element_data.advancing_contact_angle[id],
             element_data.hinging_contact_angle[id],
+            verbose=verbose,
         )
 
     @staticmethod

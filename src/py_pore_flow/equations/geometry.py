@@ -16,17 +16,17 @@ MAX_NUMBER_OF_CORNERS = 4
 
 
 @njit(cache=True)
-def calculate_drainage_network_saturation(shape, c, pc, a, oil_filled):
+def calculate_drainage_network_saturation(shape, c, pc, a, oil_filled, verbose=False):
     number_of_elements = len(shape)
     sw = np.empty(number_of_elements, np.float64)
     so = np.empty(number_of_elements, np.float64)
     for i in range(number_of_elements):
-        sw[i], so[i] = calculate_drainage_element_saturation(shape[i], c[i], pc, a[i], oil_filled[i])
+        sw[i], so[i] = calculate_drainage_element_saturation(shape[i], c[i], pc, a[i], oil_filled[i], verbose=verbose)
     return sw, so
 
 
 @njit(cache=True)
-def calculate_drainage_element_saturation(shape, C_r, current_Pc, A, oil_filled):
+def calculate_drainage_element_saturation(shape, C_r, current_Pc, A, oil_filled, verbose=False):
     if not oil_filled:
         return 1.0, 0.0
 
@@ -46,11 +46,14 @@ def calculate_drainage_element_saturation(shape, C_r, current_Pc, A, oil_filled)
         Sw = 1
     So = 1 - Sw
 
+    if verbose:
+        print("    Saturation calculation (Drainage): Pc=", Pc, " A=", A, " Aw=", Aw, " -> Sw=", Sw)
+
     return Sw, So
 
 
 @njit(cache=True)
-def calculate_imbibition_network_saturation(a, oil_filled, theta_a, theta_h, beta, bi, bo, n_corners, has_oil_layer):
+def calculate_imbibition_network_saturation(a, oil_filled, theta_a, theta_h, beta, bi, bo, n_corners, has_oil_layer, verbose=False):
     number_of_elements = len(a)
     sw = np.empty(number_of_elements, np.float64)
     so = np.empty(number_of_elements, np.float64)
@@ -65,12 +68,13 @@ def calculate_imbibition_network_saturation(a, oil_filled, theta_a, theta_h, bet
             bo[i],
             n_corners[i],
             has_oil_layer[i],
+            verbose=verbose,
         )
     return sw, so
 
 
 @njit(cache=True)
-def calculate_imbibition_element_saturation(A, oil_filled, theta_a, theta_h, beta, bi, bo, n_corners, has_oil_layer):
+def calculate_imbibition_element_saturation(A, oil_filled, theta_a, theta_h, beta, bi, bo, n_corners, has_oil_layer, verbose=False):
     if oil_filled:
         Aw = calculate_water_layer_area(bi, beta, theta_h, n_corners)
         if Aw < 0:
@@ -80,6 +84,8 @@ def calculate_imbibition_element_saturation(A, oil_filled, theta_a, theta_h, bet
         else:
             Sw = 1
         So = 1 - Sw
+        if verbose:
+            print("    Saturation calculation (Imbibition, Oil-filled): Aw=", Aw, " A=", A, " -> Sw=", Sw)
     else:
         Ao = calculate_element_oil_layer_area(theta_a, theta_h, beta, bi, bo, n_corners, has_oil_layer)
         if Ao < 0:
@@ -92,6 +98,8 @@ def calculate_imbibition_element_saturation(A, oil_filled, theta_a, theta_h, bet
         else:
             So = 1.0
         Sw = 1.0 - So
+        if verbose:
+            print("    Saturation calculation (Imbibition, Water-filled): Ao=", Ao, " A=", A, " -> Sw=", Sw)
 
     return Sw, So
 
@@ -242,7 +250,7 @@ def calculate_network_hinging_contact_angle(
 
 
 @njit(cache=True)
-def calculate_hinging_contact_angle(Pc, beta, b, n_corners, theta_r, theta_a, theta_hi):
+def calculate_hinging_contact_angle(Pc, beta, b, n_corners, theta_r, theta_a, theta_hi, verbose=False):
     if Pc == 0:
         for i in range(int(n_corners)):
             theta_hi[i] = pi / 2 - beta[i]
@@ -258,7 +266,12 @@ def calculate_hinging_contact_angle(Pc, beta, b, n_corners, theta_r, theta_a, th
                 elif x < -1:
                     x = -1
                 theta_hi[i] = acos(x) - beta[i]
+    
+    old_theta_hi = theta_hi.copy()
     theta_hi[:] = np.clip(theta_hi, theta_r, theta_a)
+
+    if verbose:
+        print("    Hinging contact angle calculation: Pc=", Pc, " beta=", beta[:int(n_corners)], " b=", b[:int(n_corners)], " -> theta_h (before clip)=", old_theta_hi[:int(n_corners)], " -> theta_h=", theta_hi[:int(n_corners)])
 
 
 @njit(cache=True)

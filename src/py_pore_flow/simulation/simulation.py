@@ -210,8 +210,43 @@ class Simulation:
         else:
             return generator
 
+    def _get_network_state_str(self):
+        pn = self.pn
+        res = "Network State:\n"
+        res += "  Pores:\n"
+        for i in range(len(pn['pore.all'])):
+            trapped = " (Trapped)" if pn['pore.trapped'][i] else ""
+            res += f"    Pore {i:3d}: Entry Pc={pn['pore.entry_pressure'][i]:8.2f}, Sw={pn['pore.water_saturation'][i]:.4f}, So={pn['pore.oil_saturation'][i]:.4f}, Filled={'Oil' if pn['pore.oil_filled'][i] else 'Water'}{trapped}\n"
+        res += "  Throats:\n"
+        for i in range(len(pn['throat.all'])):
+            trapped = " (Trapped)" if pn['throat.trapped'][i] else ""
+            res += f"    Throat {i:3d}: Entry Pc={pn['throat.entry_pressure'][i]:8.2f}, Sw={pn['throat.water_saturation'][i]:.4f}, So={pn['throat.oil_saturation'][i]:.4f}, Filled={'Oil' if pn['throat.oil_filled'][i] else 'Water'}{trapped}\n"
+        
+        # Add border elements information
+        if hasattr(self.step_simulation.simulation, 'border_elements'):
+            be = self.step_simulation.simulation.border_elements
+            res += f"  Border Pores: {be.get_pores_ids().tolist()}\n"
+            res += f"  Border Throats: {be.get_throats_ids().tolist()}\n"
+        
+        return res
+
     def _get_run_cycle_generator(self, cycle_name, verbose=False):
-        if verbose: yield f"Start {cycle_name}"
+        def _verbose_msg(msg):
+            return msg
+
+        def _wrap(gen):
+            try:
+                item = next(gen)
+                while True:
+                    if verbose and isinstance(item, str):
+                        yield _verbose_msg(item)
+                    else:
+                        yield item
+                    item = gen.send(None)
+            except StopIteration as e:
+                return e.value
+
+        if verbose: yield _verbose_msg(f"Start {cycle_name}")
         log.info(f"Start {cycle_name}")
 
         if cycle_name == "drainage":
@@ -229,7 +264,7 @@ class Simulation:
 
         current_pc = self.pc_incrementer.get_pc()
 
-        yield from self._update_step_simulation(current_pc, first_step=True, verbose=verbose)
+        yield from _wrap(self._update_step_simulation(current_pc, first_step=True, verbose=verbose))
 
         simulation_end = False
 
@@ -240,43 +275,45 @@ class Simulation:
             while current_pc != last_pc:
                 last_pc = current_pc
                 
-                if verbose: yield "Checking snapshots"
+                if verbose: yield _verbose_msg("Checking snapshots")
                 self._check_snapshot(cycle_name, current_pc)
 
-                current_pc = yield from self._update_step_simulation(current_pc, verbose=verbose)
+                current_pc = yield from _wrap(self._update_step_simulation(current_pc, verbose=verbose))
 
                 if self.generate_vtu:
                     pn_to_vtu(self.pn, current_pc, self.Sw_array[-1], self.current_cycle_number)
 
                 self.pc_incrementer.set_pc(current_pc)
 
-                if verbose: yield "Checking end conditions"
+                if verbose: yield _verbose_msg("Checking end conditions")
                 if self.parameter_manager.end_at_sor and cycle_name == "imbibition" and self.Kro_array[-1] <= 0:
-                    if verbose: yield "End condition met: SOR reached"
+                    if verbose: yield _verbose_msg("End condition met: SOR reached")
                     simulation_end = True
                     break
                 elif self.step_simulation.cycle_should_end():
-                    if verbose: yield "End condition met: Cycle should end"
+                    if verbose: yield _verbose_msg("End condition met: Cycle should end")
                     simulation_end = True
                     break
                 elif self.Sw_array[-1] <= self.parameter_manager.enforced_swi_1 and (
                     cycle_name == "drainage" or cycle_name == "2nd_drainage"
                 ):
-                    if verbose: yield f"End condition met: Swi reached ({self.Sw_array[-1]:.6f})"
+                    if verbose: yield _verbose_msg(f"End condition met: Swi reached ({self.Sw_array[-1]:.6f})")
                     simulation_end = True
                     break
                 elif self.Sw_array[-1] >= self.parameter_manager.enforced_swi_2 and cycle_name == "imbibition":
-                    if verbose: yield f"End condition met: Swi reached ({self.Sw_array[-1]:.6f})"
+                    if verbose: yield _verbose_msg(f"End condition met: Swi reached ({self.Sw_array[-1]:.6f})")
                     simulation_end = True
                     break
                 
                 yield self.Pc_array, self.Sw_array, self.Krw_array, self.Kro_array
 
             if self.parameter_manager.control_by_pc:
-                if verbose: yield "Updating PC incrementer"
+                if verbose: yield _verbose_msg("Updating PC incrementer")
                 self.pc_incrementer.update_pc(self.Sw_array[-1])
 
         self._check_snapshot_final(cycle_name, current_pc)
+
+        if verbose: yield f"Final Cycle State:\n{self._get_network_state_str()}"
 
         yield self.Pc_array, self.Sw_array, self.Krw_array, self.Kro_array
 
@@ -301,6 +338,9 @@ class Simulation:
         log.info(
             f"Pc: {current_pc:8.2f}, Sw: {Sw:.6f}, Krw: {Krw:.6f}, Kro: {Kro:.6f}, Filled: {pores_filled:4}/{total_pores} ({percentage_100:2}%)."
         )
+
+        if verbose:
+            yield f"Network State at Pc={current_pc:.2f}:\n{self._get_network_state_str()}"
 
         if self.progress_callback is not None:
             if (time.time() - self.progress_time) >= 60:
@@ -826,6 +866,9 @@ class StepSimulation:
 
     def get_pores_left(self):
         return self.simulation.get_pores_left()
+    
+    def get_throats_left(self):
+        return self.simulation.get_throats_left()
 
     def get_parameter_manager(self):
         return self.parameter_manager
@@ -903,7 +946,7 @@ class MultiStepSimulation(StepSimulation):
         self.no_invasion_left = False
 
     def cycle_should_end(self):
-        return self.pc_incrementer.cycle_should_end() or self.get_pores_left() == 0 or self.no_invasion_left
+        return self.pc_incrementer.cycle_should_end() or (self.get_pores_left() == 0 and self.get_throats_left() == 0) or self.no_invasion_left
 
     def _perform_step(self, pc, verbose=False):
         if self.sw_step is None or self.is_first_step:

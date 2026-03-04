@@ -66,6 +66,7 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
         pore_entry_pressure,
         throat_id_list,
         throat_entry_pressure,
+        verbose=False,
     ):
         min_pressure = np.inf
         min_id = -1
@@ -88,9 +89,14 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
                 min_id = id
                 min_type = THROAT
 
-        return (min_type, min_id, max(min_pressure, pc))
+        if min_id != -1:
+            if verbose:
+                print("  Selected element: ", "pore" if min_type == PORE else "throat", min_id, " with PC: ", min_pressure)
+            return (min_type, min_id, max(min_pressure, pc))
+        else:
+            return None
 
-    def _update_element_filled_geometry(self, pc, element, element_id):
+    def _update_element_filled_geometry(self, pc, element, element_id, verbose=False):
         element.set_corner_oil_layer(element_id, False)
         element.set_bo(element_id, 0.0)
         element.set_corner_water_layer(
@@ -101,9 +107,9 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
             ),
         )
         self._update_element_pinned_b(element.type, element_id, pc)
-        self._update_element_hinging_contact_angles(element.type, element_id, pc)
+        self._update_element_hinging_contact_angles(element.type, element_id, pc, verbose=verbose)
         self._update_element_b(element.type, element_id, pc)
-        return super()._update_element_filled_geometry(pc, element, element_id)
+        return super()._update_element_filled_geometry(pc, element, element_id, verbose=verbose)
 
     def _update_element_pinned_b(self, element_type, id, pc):
         if element_type == PORE:

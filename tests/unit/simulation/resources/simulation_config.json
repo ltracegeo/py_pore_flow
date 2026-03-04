@@ -5,12 +5,13 @@
     "pc_step_max": 1000,
     "drainage_sw_step": 0.05,
     "imbibition_sw_step": 0.05,
-    "pc_maximum": 10000,
-    "pc_minimum": -10000,
+    "pc_maximum": 20000,
+    "pc_minimum": -20000,
     "pc_initial": 0,
-    "control_by_pc": true,
+    "control_by_pc": false,
     "skip_imbibition": false,
-    "skip_2nd_drainage": true
+    "skip_2nd_drainage": true,
+    "end_at_sor": false
   },
   "config": {
     "pc": 0,

@@ -63,6 +63,7 @@ class ImbibitionSimulation(SubsequentCycleSimulation):
         pore_entry_pressure,
         throat_id_list,
         throat_entry_pressure,
+        verbose=False,
     ):
         max_pressure = -np.inf
         max_id = -1
@@ -85,9 +86,14 @@ class ImbibitionSimulation(SubsequentCycleSimulation):
                 max_id = id
                 max_type = THROAT
 
-        return (max_type, max_id, min(max_pressure, pc))
+        if max_id != -1:
+            if verbose:
+                print("  Selected element: ", "pore" if max_type == PORE else "throat", max_id, " with PC: ", max_pressure)
+            return (max_type, max_id, min(max_pressure, pc))
+        else:
+            return None
 
-    def _update_element_filled_geometry(self, pc, element, element_id):
+    def _update_element_filled_geometry(self, pc, element, element_id, verbose=False):
         self._update_element_pinned_hinging_contact_angles(element.type, element_id, pc)
         self._update_element_pinned_b(element.type, element_id, pc)
         element.set_corner_oil_layer(
@@ -103,10 +109,10 @@ class ImbibitionSimulation(SubsequentCycleSimulation):
 
         self._update_element_bo(element.type, element_id, pc)
         self._check_water_layer(element.type, element_id)
-        self._update_element_hinging_contact_angles(element.type, element_id, pc)
+        self._update_element_hinging_contact_angles(element.type, element_id, pc, verbose=verbose)
         self._update_element_b(element.type, element_id, pc)
 
-        return super()._update_element_filled_geometry(pc, element, element_id)
+        return super()._update_element_filled_geometry(pc, element, element_id, verbose=verbose)
 
     def _update_element_pinned_b(self, element_type, id, pc):
         if element_type == PORE:
