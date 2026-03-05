@@ -42,8 +42,54 @@ TRAP_TOLERANCE = 0.0
 
 
 class ConductanceCalculator:
-    def __init__(self, network):
+    def __init__(self, network, log_conductivity_file=None):
         self.network = network
+        self.log_conductivity_file = log_conductivity_file if log_conductivity_file is not None else getattr(network, "log_conductivity_file", None)
+        if self.log_conductivity_file:
+            # Only write header if the file is empty or doesn't exist
+            import os
+            if not os.path.exists(self.log_conductivity_file) or os.path.getsize(self.log_conductivity_file) == 0:
+                with open(self.log_conductivity_file, "w") as f:
+                    header = [
+                        "element_type", "element_id", "phase", "conductivity_type",
+                        "A", "G", "shape", "Sw", "So", "b", "bo",
+                        "theta_h", "beta", "n_corners",
+                        "has_water_in_center", "has_oil_in_center", "conductivity"
+                    ]
+                    f.write("\t".join(header) + "\n")
+
+    def _log_conductivity(self, element_type, phase, cond_type, gp, A, G, shape, Sw=None, So=None, b=None, bo=None, theta_h=None, beta=None, n_corners=None, has_water_in_center=None, has_oil_in_center=None):
+        if not self.log_conductivity_file:
+            return
+        
+        with open(self.log_conductivity_file, "a") as f:
+            for n in range(len(gp)):
+                def format_array(arr):
+                    if arr is None: return "0.0"
+                    if isinstance(arr[n], (np.ndarray, list)):
+                        return "[" + ",".join([f"{x:.6e}" if isinstance(x, (float, np.float64)) else str(x) for x in arr[n]]) + "]"
+                    return f"{arr[n]:.6e}"
+
+                row = [
+                    "PORE" if element_type == PORE else "THROAT",
+                    str(n),
+                    "WATER" if phase == WATER else "OIL",
+                    cond_type,
+                    f"{A[n]:.6e}",
+                    f"{G[n]:.6e}",
+                    str(shape[n]),
+                    f"{Sw[n]:.6e}" if Sw is not None else "0.0",
+                    f"{So[n]:.6e}" if So is not None else "0.0",
+                    format_array(b),
+                    format_array(bo),
+                    format_array(theta_h),
+                    format_array(beta),
+                    str(n_corners[n]) if n_corners is not None else "0",
+                    str(has_water_in_center[n]) if has_water_in_center is not None else "False",
+                    str(has_oil_in_center[n]) if has_oil_in_center is not None else "False",
+                    f"{gp[n]:.6e}"
+                ]
+                f.write("\t".join(row) + "\n")
 
     def calculate_singlephase_conductance(self, phase):
         self._calculate_singlephase_conductivity(phase)
@@ -114,6 +160,13 @@ class ConductanceCalculator:
                 pn_element.shape,
                 phase,
             )
+            
+            if self.log_conductivity_file:
+                self._log_conductivity(
+                    element_type, phase, "SINGLEPHASE", 
+                    singlephase_conductivity, area, pn_element.shape_factor, pn_element.shape
+                )
+
             singlephase_conductivity *= pn_element.N
 
     def _calculate_multiphase_conductivity(self, phase):
@@ -148,6 +201,22 @@ class ConductanceCalculator:
                 pn_element.oil_filled,
                 phase,
             )
+            
+            if self.log_conductivity_file:
+                self._log_conductivity(
+                    element_type, phase, "MULTIPHASE",
+                    multiphase_conductivity, area, pn_element.shape_factor, pn_element.shape,
+                    Sw=pn_element.water_saturation,
+                    So=pn_element.oil_saturation,
+                    b=pn_element.b,
+                    bo=pn_element.bo,
+                    theta_h=pn_element.hinging_contact_angle,
+                    beta=pn_element.corner_half_angle,
+                    n_corners=pn_element.n_corners,
+                    has_water_in_center=pn_element.water_filled,
+                    has_oil_in_center=pn_element.oil_filled
+                )
+
             multiphase_conductivity *= pn_element.N
 
 
@@ -431,7 +500,7 @@ class KrelCalculator:
     def _calculate_subnetwork_flowrate(self, network_clone, update_hydraulic_conductance, phase):
         if len(network_clone.throats()) == 0 or len(network_clone.pores()) == 0:
             return 0
-        new_network = Network(network_clone)
+        new_network = Network(network_clone, log_conductivity_file=self.network.log_conductivity_file)
         if len(new_network.get_inlets_ids()) == 0 or len(new_network.get_outlets_ids()) == 0:
             return 0
         flow_rate_calculator = FlowRateCalculator(new_network)
@@ -752,9 +821,8 @@ class CycleSimulation:
         self._update_entry_pressures(pc, verbose=verbose)
 
         no_invasion_left = False
-
-
         invasion_pc = pc
+        
         while True:
             try:
                 element_to_fill = self._get_element_to_fill(pc, self.border_elements, verbose=verbose)
@@ -844,13 +912,6 @@ class CycleSimulation:
         else:
             return False
 
-    def _refresh_border_elements(
-        self,
-        *args,
-        **kwargs,
-    ):
-        self._refresh_border_elements(*args, **kwargs)
-        
     def _refresh_border_elements(
         self,
         reached_bubble,

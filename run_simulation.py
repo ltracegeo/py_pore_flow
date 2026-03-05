@@ -63,6 +63,11 @@ def main():
 
     params = config_data["parameters"]
     simulation_config = config_data["config"] # This is the 'config' dictionary for the Simulation constructor
+    
+    # Enable conductivity logging
+    conductivity_log_filename = f"conductivity_{timestamp}.tsv"
+    simulation_config["log_conductivity_file"] = conductivity_log_filename
+    log_and_print(f"Conductivity logging enabled. Results will be saved to {conductivity_log_filename}")
 
 
     # 5. Instantiate Simulation

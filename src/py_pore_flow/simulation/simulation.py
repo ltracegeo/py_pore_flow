@@ -814,7 +814,8 @@ class StepSimulation:
         if set_initial_values:
             initialize_pn(pn)
 
-        self.network = Network(pn)
+        log_conductivity_file = config.get("log_conductivity_file") if config else None
+        self.network = Network(pn, log_conductivity_file=log_conductivity_file)
 
         if generate_cas:
             self.parameter_manager.generate_contact_angles(self.network)

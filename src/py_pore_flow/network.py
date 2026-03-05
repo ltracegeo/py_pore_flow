@@ -126,8 +126,9 @@ def initialize_pn(pn):
 
 
 class Network:
-    def __init__(self, network):
+    def __init__(self, network, log_conductivity_file=None):
         self.pn = network
+        self.log_conductivity_file = log_conductivity_file
         self.pn_core = NetworkCore(self.pn)
         self.pore = Pore(self.pn_core.pore)
         self.throat = Throat(self.pn_core.throat)
