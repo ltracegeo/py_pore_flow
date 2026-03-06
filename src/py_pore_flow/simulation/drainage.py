@@ -9,8 +9,9 @@ from py_pore_flow.equations.geometry import (
     calculate_drainage_network_saturation,
     calculate_multiphase_mask_drainage,
 )
-from py_pore_flow.network import PORE, THROAT
-from py_pore_flow.simulation.cycle_simulation import CycleSimulation, SaturationCalculator
+from py_pore_flow.network.network import PORE, THROAT
+from py_pore_flow.simulation.cycle_simulation import CycleSimulation
+from py_pore_flow.simulation.saturation_calculator import SaturationCalculator
 
 
 class DrainageSimulation(CycleSimulation):

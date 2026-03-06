@@ -14,7 +14,7 @@ from py_pore_flow.equations.geometry import (
 )
 import py_pore_flow.constants as c
 from py_pore_flow.equations.entry_pressure import PORE_BODY_FILLING_STRATEGY
-from py_pore_flow.network import PORE, THROAT
+from py_pore_flow.network.network import PORE, THROAT
 from py_pore_flow.simulation.subsequent_cycle import SubsequentCycleSimulation
 from py_pore_flow import log
 

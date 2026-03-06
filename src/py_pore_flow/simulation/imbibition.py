@@ -16,7 +16,7 @@ from py_pore_flow.equations.geometry import (
     calculate_oil_layer_network,
     check_water_layer,
 )
-from py_pore_flow.simulation.cycle_simulation import PORE, THROAT
+from py_pore_flow.network.network import PORE, THROAT
 from py_pore_flow.simulation.subsequent_cycle import SubsequentCycleSimulation
 from py_pore_flow import log
 

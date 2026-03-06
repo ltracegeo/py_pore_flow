@@ -4,7 +4,7 @@ from numpy.testing import assert_almost_equal, assert_equal
 import openpnm as op
 
 from py_pore_flow import global_random
-from py_pore_flow.network import initialize_pn, Network
+from py_pore_flow.network.network import initialize_pn, Network
 from py_pore_flow.parameters.parameter_manager import ParameterManager
 from py_pore_flow.simulation.simulation import calculate_initial_values
 

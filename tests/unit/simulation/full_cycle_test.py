@@ -1,7 +1,7 @@
 import unittest
 import json
 import os
-from py_pore_flow.network import initialize_pn
+from py_pore_flow.network.network import initialize_pn
 from py_pore_flow.simulation.simulation import Simulation
 from tests.unit.simulation.resources.simple_network import get_simple_network
 

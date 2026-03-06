@@ -4,13 +4,11 @@ import numpy as np
 import openpnm as op
 
 from py_pore_flow.equations.geometry import WATER
-from py_pore_flow.simulation.cycle_simulation import (
-    BorderElements,
-    CycleSimulation,
-    PhaseConnectionChecker,
-    TrapChecker,
-)
-from py_pore_flow.network import initialize_pn, Network
+from py_pore_flow.simulation.cycle_simulation import CycleSimulation
+from py_pore_flow.simulation.border_elements import BorderElements
+from py_pore_flow.simulation.trap_checker import TrapChecker
+from py_pore_flow.simulation.clusters import PhaseConnectionChecker
+from py_pore_flow.network.network import initialize_pn, Network
 from tests.unit.simulation.resources.simple_network import get_simple_network
 
 

@@ -7,7 +7,7 @@ from datetime import datetime
 # Add src to python path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from py_pore_flow.network import (
+from py_pore_flow.network.network import (
     initialize_pn,
     Network,
 )

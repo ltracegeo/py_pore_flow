@@ -34,13 +34,14 @@ from py_pore_flow.equations.entry_pressure import (
     calculate_snap_off_pc_network,
     calculate_imbibition_piston_like_displacement_pc_network,
 )
-from py_pore_flow.network import initialize_pn, Network
+from py_pore_flow.network.network import initialize_pn, Network
 from py_pore_flow.output import pn_to_vtu
 from py_pore_flow.parameters.parameter_manager import ParameterManager
 from py_pore_flow.simulation.second_drainage import SecondDrainageSimulation
 from py_pore_flow.simulation.drainage import DrainageSimulation
 from py_pore_flow.simulation.imbibition import ImbibitionSimulation
-from py_pore_flow.simulation.cycle_simulation import ConductanceCalculator, PcIncrementer
+from py_pore_flow.simulation.conductance_calculator import ConductanceCalculator
+from py_pore_flow.simulation.pc_incrementer import PcIncrementer
 
 INITIAL = 0
 FIRST_DRAINAGE = 1
