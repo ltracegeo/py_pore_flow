@@ -2,7 +2,7 @@ from .pn_element import PnElement
 from .constants import PORE
 
 
-class Pore(PnElement):
+class PoresManager(PnElement):
     def __init__(self, element):
         super().__init__(element, PORE)
 

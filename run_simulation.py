@@ -9,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 from py_pore_flow.network.network import (
     initialize_pn,
-    Network,
+    NetworkManager,
 )
 from py_pore_flow.simulation.simulation import Simulation # Import the main Simulation class
 from tests.unit.simulation.resources.simple_network import get_simple_network
@@ -53,7 +53,7 @@ def main():
     initialize_pn(pn)
 
     # 3. Wrap the network (although Simulation class might do this internally, it's good to keep consistent)
-    network = Network(pn) # Keep this for consistent initialization, but it's passed as pn to Simulation
+    network = NetworkManager(pn) # Keep this for consistent initialization, but it's passed as pn to Simulation
 
     # 4. Load simulation config
     log_and_print("Loading simulation config...")

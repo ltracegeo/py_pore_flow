@@ -34,7 +34,7 @@ from py_pore_flow.equations.entry_pressure import (
     calculate_snap_off_pc_network,
     calculate_imbibition_piston_like_displacement_pc_network,
 )
-from py_pore_flow.network.network import initialize_pn, Network
+from py_pore_flow.network.network import initialize_pn, NetworkManager
 from py_pore_flow.output import pn_to_vtu
 from py_pore_flow.parameters.parameter_manager import ParameterManager
 from py_pore_flow.simulation.second_drainage import SecondDrainageSimulation
@@ -816,7 +816,7 @@ class StepSimulation:
             initialize_pn(pn)
 
         log_conductivity_file = config.get("log_conductivity_file") if config else None
-        self.network = Network(pn, log_conductivity_file=log_conductivity_file)
+        self.network = NetworkManager(pn, log_conductivity_file=log_conductivity_file)
 
         if generate_cas:
             self.parameter_manager.generate_contact_angles(self.network)

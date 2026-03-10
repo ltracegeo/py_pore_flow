@@ -1,4 +1,4 @@
-from abc import abstractmethod
+from abc import abstractmethod, ABC
 from py_pore_flow.equations.geometry import (
     SQUARE,
     TRIANGLE,
@@ -7,7 +7,7 @@ from py_pore_flow.equations.geometry import (
 from .constants import PORE, THROAT
 
 
-class PnElement:
+class PnElement(ABC):
     def __init__(self, element, element_type):
         self.element = element
         self.type = element_type

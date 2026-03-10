@@ -1,4 +1,5 @@
 import numpy as np
+import traceback
 from py_pore_flow.equations.geometry import (
     WATER,
     OIL,
@@ -33,6 +34,9 @@ class ConductanceCalculator:
         if not self.log_conductivity_file:
             return
         
+        print("--- Capturing traceback as a string ---")
+        traceback.print_stack()
+
         with open(self.log_conductivity_file, "a") as f:
             for n in range(len(gp)):
                 def format_array(arr):

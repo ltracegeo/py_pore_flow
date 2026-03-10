@@ -7,7 +7,7 @@ from py_pore_flow.equations.geometry import (
 from py_pore_flow.equations.conductance import (
     calculate_absolute_permeability,
 )
-from py_pore_flow.network.network import Network
+from py_pore_flow.network.network import NetworkManager
 from py_pore_flow.simulation.flow_rate_calculator import FlowRateCalculator
 
 
@@ -94,7 +94,7 @@ class KrelCalculator:
     def _calculate_subnetwork_flowrate(self, network_clone, update_hydraulic_conductance, phase):
         if len(network_clone.throats()) == 0 or len(network_clone.pores()) == 0:
             return 0
-        new_network = Network(network_clone, log_conductivity_file=self.network.log_conductivity_file)
+        new_network = NetworkManager(network_clone, log_conductivity_file=self.network.log_conductivity_file)
         if len(new_network.get_inlets_ids()) == 0 or len(new_network.get_outlets_ids()) == 0:
             return 0
         flow_rate_calculator = FlowRateCalculator(new_network)
@@ -119,8 +119,8 @@ class KrelCalculator:
         except:
             return []
 
-        clusters_with_inlets = pn["pore.cluster_number"][pn["pore.inlets"]]
-        clusters_with_outlets = pn["pore.cluster_number"][pn["pore.outlets"]]
+        clusters_with_inlets = pn["pore.cluster_number"][pn["pore.inlets"]].astype(np.int32)
+        clusters_with_outlets = pn["pore.cluster_number"][pn["pore.outlets"]].astype(np.int32)
         valid_clusters = np.intersect1d(clusters_with_inlets, clusters_with_outlets)
         if len(valid_clusters) == 0:
             raise ValueError()
@@ -129,7 +129,6 @@ class KrelCalculator:
     @staticmethod
     def _trim_cluster(pn, choosen_cluster):
         clustered_pores = pn[pn["pore.cluster_number"] != choosen_cluster]
-
         openpnm.topotools.trim(network=pn, pores=clustered_pores)
 
     @staticmethod

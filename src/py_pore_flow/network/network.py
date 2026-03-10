@@ -5,13 +5,13 @@ from py_pore_flow.equations.geometry import (
 )
 from .constants import PORE, THROAT
 from .pn_element import PnElement
-from .pore import Pore
-from .throat import Throat
+from .pores_manager import PoresManager
+from .throats_manager import ThroatsManager
 from .element_network import ElementNetwork
 from .pores_network import PoresNetwork
 from .throats_network import ThroatsNetwork
 from .network_core import NetworkCore
-from .network_model import Network
+from .network_manager import NetworkManager
 
 
 def initialize_pn(pn):

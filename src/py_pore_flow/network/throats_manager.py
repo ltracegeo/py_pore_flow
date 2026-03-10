@@ -2,7 +2,7 @@ from .pn_element import PnElement
 from .constants import THROAT
 
 
-class Throat(PnElement):
+class ThroatsManager(PnElement):
     def __init__(self, element):
         super().__init__(element, THROAT)
         self._L = None
