@@ -40,22 +40,49 @@ class CycleSimulation:
         self.current_pc = None
 
     def update_pc(self, pc, target_sw=None, verbose=False):
+        """Advance the simulation to *pc*, optionally stopping after *target_sw* saturation change.
+
+        The inner loop fills border elements one at a time.  When *target_sw*
+        is given (sw-controlled stepping), invasions stop as soon as the
+        cumulative |ΔSw| reaches that threshold, even if more elements could
+        theoretically be filled at the current pressure.
+
+        The capillary pressure can advance internally beyond *pc* when the
+        pressure front must jump to the next accessible entry pressure (i.e.
+        when all remaining border elements have entry pressures > *pc* for
+        drainage, or < *pc* for imbibition).
+
+        Args:
+            pc: Target capillary pressure for this step.
+            target_sw: Maximum allowed saturation change per call.  ``None``
+                means "fill everything accessible at *pc*" (pc-controlled
+                stepping).
+            verbose: Emit str yield-messages for step-by-step debugging.
+
+        Yields:
+            str debug messages when *verbose* is ``True``.
+
+        Returns:
+            (total_sw_delta, invaded_pc, next_invasion_pc, no_invasion_left)
+        """
         invasion_pc = pc
         old_pc = pc
         total_sw_delta = 0.0
         invasion_target_sw = None
 
         if verbose: yield "Updating network geometry"
+        # Update corner-layer geometry for ALL elements at the initial pc.
         self._update_network_geometry(pc)
 
         while True:
             if target_sw is not None:
                 invasion_target_sw = target_sw - total_sw_delta
+            # Capture the pc at which this batch of invasions starts.
             invaded_pc = invasion_pc
-            
+
             if verbose: yield f"Updating invasions at Pc: {invasion_pc:.2f}"
             sw_delta, invasion_pc, no_invasion_left = yield from self._update_invasions(invasion_pc, invasion_target_sw, verbose=verbose)
-            
+
             if verbose: yield "Updating multiphase mask"
             self._update_multiphase_mask(invaded_pc, old_pc)
             old_pc = invaded_pc
@@ -64,8 +91,13 @@ class CycleSimulation:
             if (target_sw is None) or (total_sw_delta >= target_sw) or (no_invasion_left):
                 break
 
-        if verbose: yield "Finalizing network geometry update"
-        self._update_network_geometry(invaded_pc)
+        # Only refresh geometry when the pressure front advanced beyond the
+        # initial pc.  In the common single-iteration case ``invaded_pc == pc``
+        # and the start call above already computed the correct state; calling
+        # again would be an O(N) no-op (update_mask would be all-False).
+        if invaded_pc != pc:
+            if verbose: yield "Finalizing network geometry update"
+            self._update_network_geometry(invaded_pc)
 
         return total_sw_delta, invaded_pc, invasion_pc, no_invasion_left
 

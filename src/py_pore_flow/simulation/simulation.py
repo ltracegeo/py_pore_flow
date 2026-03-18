@@ -947,10 +947,26 @@ class MultiStepSimulation(StepSimulation):
         self.is_first_step = True
         self.no_invasion_left = False
 
-    def cycle_should_end(self):
-        return self.pc_incrementer.cycle_should_end() or (self.get_pores_left() == 0 and self.get_throats_left() == 0) or self.no_invasion_left
+    def cycle_should_end(self) -> bool:
+        """Return True when the current displacement cycle is complete.
 
-    def _perform_step(self, pc, verbose=False):
+        The cycle ends when the pc_incrementer signals it, when no pores or
+        throats remain to be invaded, or when the last ``update_pc`` call found
+        no available invasions.
+        """
+        return (
+            self.pc_incrementer.cycle_should_end()
+            or (self.get_pores_left() == 0 and self.get_throats_left() == 0)
+            or self.no_invasion_left
+        )
+
+    def _perform_step(self, pc: float, verbose: bool = False):
+        """Execute one simulation step at capillary pressure *pc*.
+
+        Delegates to :meth:`_step_by_sw` for all steps after the first when
+        sw-controlled stepping is active, and to the base
+        :meth:`StepSimulation._perform_step` (pc-controlled) otherwise.
+        """
         if self.sw_step is None or self.is_first_step:
             current_pc = yield from super()._perform_step(pc, verbose=verbose)
         else:
@@ -958,11 +974,55 @@ class MultiStepSimulation(StepSimulation):
         self.is_first_step = False
         return current_pc
 
-    def _step_by_sw(self, pc, verbose=False):
+    def _step_by_sw(self, pc: float, verbose: bool = False):
+        """Advance the simulation until the cumulative saturation change reaches ``sw_step``.
+
+        Unlike :meth:`StepSimulation._step_by_pc`, which fills every element
+        accessible at a single capillary pressure, this method allows the
+        pressure to advance freely across multiple entry pressures until the
+        target saturation step has been achieved.  This produces a more uniform
+        distribution of output points on the Pc–Sw curve.
+
+        Algorithm
+        ---------
+        Calls ``simulation.update_pc(next_pc, sw_step)`` in a loop.  Each
+        call fills elements at or above *next_pc* (drainage) / below *next_pc*
+        (imbibition) until it has contributed ``sw_step`` worth of saturation
+        change or exhausts available invasions.  The returned ``next_invasion_pc``
+        becomes the starting pressure of the following call so that the pressure
+        front advances automatically.
+
+        The loop exits when either:
+
+        * ``total_sw_delta >= sw_step``  — the target saturation step is met, or
+        * :meth:`cycle_should_end` returns ``True``  — no more invasions or the
+          pressure limits have been reached.
+
+        Performance note
+        ----------------
+        Each iteration of this function triggers one call to
+        ``simulation.update_pc``, which internally calls
+        ``_update_network_geometry`` once (not twice, thanks to the
+        ``invaded_pc != pc`` guard added there).  After this function returns,
+        the caller computes krel via a sparse linear solve — that step typically
+        dominates for large networks.
+
+        Args:
+            pc: Starting capillary pressure for this sw-step.
+            verbose: Emit str yield-messages for step-by-step debugging.
+
+        Yields:
+            str debug messages when *verbose* is ``True``.
+
+        Returns:
+            current_pc: The capillary pressure at the end of this sw-step.
+        """
         total_sw_delta = 0.0
         next_pc = pc
         while True:
-            sw_delta, current_pc, next_pc, self.no_invasion_left = yield from self.simulation.update_pc(next_pc, self.sw_step, verbose=verbose)
+            sw_delta, current_pc, next_pc, self.no_invasion_left = yield from self.simulation.update_pc(
+                next_pc, self.sw_step, verbose=verbose
+            )
             self.max_pc = max(self.max_pc, current_pc)
             self.min_pc = min(self.min_pc, current_pc)
             total_sw_delta += sw_delta
