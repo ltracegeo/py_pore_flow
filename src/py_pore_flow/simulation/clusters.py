@@ -410,7 +410,7 @@ class ReductiblePhaseConnectionChecker2(PhaseConnectionChecker2):
         )
         new_tem_pore_clusters = np.array(list(set(pore_cluster_temp[pore_to_scan])))
         new_temp_throat_clusters = np.array(list(set(throat_cluster_temp[throat_to_scan])))
-        new_temp_clusters = np.array(list(set(np.concatenate((new_tem_pore_clusters, new_temp_throat_clusters)))))
+        new_temp_clusters = np.array(list(set(new_tem_pore_clusters) | set(new_temp_throat_clusters)))
         new_clusters_ids = np.empty(len(new_temp_clusters), np.int32)
 
         for i in range(len(new_temp_clusters)):
@@ -420,21 +420,17 @@ class ReductiblePhaseConnectionChecker2(PhaseConnectionChecker2):
                 max_cluster_id += 1
                 new_clusters_ids[i] = max_cluster_id
 
+        temp_to_new_id = np.full(wqupc_nP + wqupc_nT, -1, dtype=np.int64)
+        for i in range(len(new_temp_clusters)):
+            temp_to_new_id[new_temp_clusters[i]] = new_clusters_ids[i]
+
         for i in range(wqupc_nP):
             if pore_to_scan[i]:
-                temp_id = pore_cluster_temp[i]
-                for j in range(len(new_temp_clusters)):
-                    if temp_id == new_temp_clusters[j]:
-                        pore_cluster[i] = new_clusters_ids[j]
-                        break
+                pore_cluster[i] = temp_to_new_id[pore_cluster_temp[i]]
 
         for i in range(wqupc_nT):
             if throat_to_scan[i]:
-                temp_id = throat_cluster_temp[i]
-                for j in range(len(new_temp_clusters)):
-                    if temp_id == new_temp_clusters[j]:
-                        throat_cluster[i] = new_clusters_ids[j]
-                        break
+                throat_cluster[i] = temp_to_new_id[throat_cluster_temp[i]]
 
         return max_cluster_id
 
@@ -1013,10 +1009,8 @@ def remove_from_clusters(element_cluster_array, element_id_list):
 
 @nb.njit(cache=True)
 def njit_isin(array_a, array_b):
-    result = np.full(array_a.size, False, nb.bool_)
+    result = np.empty(array_a.size, dtype=np.bool_)
+    set_b = set(array_b)
     for i in range(array_a.size):
-        for j in range(array_b.size):
-            if array_a[i] == array_b[j]:
-                result[i] = True
-                break
+        result[i] = array_a[i] in set_b
     return result
