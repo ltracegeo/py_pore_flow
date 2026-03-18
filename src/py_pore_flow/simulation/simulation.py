@@ -958,14 +958,37 @@ class MultiStepSimulation(StepSimulation):
         self.is_first_step = False
         return current_pc
 
-    def _step_by_sw(self, pc, verbose=False):
+    def _step_by_sw(self, pc: float, verbose: bool = False):
+        """
+        Advances the simulation by a fixed saturation step.
+        
+        Args:
+            pc (float): The starting capillary pressure for this step.
+            verbose (bool, optional): If True, yields progress messages. Defaults to False.
+            
+        Yields:
+            str: Progress messages if verbose is True.
+            
+        Returns:
+            float: The updated capillary pressure after advancing by the saturation step.
+        """
         total_sw_delta = 0.0
         next_pc = pc
+        
         while True:
-            sw_delta, current_pc, next_pc, self.no_invasion_left = yield from self.simulation.update_pc(next_pc, self.sw_step, verbose=verbose)
+            # Calculate the remaining saturation to avoid overshooting in case of multiple iterations
+            target_sw = self.sw_step - total_sw_delta if self.sw_step is not None else None
+            
+            sw_delta, current_pc, next_pc, self.no_invasion_left = yield from self.simulation.update_pc(
+                next_pc, target_sw, verbose=verbose
+            )
+            
             self.max_pc = max(self.max_pc, current_pc)
             self.min_pc = min(self.min_pc, current_pc)
             total_sw_delta += sw_delta
-            if total_sw_delta >= self.sw_step or self.cycle_should_end():
+            
+            # Short-circuit expensive cycle_should_end() checks by testing no_invasion_left early
+            if (self.sw_step is not None and total_sw_delta >= self.sw_step) or self.no_invasion_left or self.cycle_should_end():
                 break
+                
         return current_pc
