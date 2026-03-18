@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m pytest tests/unit/simulation/ -v --tb=short)",
+      "Bash(python -m pytest tests/unit/simulation/full_cycle_test.py -x -q)",
+      "Bash(python -m pytest tests/unit/simulation/full_cycle_test.py tests/unit/simulation/step_by_sw_test.py -v)",
+      "Bash(python -m pytest tests/unit/simulation/step_by_sw_test.py -v)",
+      "Bash(python -m pytest tests/unit/simulation/test_indexed_priority_tree.py -v)"
+    ]
+  }
+}
