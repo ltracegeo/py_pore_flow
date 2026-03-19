@@ -1,12 +1,13 @@
-"""Border element tracking backed by IndexedPriorityTree.
+"""Border element tracking with hybrid numpy-array + IndexedPriorityTree storage.
 
-Border elements are unfilled pores/throats that are adjacent to filled elements
-and thus candidates for invasion. This module provides O(log N) insert, remove,
-and min/max entry-pressure extraction using dual Red-Black trees (one for pores,
-one for throats).
+Border elements are unfilled pores/throats adjacent to filled elements and thus
+candidates for invasion.  This module uses a hybrid approach:
 
-The trees store (element_index, entry_pressure) pairs and hold references to
-the network's entry_pressure arrays so PCs can be synced after external updates.
+- **Numpy arrays** for O(1) ID retrieval and fast iteration (passed to njit functions).
+- **IndexedPriorityTree** for O(log N) min/max entry-pressure extraction.
+
+The trees hold references to the network's entry_pressure arrays so PCs can
+be synced efficiently via bulk rebuild after external updates.
 """
 
 from typing import Optional, Tuple
@@ -18,11 +19,11 @@ from py_pore_flow.simulation.indexed_priority_tree import IndexedPriorityTree
 
 
 class BorderElements:
-    """Tracks border elements using IndexedPriorityTree for O(log N) operations.
+    """Tracks border elements using numpy arrays + IndexedPriorityTree.
 
-    Stores references to the network's ``entry_pressure`` arrays.  When entry
-    pressures are modified externally (e.g. during imbibition PC recalculation),
-    call :meth:`sync_pore_pcs` / :meth:`sync_throat_pcs` to update the trees.
+    The numpy arrays provide O(1) ``get_*_ids()`` and fast bulk operations
+    (same performance as the original implementation).  The trees provide
+    O(log N) ``get_min_element()`` / ``get_max_element()`` extraction.
 
     Parameters
     ----------
@@ -39,66 +40,72 @@ class BorderElements:
     ) -> None:
         self._pore_pc = pore_entry_pressure
         self._throat_pc = throat_entry_pressure
+
+        # Fast numpy arrays for iteration (same as old implementation)
+        self._pore_ids = np.array([], np.int64)
+        self._throat_ids = np.array([], np.int64)
+
+        # Trees for O(log N) min/max extraction
         self._pores_tree = IndexedPriorityTree(max(len(pore_entry_pressure), 1))
         self._throats_tree = IndexedPriorityTree(max(len(throat_entry_pressure), 1))
 
     # ------------------------------------------------------------------ #
-    # Backward-compatible ID accessors
+    # ID accessors — O(1) array return (same as old implementation)
     # ------------------------------------------------------------------ #
 
     def get_pores_ids(self) -> np.ndarray:
-        """Return sorted array of border pore indices."""
-        return self._pores_tree.get_all_ids()
+        """Return the stored border pore indices array (O(1))."""
+        return self._pore_ids
 
     def get_throats_ids(self) -> np.ndarray:
-        """Return sorted array of border throat indices."""
-        return self._throats_tree.get_all_ids()
+        """Return the stored border throat indices array (O(1))."""
+        return self._throat_ids
 
     # ------------------------------------------------------------------ #
     # Bulk set (replaces all stored elements)
     # ------------------------------------------------------------------ #
 
     def set_pores_ids(self, pore_ids: np.ndarray) -> None:
-        """Replace all border pores. Entry pressures are read from the referenced array."""
-        self._pores_tree.clear()
-        if len(pore_ids) > 0:
-            pcs = self._pore_pc[pore_ids]
-            self._pores_tree.set_all(
-                pore_ids.astype(np.int64), pcs.astype(np.float64)
-            )
+        """Replace all border pores and rebuild the pore tree."""
+        self._pore_ids = pore_ids
+        self._rebuild_pore_tree()
 
     def set_throats_ids(self, throat_ids: np.ndarray) -> None:
-        """Replace all border throats. Entry pressures are read from the referenced array."""
-        self._throats_tree.clear()
-        if len(throat_ids) > 0:
-            pcs = self._throat_pc[throat_ids]
-            self._throats_tree.set_all(
-                throat_ids.astype(np.int64), pcs.astype(np.float64)
-            )
+        """Replace all border throats and rebuild the throat tree."""
+        self._throat_ids = throat_ids
+        self._rebuild_throat_tree()
 
     # ------------------------------------------------------------------ #
     # Incremental add / remove
     # ------------------------------------------------------------------ #
 
     def add_pores_ids(self, pore_ids: np.ndarray) -> None:
-        """Insert new border pores. Entry pressures are read from the referenced array."""
+        """Append border pores and insert them into the tree."""
+        self._pore_ids = np.concatenate((self._pore_ids, pore_ids))
         for i in range(len(pore_ids)):
             pid = int(pore_ids[i])
             self._pores_tree.insert(pid, float(self._pore_pc[pid]))
 
     def add_throats_ids(self, throat_ids: np.ndarray) -> None:
-        """Insert new border throats. Entry pressures are read from the referenced array."""
+        """Append border throats and insert them into the tree."""
+        self._throat_ids = np.concatenate((self._throat_ids, throat_ids))
         for i in range(len(throat_ids)):
             tid = int(throat_ids[i])
             self._throats_tree.insert(tid, float(self._throat_pc[tid]))
 
     def remove_pores_ids(self, pore_ids: np.ndarray) -> None:
-        """Remove border pores by index."""
+        """Remove border pores from both the array and the tree."""
+        self._pore_ids = np.delete(
+            self._pore_ids, np.isin(self._pore_ids, pore_ids)
+        )
         for i in range(len(pore_ids)):
             self._pores_tree.remove(int(pore_ids[i]))
 
     def remove_throats_ids(self, throat_ids: np.ndarray) -> None:
-        """Remove border throats by index."""
+        """Remove border throats from both the array and the tree."""
+        self._throat_ids = np.delete(
+            self._throat_ids, np.isin(self._throat_ids, throat_ids)
+        )
         for i in range(len(throat_ids)):
             self._throats_tree.remove(int(throat_ids[i]))
 
@@ -109,26 +116,31 @@ class BorderElements:
     def sync_pore_pcs(self, pore_ids: Optional[np.ndarray] = None) -> None:
         """Re-read entry pressures from the referenced array into the pore tree.
 
-        If *pore_ids* is ``None``, syncs all border pores.
+        If *pore_ids* is ``None``, rebuilds the entire pore tree (bulk njit path,
+        much faster than per-element Python-loop update).  If specific IDs are
+        given, updates only those elements individually.
         """
         if pore_ids is None:
-            pore_ids = self._pores_tree.get_all_ids()
-        for pid_val in pore_ids:
-            pid = int(pid_val)
-            if self._pores_tree.contains(pid):
-                self._pores_tree.update_pc(pid, float(self._pore_pc[pid]))
+            self._rebuild_pore_tree()
+        else:
+            for pid_val in pore_ids:
+                pid = int(pid_val)
+                if self._pores_tree.contains(pid):
+                    self._pores_tree.update_pc(pid, float(self._pore_pc[pid]))
 
     def sync_throat_pcs(self, throat_ids: Optional[np.ndarray] = None) -> None:
         """Re-read entry pressures from the referenced array into the throat tree.
 
-        If *throat_ids* is ``None``, syncs all border throats.
+        If *throat_ids* is ``None``, rebuilds the entire throat tree (bulk njit
+        path).  If specific IDs are given, updates only those elements.
         """
         if throat_ids is None:
-            throat_ids = self._throats_tree.get_all_ids()
-        for tid_val in throat_ids:
-            tid = int(tid_val)
-            if self._throats_tree.contains(tid):
-                self._throats_tree.update_pc(tid, float(self._throat_pc[tid]))
+            self._rebuild_throat_tree()
+        else:
+            for tid_val in throat_ids:
+                tid = int(tid_val)
+                if self._throats_tree.contains(tid):
+                    self._throats_tree.update_pc(tid, float(self._throat_pc[tid]))
 
     # ------------------------------------------------------------------ #
     # O(log N) min/max element extraction
@@ -152,8 +164,6 @@ class BorderElements:
             return (THROAT, throat_min[0], throat_min[1])
         if throat_min is None:
             return (PORE, pore_min[0], pore_min[1])
-        # Tie-break: prefer lower PC; if equal, prefer pore (consistent with
-        # the original linear-scan order which checks pores first).
         if pore_min[1] <= throat_min[1]:
             return (PORE, pore_min[0], pore_min[1])
         return (THROAT, throat_min[0], throat_min[1])
@@ -195,14 +205,38 @@ class BorderElements:
     @property
     def pore_count(self) -> int:
         """Number of border pores."""
-        return self._pores_tree.count
+        return len(self._pore_ids)
 
     @property
     def throat_count(self) -> int:
         """Number of border throats."""
-        return self._throats_tree.count
+        return len(self._throat_ids)
 
     @property
     def is_empty(self) -> bool:
         """True if no border elements are stored."""
-        return self._pores_tree.is_empty and self._throats_tree.is_empty
+        return len(self._pore_ids) == 0 and len(self._throat_ids) == 0
+
+    # ------------------------------------------------------------------ #
+    # Internal: tree rebuild (single bulk njit call)
+    # ------------------------------------------------------------------ #
+
+    def _rebuild_pore_tree(self) -> None:
+        """Rebuild the pore tree from the current ID array and entry pressures."""
+        self._pores_tree.clear()
+        ids = self._pore_ids
+        if len(ids) > 0:
+            self._pores_tree.set_all(
+                ids.astype(np.int64),
+                self._pore_pc[ids].astype(np.float64),
+            )
+
+    def _rebuild_throat_tree(self) -> None:
+        """Rebuild the throat tree from the current ID array and entry pressures."""
+        self._throats_tree.clear()
+        ids = self._throat_ids
+        if len(ids) > 0:
+            self._throats_tree.set_all(
+                ids.astype(np.int64),
+                self._throat_pc[ids].astype(np.float64),
+            )
