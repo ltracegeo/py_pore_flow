@@ -67,7 +67,7 @@ class BorderElements:
         if min_p_id == -1 and min_t_id == -1:
             return None
             
-        if min_p_pc < min_t_pc:
+        if min_p_pc <= min_t_pc:
             return (PORE, min_p_id, self.sign * min_p_pc)
         else:
             return (THROAT, min_t_id, self.sign * min_t_pc)

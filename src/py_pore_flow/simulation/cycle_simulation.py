@@ -205,6 +205,8 @@ class CycleSimulation:
             if verbose: yield "Updating border entry pressures"
             self._update_border_pore_entry_pc(new_border_pores, pc)
             self._update_border_throat_entry_pc(new_border_throats)
+            self.border_elements.sync_pore_pcs(new_border_pores)
+            self.border_elements.sync_throat_pcs(new_border_throats)
         return sw_delta, invasion_pc, no_invasion_left
 
     def _check_for_bubble(self, element, element_id):

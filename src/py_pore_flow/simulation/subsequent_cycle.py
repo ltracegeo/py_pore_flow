@@ -125,16 +125,20 @@ class SubsequentCycleSimulation(CycleSimulation):
 
     def _update_pore_entry_pc(self, pore_id_list, pc, replace_snap_off=False, verbose=False):
         if replace_snap_off:
-            self.snap_off_pore_tree.clear()
             new_list = self._update_pores_snap_offs_pcs(self.network.pn.pores())
+            self._update_border_pore_entry_pc(pore_id_list, pc, verbose=verbose)
+            self.snap_off_pore_tree.clear()
             if len(new_list) > 0:
                 self.snap_off_pore_tree.set_all(new_list, self.snap_off_sign * self.network.pn_core.pore.entry_pressure[new_list])
         else:
             new_snap_off_pores = self._update_pores_snap_offs_pcs(pore_id_list)
+            self._update_border_pore_entry_pc(pore_id_list, pc, verbose=verbose)
             for id in new_snap_off_pores:
-                self.snap_off_pore_tree.insert(id, self.snap_off_sign * self.network.pn_core.pore.entry_pressure[id])
+                if not self.snap_off_pore_tree.insert(id, self.snap_off_sign * self.network.pn_core.pore.entry_pressure[id]):
+                    self.snap_off_pore_tree.update_pc(id, self.snap_off_sign * self.network.pn_core.pore.entry_pressure[id])
+            for id in pore_id_list:
+                self.snap_off_pore_tree.update_pc(id, self.snap_off_sign * self.network.pn_core.pore.entry_pressure[id])
 
-        self._update_border_pore_entry_pc(pore_id_list, pc, verbose=verbose)
         self.border_elements.sync_pore_pcs(pore_id_list)
 
     def _update_border_pore_entry_pc(self, pore_id_list, pc, verbose=False):
@@ -245,16 +249,20 @@ class SubsequentCycleSimulation(CycleSimulation):
 
     def _update_throat_entry_pc(self, throat_id_list, replace_snap_off=False, verbose=False):
         if replace_snap_off:
-            self.snap_off_throat_tree.clear()
             new_list = self._update_throats_snap_offs_pcs(self.network.pn.throats())
+            self._update_border_throat_entry_pc(throat_id_list, verbose=verbose)
+            self.snap_off_throat_tree.clear()
             if len(new_list) > 0:
                 self.snap_off_throat_tree.set_all(new_list, self.snap_off_sign * self.network.pn_core.throat.entry_pressure[new_list])
         else:
             new_snap_off_throats = self._update_throats_snap_offs_pcs(throat_id_list)
+            self._update_border_throat_entry_pc(throat_id_list, verbose=verbose)
             for id in new_snap_off_throats:
-                self.snap_off_throat_tree.insert(id, self.snap_off_sign * self.network.pn_core.throat.entry_pressure[id])
+                if not self.snap_off_throat_tree.insert(id, self.snap_off_sign * self.network.pn_core.throat.entry_pressure[id]):
+                    self.snap_off_throat_tree.update_pc(id, self.snap_off_sign * self.network.pn_core.throat.entry_pressure[id])
+            for id in throat_id_list:
+                self.snap_off_throat_tree.update_pc(id, self.snap_off_sign * self.network.pn_core.throat.entry_pressure[id])
 
-        self._update_border_throat_entry_pc(throat_id_list, verbose=verbose)
         self.border_elements.sync_throat_pcs(throat_id_list)
 
     def _update_border_throat_entry_pc(self, throat_id_list, verbose=False):
