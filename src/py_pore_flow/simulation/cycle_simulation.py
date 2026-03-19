@@ -30,7 +30,13 @@ class CycleSimulation:
 
         self.trap_checker = TrapChecker(network, self.phase)
 
-        self.border_elements = BorderElements()
+        self.border_elements = BorderElements(
+            len(self.network.pn_core.pore.all),
+            len(self.network.pn_core.throat.all),
+            self.network.pn_core.pore.entry_pressure,
+            self.network.pn_core.throat.entry_pressure,
+            negate_pc=(self.phase == WATER)
+        )
         self._refresh_border_elements(True, None, None)
 
         self.trap_checker.update_trapped_pores()

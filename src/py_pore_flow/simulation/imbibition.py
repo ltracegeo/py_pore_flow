@@ -55,43 +55,7 @@ class ImbibitionSimulation(SubsequentCycleSimulation):
     def _can_be_filled(self, current_pc, invasion_pc):
         return current_pc <= invasion_pc
 
-    @staticmethod
-    @nb.njit(cache=True)
-    def _jit_pore_throats_element_to_fill(
-        pc,
-        pore_id_list,
-        pore_entry_pressure,
-        throat_id_list,
-        throat_entry_pressure,
-        verbose=False,
-    ):
-        max_pressure = -np.inf
-        max_id = -1
-        max_type = -1
 
-        if len(pore_id_list) == 0 and len(throat_id_list) == 0:
-            return None
-
-        for id in pore_id_list:
-            pressure = pore_entry_pressure[id]
-            if pressure > max_pressure:
-                max_pressure = pressure
-                max_id = id
-                max_type = PORE
-
-        for id in throat_id_list:
-            pressure = throat_entry_pressure[id]
-            if pressure > max_pressure:
-                max_pressure = pressure
-                max_id = id
-                max_type = THROAT
-
-        if max_id != -1:
-            if verbose:
-                print("  Selected element: ", "pore" if max_type == PORE else "throat", max_id, " with PC: ", max_pressure)
-            return (max_type, max_id, min(max_pressure, pc))
-        else:
-            return None
 
     def _update_element_filled_geometry(self, pc, element, element_id, verbose=False):
         self._update_element_pinned_hinging_contact_angles(element.type, element_id, pc)

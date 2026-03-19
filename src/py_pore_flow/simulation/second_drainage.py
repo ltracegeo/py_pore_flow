@@ -58,43 +58,7 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
     def _can_be_filled(self, current_pc, invasion_pc):
         return current_pc >= invasion_pc
 
-    @staticmethod
-    @nb.njit(cache=True)
-    def _jit_pore_throats_element_to_fill(
-        pc,
-        pore_id_list,
-        pore_entry_pressure,
-        throat_id_list,
-        throat_entry_pressure,
-        verbose=False,
-    ):
-        min_pressure = np.inf
-        min_id = -1
-        min_type = -1
 
-        if len(pore_id_list) == 0 and len(throat_id_list) == 0:
-            return None
-
-        for id in pore_id_list:
-            pressure = pore_entry_pressure[id]
-            if pressure < min_pressure:
-                min_pressure = pressure
-                min_id = id
-                min_type = PORE
-
-        for id in throat_id_list:
-            pressure = throat_entry_pressure[id]
-            if pressure < min_pressure:
-                min_pressure = pressure
-                min_id = id
-                min_type = THROAT
-
-        if min_id != -1:
-            if verbose:
-                print("  Selected element: ", "pore" if min_type == PORE else "throat", min_id, " with PC: ", min_pressure)
-            return (min_type, min_id, max(min_pressure, pc))
-        else:
-            return None
 
     def _update_element_filled_geometry(self, pc, element, element_id, verbose=False):
         element.set_corner_oil_layer(element_id, False)
