@@ -148,6 +148,83 @@ class TestPopAndPeekMin(unittest.TestCase):
         self.assertEqual(tree.pop_min(), (3, 100.0))
 
 
+class TestPopAndPeekMax(unittest.TestCase):
+    """Max-extraction operations."""
+
+    def test_pop_max_single(self):
+        tree = IndexedPriorityTree(100)
+        tree.insert(7, 42.0)
+        idx, pc = tree.pop_max()
+        self.assertEqual(idx, 7)
+        self.assertEqual(pc, 42.0)
+        self.assertTrue(tree.is_empty)
+
+    def test_pop_max_returns_highest(self):
+        tree = IndexedPriorityTree(100)
+        tree.insert(5, 300.0)
+        tree.insert(10, 100.0)
+        tree.insert(15, 200.0)
+        idx, pc = tree.pop_max()
+        self.assertEqual(idx, 5)
+        self.assertEqual(pc, 300.0)
+        self.assertEqual(tree.count, 2)
+        self.assertFalse(tree.contains(5))
+
+    def test_pop_max_full_order(self):
+        tree = IndexedPriorityTree(100)
+        pcs = [50.0, 10.0, 80.0, 30.0, 60.0]
+        for i, pc in enumerate(pcs):
+            tree.insert(i, pc)
+        result = []
+        while not tree.is_empty:
+            _, pc = tree.pop_max()
+            result.append(pc)
+        self.assertEqual(result, sorted(pcs, reverse=True))
+
+    def test_pop_max_empty_raises(self):
+        tree = IndexedPriorityTree(100)
+        with self.assertRaises(IndexError):
+            tree.pop_max()
+
+    def test_peek_max_does_not_remove(self):
+        tree = IndexedPriorityTree(100)
+        tree.insert(5, 100.0)
+        idx, pc = tree.peek_max()
+        self.assertEqual((idx, pc), (5, 100.0))
+        self.assertEqual(tree.count, 1)
+
+    def test_peek_max_empty_raises(self):
+        tree = IndexedPriorityTree(100)
+        with self.assertRaises(IndexError):
+            tree.peek_max()
+
+    def test_same_pc_pop_max_order(self):
+        """Elements with equal PC are popped in descending element index order."""
+        tree = IndexedPriorityTree(100)
+        tree.insert(3, 100.0)
+        tree.insert(1, 100.0)
+        tree.insert(2, 100.0)
+        self.assertEqual(tree.pop_max(), (3, 100.0))
+        self.assertEqual(tree.pop_max(), (2, 100.0))
+        self.assertEqual(tree.pop_max(), (1, 100.0))
+
+    def test_peek_max_after_update(self):
+        tree = IndexedPriorityTree(100)
+        tree.insert(5, 100.0)
+        tree.insert(10, 200.0)
+        self.assertEqual(tree.peek_max(), (10, 200.0))
+        tree.update_pc(5, 500.0)
+        self.assertEqual(tree.peek_max(), (5, 500.0))
+
+    def test_rb_valid_after_pop_max(self):
+        tree = IndexedPriorityTree(200)
+        for i in range(100):
+            tree.insert(i, float(i * 10))
+        for _ in range(50):
+            tree.pop_max()
+        self.assertTrue(tree.validate())
+
+
 class TestMerge(unittest.TestCase):
     """Merge two trees."""
 
@@ -319,7 +396,7 @@ class TestStressMixedOperations(unittest.TestCase):
         ref = {}  # elem_index → pc (ground-truth mirror)
 
         for _ in range(3000):
-            op = rng.randint(0, 5)
+            op = rng.randint(0, 6)
 
             if op == 0 and len(ref) < 400:
                 idx = rng.randint(0, 500)
@@ -350,6 +427,16 @@ class TestStressMixedOperations(unittest.TestCase):
                 del ref[min_key]
 
             elif op == 4 and ref:
+                # Pop max — must agree with reference.
+                max_key = max(ref, key=lambda k: (ref[k], k))
+                max_pc = ref[max_key]
+                got_idx, got_pc = tree.pop_max()
+                self.assertEqual(got_idx, max_key,
+                                 f"pop_max index: expected {max_key}, got {got_idx}")
+                self.assertAlmostEqual(got_pc, max_pc, places=10)
+                del ref[max_key]
+
+            elif ref:
                 idx = rng.choice(list(ref.keys()))
                 self.assertAlmostEqual(tree.get_pc(idx), ref[idx], places=10)
 

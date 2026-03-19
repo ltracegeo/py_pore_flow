@@ -20,6 +20,58 @@ from py_pore_flow.simulation.saturation_calculator import SaturationCalculator
 from py_pore_flow import log
 
 
+@nb.njit(cache=True)
+def _find_min_entry_pressure(
+    pore_id_list, pore_entry_pressure, throat_id_list, throat_entry_pressure
+):
+    """Find the element with the minimum entry pressure across pores and throats.
+
+    Returns ``(element_type, element_id, raw_pc)`` or ``(-1, -1, inf)`` if empty.
+    """
+    min_pc = np.inf
+    min_id = np.int64(-1)
+    min_type = np.int64(-1)
+    for pid in pore_id_list:
+        pc = pore_entry_pressure[pid]
+        if pc < min_pc:
+            min_pc = pc
+            min_id = pid
+            min_type = PORE
+    for tid in throat_id_list:
+        pc = throat_entry_pressure[tid]
+        if pc < min_pc:
+            min_pc = pc
+            min_id = tid
+            min_type = THROAT
+    return min_type, min_id, min_pc
+
+
+@nb.njit(cache=True)
+def _find_max_entry_pressure(
+    pore_id_list, pore_entry_pressure, throat_id_list, throat_entry_pressure
+):
+    """Find the element with the maximum entry pressure across pores and throats.
+
+    Returns ``(element_type, element_id, raw_pc)`` or ``(-1, -1, -inf)`` if empty.
+    """
+    max_pc = -np.inf
+    max_id = np.int64(-1)
+    max_type = np.int64(-1)
+    for pid in pore_id_list:
+        pc = pore_entry_pressure[pid]
+        if pc > max_pc:
+            max_pc = pc
+            max_id = pid
+            max_type = PORE
+    for tid in throat_id_list:
+        pc = throat_entry_pressure[tid]
+        if pc > max_pc:
+            max_pc = pc
+            max_id = tid
+            max_type = THROAT
+    return max_type, max_id, max_pc
+
+
 class SubsequentCycleSimulation(CycleSimulation):
     def __init__(self, network, pc_max, phase, calculate_full_conductance=False):
         super().__init__(network, phase, calculate_full_conductance)
@@ -120,6 +172,9 @@ class SubsequentCycleSimulation(CycleSimulation):
     def _update_entry_pressures(self, pc, verbose=False):
         self._update_throat_entry_pc(self.border_elements.get_throats_ids(), True, verbose=verbose)
         self._update_pore_entry_pc(self.border_elements.get_pores_ids(), pc, True, verbose=verbose)
+        # Sync tree PCs after the entry_pressure arrays were modified externally
+        self.border_elements.sync_pore_pcs()
+        self.border_elements.sync_throat_pcs()
 
     def _update_pore_entry_pc(self, pore_id_list, pc, replace_snap_off=False, verbose=False):
         if replace_snap_off:
@@ -158,6 +213,8 @@ class SubsequentCycleSimulation(CycleSimulation):
             throat_receding_phase_filled,
             verbose=verbose,
         )
+        # Sync tree PCs for the updated pores
+        self.border_elements.sync_pore_pcs(pore_id_list)
 
     @staticmethod
     @nb.njit(cache=True)
@@ -255,6 +312,8 @@ class SubsequentCycleSimulation(CycleSimulation):
             self.network.pn_core.throat.in_border,
             verbose=verbose,
         )
+        # Sync tree PCs for the updated throats
+        self.border_elements.sync_throat_pcs(throat_id_list)
 
     @staticmethod
     @nb.njit(cache=True)
@@ -273,19 +332,53 @@ class SubsequentCycleSimulation(CycleSimulation):
                     print("  Throat ", throat_id, " PC calculation: Piston-like = ", pressure)
 
     def _get_element_to_fill(self, pc, border_elements, verbose=False):
-        self._clear_snapoff_lists()
-        pore_id_list = np.concatenate((border_elements.get_pores_ids(), self.snap_off_pore_list))
-        throat_id_list = np.concatenate((border_elements.get_throats_ids(), self.snap_off_throat_list))
-        element_to_fill = self._jit_pore_throats_element_to_fill(
-            pc,
-            pore_id_list,
-            self.network.pn_core.pore.entry_pressure,
-            throat_id_list,
-            self.network.pn_core.throat.entry_pressure,
-            verbose=verbose,
-        )
+        """Find the best border or snap-off element to fill.
 
-        return element_to_fill
+        Uses O(log N) tree peek for border elements and linear scan for
+        snap-off lists (which are typically much smaller than border elements).
+        """
+        self._clear_snapoff_lists()
+
+        # O(log N) peek from the border element trees
+        border_result = self._get_border_candidate(border_elements)
+
+        # Linear scan of snap-off lists for raw (unclamped) best candidate
+        snap_off_result = self._scan_snap_off_raw()
+
+        # Pick the better candidate (both use raw PCs for fair comparison)
+        best = self._pick_best_candidate(border_result, snap_off_result)
+        if best is None:
+            return None
+
+        element_type, element_id, entry_pc = best
+        invasion_pc = self._clamp_pc(entry_pc, pc)
+        if verbose:
+            type_name = "pore" if element_type == PORE else "throat"
+            log.info(f"  Selected element: {type_name} {element_id} with PC: {entry_pc}")
+        return (element_type, element_id, invasion_pc)
+
+    @abstractmethod
+    def _get_border_candidate(self, border_elements):
+        """Get the best border element candidate. Subclasses implement for min/max."""
+        pass
+
+    @abstractmethod
+    def _pick_best_candidate(self, a, b):
+        """Pick the better of two candidates. Subclasses implement for min/max comparison."""
+        pass
+
+    @abstractmethod
+    def _clamp_pc(self, entry_pc: float, pc: float) -> float:
+        """Clamp invasion PC. Subclasses implement for min/max direction."""
+        pass
+
+    @abstractmethod
+    def _scan_snap_off_raw(self):
+        """Scan snap-off lists for the best candidate with raw (unclamped) PC.
+
+        Returns ``(element_type, element_id, raw_pc)`` or ``None``.
+        """
+        pass
 
     @abstractmethod
     def _can_be_filled(self, current_pc, invasion_pc):

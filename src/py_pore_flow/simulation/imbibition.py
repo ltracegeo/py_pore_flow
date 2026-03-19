@@ -17,13 +17,45 @@ from py_pore_flow.equations.geometry import (
     check_water_layer,
 )
 from py_pore_flow.network.network import PORE, THROAT
-from py_pore_flow.simulation.subsequent_cycle import SubsequentCycleSimulation
+from py_pore_flow.simulation.subsequent_cycle import SubsequentCycleSimulation, _find_max_entry_pressure
 from py_pore_flow import log
 
 
 class ImbibitionSimulation(SubsequentCycleSimulation):
     def __init__(self, network, pc_max, calculate_full_conductance=False):
         super().__init__(network, pc_max, WATER, calculate_full_conductance)
+
+    def _get_border_candidate(self, border_elements):
+        """Imbibition selects the element with the highest entry pressure."""
+        return border_elements.get_max_element()
+
+    def _pick_best_candidate(self, a, b):
+        """Pick the candidate with the higher PC (imbibition direction)."""
+        if a is None and b is None:
+            return None
+        if a is None:
+            return b
+        if b is None:
+            return a
+        return a if a[2] >= b[2] else b
+
+    def _clamp_pc(self, entry_pc: float, pc: float) -> float:
+        """Imbibition clamps invasion PC to be at most the current PC."""
+        return min(entry_pc, pc)
+
+    def _scan_snap_off_raw(self):
+        """Scan snap-off lists for the element with the highest raw entry pressure."""
+        if len(self.snap_off_pore_list) == 0 and len(self.snap_off_throat_list) == 0:
+            return None
+        etype, eid, epc = _find_max_entry_pressure(
+            self.snap_off_pore_list,
+            self.network.pn_core.pore.entry_pressure,
+            self.snap_off_throat_list,
+            self.network.pn_core.throat.entry_pressure,
+        )
+        if eid == -1:
+            return None
+        return (int(etype), int(eid), float(epc))
 
     def _update_multiphase_mask(self, pc, pc_old):
         calculate_multiphase_mask_imbibition(

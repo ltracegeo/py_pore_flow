@@ -15,7 +15,7 @@ from py_pore_flow.equations.geometry import (
 import py_pore_flow.constants as c
 from py_pore_flow.equations.entry_pressure import PORE_BODY_FILLING_STRATEGY
 from py_pore_flow.network.network import PORE, THROAT
-from py_pore_flow.simulation.subsequent_cycle import SubsequentCycleSimulation
+from py_pore_flow.simulation.subsequent_cycle import SubsequentCycleSimulation, _find_min_entry_pressure
 from py_pore_flow import log
 
 
@@ -25,6 +25,38 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
 
         if c.pore_fill_alg == "oren2":
             self.pore_body_filling_strategy = PORE_BODY_FILLING_STRATEGY["oren1"]
+
+    def _get_border_candidate(self, border_elements):
+        """Second drainage selects the element with the lowest entry pressure."""
+        return border_elements.get_min_element()
+
+    def _pick_best_candidate(self, a, b):
+        """Pick the candidate with the lower PC (drainage direction)."""
+        if a is None and b is None:
+            return None
+        if a is None:
+            return b
+        if b is None:
+            return a
+        return a if a[2] <= b[2] else b
+
+    def _clamp_pc(self, entry_pc: float, pc: float) -> float:
+        """Second drainage clamps invasion PC to be at least the current PC."""
+        return max(entry_pc, pc)
+
+    def _scan_snap_off_raw(self):
+        """Scan snap-off lists for the element with the lowest raw entry pressure."""
+        if len(self.snap_off_pore_list) == 0 and len(self.snap_off_throat_list) == 0:
+            return None
+        etype, eid, epc = _find_min_entry_pressure(
+            self.snap_off_pore_list,
+            self.network.pn_core.pore.entry_pressure,
+            self.snap_off_throat_list,
+            self.network.pn_core.throat.entry_pressure,
+        )
+        if eid == -1:
+            return None
+        return (int(etype), int(eid), float(epc))
 
     def _update_multiphase_mask(self, pc, pc_old):
         calculate_multiphase_mask_2nd_drainage(

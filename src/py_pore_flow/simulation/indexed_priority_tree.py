@@ -135,6 +135,14 @@ def _subtree_min(L, x):
 
 
 @njit(cache=True)
+def _subtree_max(R, x):
+    """Find the maximum (rightmost) node in the subtree rooted at *x*."""
+    while R[x] != _NIL:
+        x = R[x]
+    return x
+
+
+@njit(cache=True)
 def _fix_delete(L, R, P, C, root, x, xp):
     """Restore Red-Black properties after deleting a BLACK node.
 
@@ -410,6 +418,38 @@ def _dt_peek_min(eidx, pcd, pl, prt):
 
 
 @njit(cache=True)
+def _dt_pop_max(eidx, pcd, pos_of, free, state,
+                il, ir, ip, ic, irt,
+                pl, pr, pp, pcc, prt):
+    """Pop the element with the highest capillary pressure.
+
+    Returns ``(elem_index, pc)``.  Returns ``(-1, 0.0)`` if the tree is empty.
+    """
+    if prt[0] == _NIL:
+        return _NIL, np.float64(0.0)
+    pos = _subtree_max(pr, prt[0])
+    elem_index = eidx[pos]
+    pc_val = pcd[pos]
+    _rb_delete(il, ir, ip, ic, irt, pos)
+    _rb_delete(pl, pr, pp, pcc, prt, pos)
+    pos_of[elem_index] = _NIL
+    _release(free, state, pos)
+    return elem_index, pc_val
+
+
+@njit(cache=True)
+def _dt_peek_max(eidx, pcd, pr, prt):
+    """Return ``(elem_index, pc)`` of the maximum-PC element without removing.
+
+    Returns ``(-1, 0.0)`` if the tree is empty.
+    """
+    if prt[0] == _NIL:
+        return _NIL, np.float64(0.0)
+    pos = _subtree_max(pr, prt[0])
+    return eidx[pos], pcd[pos]
+
+
+@njit(cache=True)
 def _dt_bulk_insert(eidx, pcd, pos_of, free, state,
                     il, ir, ip, ic, irt,
                     pl, pr, pp, pcc, prt,
@@ -640,6 +680,26 @@ class IndexedPriorityTree:
         idx, pc = _dt_peek_min(self._eidx, self._pcd, self._pl, self._prt)
         if idx == -1:
             raise IndexError("peek_min on empty tree")
+        return int(idx), float(pc)
+
+    def pop_max(self) -> tuple:
+        """Remove and return ``(elem_index, pc)`` with the highest PC.
+
+        Raises ``IndexError`` on an empty tree.
+        """
+        idx, pc = _dt_pop_max(*self._all_args())
+        if idx == -1:
+            raise IndexError("pop_max from empty tree")
+        return int(idx), float(pc)
+
+    def peek_max(self) -> tuple:
+        """Return ``(elem_index, pc)`` with the highest PC without removing.
+
+        Raises ``IndexError`` on an empty tree.
+        """
+        idx, pc = _dt_peek_max(self._eidx, self._pcd, self._pr, self._prt)
+        if idx == -1:
+            raise IndexError("peek_max on empty tree")
         return int(idx), float(pc)
 
     # ------------------------------------------------------------------ #

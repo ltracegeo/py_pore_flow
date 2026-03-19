@@ -1,4 +1,3 @@
-import numba as nb
 import numpy as np
 
 from py_pore_flow import log
@@ -51,53 +50,15 @@ class DrainageSimulation(CycleSimulation):
         pass
 
     def _get_element_to_fill(self, pc, border_elements, verbose=False):
-        element_to_fill = self._jit_pore_throats_element_to_fill(
-            pc,
-            border_elements.get_pores_ids(),
-            self.network.pn_core.pore.entry_pressure,
-            border_elements.get_throats_ids(),
-            self.network.pn_core.throat.entry_pressure,
-            verbose=verbose,
-        )
-        return element_to_fill
-
-    @staticmethod
-    @nb.njit(cache=True)
-    def _jit_pore_throats_element_to_fill(
-        pc,
-        pore_id_list,
-        pore_entry_pressure,
-        throat_id_list,
-        throat_entry_pressure,
-        verbose=False,
-    ):
-        min_pressure = np.inf
-        min_id = -1
-        min_type = -1
-
-        if len(pore_id_list) == 0 and len(throat_id_list) == 0:
+        """Find the border element with the lowest entry pressure (O(log N) via tree peek)."""
+        result = border_elements.get_min_element()
+        if result is None:
             return None
-
-        for id in pore_id_list:
-            pressure = pore_entry_pressure[id]
-            if pressure < min_pressure:
-                min_pressure = pressure
-                min_id = id
-                min_type = PORE
-
-        for id in throat_id_list:
-            pressure = throat_entry_pressure[id]
-            if pressure < min_pressure:
-                min_pressure = pressure
-                min_id = id
-                min_type = THROAT
-
-        if min_id != -1:
-            if verbose:
-                print("  Selected element: ", "pore" if min_type == PORE else "throat", min_id, " with PC: ", min_pressure)
-            return (min_type, min_id, max(min_pressure, pc))
-        else:
-            return None
+        element_type, element_id, entry_pc = result
+        if verbose:
+            type_name = "pore" if element_type == PORE else "throat"
+            log.info(f"  Selected element: {type_name} {element_id} with PC: {entry_pc}")
+        return (element_type, element_id, max(entry_pc, pc))
 
     def _can_be_filled(self, current_pc, invasion_pc):
         return current_pc >= invasion_pc
