@@ -170,11 +170,14 @@ class SubsequentCycleSimulation(CycleSimulation):
         )
 
     def _update_entry_pressures(self, pc, verbose=False):
-        self._update_throat_entry_pc(self.border_elements.get_throats_ids(), True, verbose=verbose)
-        self._update_pore_entry_pc(self.border_elements.get_pores_ids(), pc, True, verbose=verbose)
-        # Sync tree PCs after the entry_pressure arrays were modified externally
+        # Invalidate heaps FIRST — the bulk PC updates below modify all border
+        # element entry pressures, so the selective syncs inside
+        # _update_border_*_entry_pc become no-ops (heaps already invalid).
+        # The lazy rebuild will pick up all changes on the next peek.
         self.border_elements.sync_pore_pcs()
         self.border_elements.sync_throat_pcs()
+        self._update_throat_entry_pc(self.border_elements.get_throats_ids(), True, verbose=verbose)
+        self._update_pore_entry_pc(self.border_elements.get_pores_ids(), pc, True, verbose=verbose)
 
     def _update_pore_entry_pc(self, pore_id_list, pc, replace_snap_off=False, verbose=False):
         if replace_snap_off:
