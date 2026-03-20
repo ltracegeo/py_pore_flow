@@ -1,3 +1,4 @@
+import numba as nb
 import numpy as np
 
 from py_pore_flow.equations.geometry import (
@@ -12,6 +13,20 @@ from .pores_network import PoresNetwork
 from .throats_network import ThroatsNetwork
 from .network_core import NetworkCore
 from .network_manager import NetworkManager
+
+
+@nb.njit(cache=True)
+def _fill_pore_conns(number_of_pores, number_of_throats, max_n_conns, throat_conns, pore_conns):
+    counts = np.zeros(number_of_pores, dtype=np.int64)
+    for t in range(number_of_throats):
+        p1 = throat_conns[t, 0]
+        p2 = throat_conns[t, 1]
+        
+        pore_conns[p1, counts[p1]] = t
+        counts[p1] += 1
+        
+        pore_conns[p2, counts[p2]] = t
+        counts[p2] += 1
 
 
 def initialize_pn(pn):
@@ -98,23 +113,22 @@ def initialize_pn(pn):
     pn["throat.hydraulic_conductance"] = 0.0
 
     # Initialize connection properties
-    pn["throat.n_conns"] = int(2)
-    pn["pore.n_conns"] = int(0)
+    pn["throat.n_conns"] = np.full(len(pn["throat.all"]), 2, dtype=np.int64)
+    pn["pore.n_conns"] = np.zeros(len(pn["pore.all"]), dtype=np.int64)
 
     number_of_pores = len(pn["pore.all"])
+    number_of_throats = len(pn["throat.all"])
+    throat_conns = pn["throat.conns"]
 
-    pore_n_conns_list = [0] * number_of_pores
-    pore_conns_list = [None] * number_of_pores
-    for pore_id in pn.pores():
-        neighbor_throats_list = pn.find_neighbor_throats(pore_id)
-        pore_n_conns_list[pore_id] = len(neighbor_throats_list)
-        pore_conns_list[pore_id] = neighbor_throats_list
+    # Calculate n_conns for each pore
+    pore_n_conns = np.bincount(throat_conns.flatten(), minlength=number_of_pores).astype(np.int64)
+    max_n_conns = pore_n_conns.max()
 
-    max_n_conns = max(pore_n_conns_list)
+    pn["pore.n_conns"] = pore_n_conns
     pn["pore.conns"] = np.empty((number_of_pores, max_n_conns), np.int64)
-    for pore_id in pn.pores():
-        pn["pore.n_conns"][pore_id] = pore_n_conns_list[pore_id]
-        pn["pore.conns"][pore_id] = np.resize(pore_conns_list[pore_id], max_n_conns)
+    
+    # Fill pore.conns
+    _fill_pore_conns(number_of_pores, number_of_throats, max_n_conns, throat_conns, pn["pore.conns"])
 
     # Required to maintain compatibility between windows and linux:
     pn["throat.conns"] = pn["throat.conns"].astype(np.int64)

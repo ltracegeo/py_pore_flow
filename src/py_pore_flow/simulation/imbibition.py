@@ -55,6 +55,59 @@ class ImbibitionSimulation(SubsequentCycleSimulation):
     def _can_be_filled(self, current_pc, invasion_pc):
         return current_pc <= invasion_pc
 
+    def _get_element_to_fill(self, pc, border_elements, verbose=False):
+        self._clear_snapoff_lists()
+        pore_id_list = np.concatenate((border_elements.get_pores_ids(), self.snap_off_pore_list))
+        throat_id_list = np.concatenate((border_elements.get_throats_ids(), self.snap_off_throat_list))
+        element_to_fill = self._jit_pore_throats_element_to_fill(
+            pc,
+            pore_id_list,
+            self.network.pn_core.pore.entry_pressure,
+            throat_id_list,
+            self.network.pn_core.throat.entry_pressure,
+            verbose=verbose,
+        )
+
+        return element_to_fill
+
+    @staticmethod
+    @nb.njit(cache=True)
+    def _jit_pore_throats_element_to_fill(
+        pc,
+        pore_id_list,
+        pore_entry_pressure,
+        throat_id_list,
+        throat_entry_pressure,
+        verbose=False,
+    ):
+        max_pressure = -np.inf
+        max_id = -1
+        max_type = -1
+
+        if len(pore_id_list) == 0 and len(throat_id_list) == 0:
+            return None
+
+        for id in pore_id_list:
+            pressure = pore_entry_pressure[int(id)]
+            if pressure > max_pressure:
+                max_pressure = pressure
+                max_id = int(id)
+                max_type = PORE
+
+        for id in throat_id_list:
+            pressure = throat_entry_pressure[int(id)]
+            if pressure > max_pressure:
+                max_pressure = pressure
+                max_id = int(id)
+                max_type = THROAT
+
+        if max_id != -1:
+            if verbose:
+                print("  Selected element: ", "pore" if max_type == PORE else "throat", max_id, " with PC: ", max_pressure)
+            return (max_type, max_id, min(max_pressure, pc))
+        else:
+            return None
+
 
 
     def _update_element_filled_geometry(self, pc, element, element_id, verbose=False):

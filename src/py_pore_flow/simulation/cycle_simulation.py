@@ -30,13 +30,7 @@ class CycleSimulation:
 
         self.trap_checker = TrapChecker(network, self.phase)
 
-        self.border_elements = BorderElements(
-            len(self.network.pn_core.pore.all),
-            len(self.network.pn_core.throat.all),
-            self.network.pn_core.pore.entry_pressure,
-            self.network.pn_core.throat.entry_pressure,
-            negate_pc=(self.phase == WATER)
-        )
+        self.border_elements = BorderElements()
         self._refresh_border_elements(True, None, None)
 
         self.trap_checker.update_trapped_pores()
@@ -205,8 +199,6 @@ class CycleSimulation:
             if verbose: yield "Updating border entry pressures"
             self._update_border_pore_entry_pc(new_border_pores, pc)
             self._update_border_throat_entry_pc(new_border_throats)
-            self.border_elements.sync_pore_pcs(new_border_pores)
-            self.border_elements.sync_throat_pcs(new_border_throats)
         return sw_delta, invasion_pc, no_invasion_left
 
     def _check_for_bubble(self, element, element_id):

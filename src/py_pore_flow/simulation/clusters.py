@@ -275,6 +275,14 @@ class ReductiblePhaseConnectionChecker2(PhaseConnectionChecker2):
         self.pore_old_cluster = None
         self.throat_old_cluster = None
         self.max_cluster_id = None
+        
+        nP = len(self.pn.pore.all)
+        nT = len(self.pn.throat.all)
+        self.temp_wqupc_parent = np.empty(nP + nT, dtype=np.uint32)
+        self.temp_wqupc_size = np.empty(nP + nT, dtype=np.float64)
+        self.temp_pore_cluster = np.empty(nP, dtype=np.int64)
+        self.temp_throat_cluster = np.empty(nT, dtype=np.int64)
+
         self.reset_connections()
 
     def reset_connections(self):
@@ -335,6 +343,10 @@ class ReductiblePhaseConnectionChecker2(PhaseConnectionChecker2):
                 self.pn.pore.inlets,
                 self.pn.pore.outlets,
                 self.max_cluster_id,
+                self.temp_wqupc_parent,
+                self.temp_wqupc_size,
+                self.temp_pore_cluster,
+                self.temp_throat_cluster
             )
         else:
             self.max_cluster_id = self._njit_delete_connections(
@@ -350,6 +362,10 @@ class ReductiblePhaseConnectionChecker2(PhaseConnectionChecker2):
                 self.pn.pore.inlets,
                 self.pn.pore.outlets,
                 self.max_cluster_id,
+                self.temp_wqupc_parent,
+                self.temp_wqupc_size,
+                self.temp_pore_cluster,
+                self.temp_throat_cluster
             )
 
     @staticmethod
@@ -367,6 +383,10 @@ class ReductiblePhaseConnectionChecker2(PhaseConnectionChecker2):
         pore_inlets,
         pore_outlets,
         max_cluster_id,
+        temp_wqupc_parent,
+        temp_wqupc_size,
+        temp_pore_cluster,
+        temp_throat_cluster
     ):
         affected_clusters = np.empty(len(pores_changed) + len(throats_changed), dtype=np.int64)
         for i, pore_id in enumerate(pores_changed):
@@ -376,23 +396,42 @@ class ReductiblePhaseConnectionChecker2(PhaseConnectionChecker2):
             affected_clusters[i + len(pores_changed)] = throat_cluster[throat_id]
             throat_cluster[throat_id] = -throat_id
 
-        affected_clusters = np.array(list(set(affected_clusters)))
-        pore_to_scan = njit_isin(pore_cluster, affected_clusters)
-        throat_to_scan = njit_isin(throat_cluster, affected_clusters)
+        # Fast O(N) lookup for affected clusters
+        is_affected = np.zeros(max_cluster_id + 1, dtype=np.bool_)
+        for c in affected_clusters:
+            if 0 <= c <= max_cluster_id:
+                is_affected[c] = True
+
+        wqupc_nP = len(pore_cluster)
+        wqupc_nT = len(throat_cluster)
+
+        pore_to_scan = np.zeros(wqupc_nP, dtype=np.bool_)
+        for i in range(wqupc_nP):
+            c = pore_cluster[i]
+            if 0 <= c <= max_cluster_id and is_affected[c]:
+                pore_to_scan[i] = True
+                
+        throat_to_scan = np.zeros(wqupc_nT, dtype=np.bool_)
+        for i in range(wqupc_nT):
+            c = throat_cluster[i]
+            if 0 <= c <= max_cluster_id and is_affected[c]:
+                throat_to_scan[i] = True
+
         pore_to_scan_ids = np.where(pore_to_scan)[0]
         throat_to_scan_ids = np.where(throat_to_scan)[0]
 
-        wqupc_nP = len(pore_to_scan)
-        wqupc_nT = len(throat_to_scan)
-        wqupc_parent_array = np.arange(wqupc_nP + wqupc_nT, dtype=np.uint32)
-        wqupc_size_array = np.ones((wqupc_nP + wqupc_nT))
-
-        pore_cluster_temp = np.empty(wqupc_nP, dtype=np.int64)
-        throat_cluster_temp = np.empty(wqupc_nT, dtype=np.int64)
+        # Reset only affected elements in temp arrays
+        for p in pore_to_scan_ids:
+            idx = p + wqupc_nT
+            temp_wqupc_parent[idx] = idx
+            temp_wqupc_size[idx] = 1.0
+        for t in throat_to_scan_ids:
+            temp_wqupc_parent[t] = t
+            temp_wqupc_size[t] = 1.0
 
         jit_reset_connections(
-            wqupc_parent_array,
-            wqupc_size_array,
+            temp_wqupc_parent,
+            temp_wqupc_size,
             wqupc_nT,
             pore_to_scan_ids,
             throat_to_scan_ids,
@@ -403,26 +442,31 @@ class ReductiblePhaseConnectionChecker2(PhaseConnectionChecker2):
             pore_to_scan,
             throat_to_scan,
             throat_conns,
-            pore_cluster_temp,
-            throat_cluster_temp,
+            temp_pore_cluster,
+            temp_throat_cluster,
             pore_inlets,
             pore_outlets,
         )
-        new_tem_pore_clusters = np.array(list(set(pore_cluster_temp[pore_to_scan])))
-        new_temp_throat_clusters = np.array(list(set(throat_cluster_temp[throat_to_scan])))
+        
+        # Get unique new clusters
+        # Since temp_pore_cluster only has valid IDs for pore_to_scan, we extract those
+        new_tem_pore_clusters = np.array(list(set(temp_pore_cluster[pore_to_scan])))
+        new_temp_throat_clusters = np.array(list(set(temp_throat_cluster[throat_to_scan])))
+        
+        unique_affected = np.array(list(set(affected_clusters)))
         new_temp_clusters = np.array(list(set(np.concatenate((new_tem_pore_clusters, new_temp_throat_clusters)))))
         new_clusters_ids = np.empty(len(new_temp_clusters), np.int32)
 
         for i in range(len(new_temp_clusters)):
-            if i < len(affected_clusters):
-                new_clusters_ids[i] = affected_clusters[i]
+            if i < len(unique_affected):
+                new_clusters_ids[i] = unique_affected[i]
             else:
                 max_cluster_id += 1
                 new_clusters_ids[i] = max_cluster_id
 
         for i in range(wqupc_nP):
             if pore_to_scan[i]:
-                temp_id = pore_cluster_temp[i]
+                temp_id = temp_pore_cluster[i]
                 for j in range(len(new_temp_clusters)):
                     if temp_id == new_temp_clusters[j]:
                         pore_cluster[i] = new_clusters_ids[j]
@@ -430,7 +474,7 @@ class ReductiblePhaseConnectionChecker2(PhaseConnectionChecker2):
 
         for i in range(wqupc_nT):
             if throat_to_scan[i]:
-                temp_id = throat_cluster_temp[i]
+                temp_id = temp_throat_cluster[i]
                 for j in range(len(new_temp_clusters)):
                     if temp_id == new_temp_clusters[j]:
                         throat_cluster[i] = new_clusters_ids[j]
