@@ -140,15 +140,15 @@ class TestBorderElementsPcSync(unittest.TestCase):
         be = BorderElements(pore_pc, throat_pc)
         be.set_pores_ids(np.array([0, 1, 2], np.int64))
 
-        # Externally modify entry_pressure array
+        # First peek builds heap from current PCs
+        result = be.get_min_element()
+        self.assertEqual(result, (PORE, 1, 100.0))
+
+        # Externally modify entry_pressure array and sync (marks heap invalid)
         pore_pc[1] = 600.0
-
-        # Before sync, tree still has old value
-        result_before = be.get_min_element()
-        self.assertEqual(result_before, (PORE, 1, 100.0))
-
-        # After sync, tree reflects new value
         be.sync_pore_pcs()
+
+        # Next peek rebuilds heap and reflects updated value
         result_after = be.get_min_element()
         self.assertEqual(result_after, (PORE, 2, 300.0))
 
