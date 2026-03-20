@@ -727,17 +727,17 @@ class IndexedPriorityTree:
 
     def get_all(self) -> tuple:
         """Return ``(indices, pcs)`` sorted by element index."""
-        n = self.count
+        n = self._max_size
         if n == 0:
             return np.empty(0, np.int64), np.empty(0, np.float64)
         out_idx = np.empty(n, np.int64)
         out_pc = np.empty(n, np.float64)
-        _collect_inorder(
+        actual_n = _collect_inorder(
             self._eidx, self._pcd,
             self._il, self._ir, self._irt,
             out_idx, out_pc,
         )
-        return out_idx, out_pc
+        return out_idx[:actual_n], out_pc[:actual_n]
 
     def get_all_ids(self) -> np.ndarray:
         """Return element indices as a sorted int64 array."""
