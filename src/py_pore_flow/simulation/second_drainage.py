@@ -27,8 +27,20 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
             self.pore_body_filling_strategy = PORE_BODY_FILLING_STRATEGY["oren1"]
 
     def _get_border_candidate(self, border_elements):
-        """Second drainage selects the element with the lowest entry pressure."""
-        return border_elements.get_min_element()
+        """Second drainage selects the element with the lowest entry pressure via njit scan."""
+        pore_ids = border_elements.get_pores_ids()
+        throat_ids = border_elements.get_throats_ids()
+        if len(pore_ids) == 0 and len(throat_ids) == 0:
+            return None
+        etype, eid, epc = _find_min_entry_pressure(
+            pore_ids,
+            self.network.pn_core.pore.entry_pressure,
+            throat_ids,
+            self.network.pn_core.throat.entry_pressure,
+        )
+        if eid == -1:
+            return None
+        return (int(etype), int(eid), float(epc))
 
     def _pick_best_candidate(self, a, b):
         """Pick the candidate with the lower PC (drainage direction)."""

@@ -170,12 +170,6 @@ class SubsequentCycleSimulation(CycleSimulation):
         )
 
     def _update_entry_pressures(self, pc, verbose=False):
-        # Invalidate heaps FIRST — the bulk PC updates below modify all border
-        # element entry pressures, so the selective syncs inside
-        # _update_border_*_entry_pc become no-ops (heaps already invalid).
-        # The lazy rebuild will pick up all changes on the next peek.
-        self.border_elements.sync_pore_pcs()
-        self.border_elements.sync_throat_pcs()
         self._update_throat_entry_pc(self.border_elements.get_throats_ids(), True, verbose=verbose)
         self._update_pore_entry_pc(self.border_elements.get_pores_ids(), pc, True, verbose=verbose)
 
@@ -216,9 +210,6 @@ class SubsequentCycleSimulation(CycleSimulation):
             throat_receding_phase_filled,
             verbose=verbose,
         )
-        # Sync tree PCs for the updated pores
-        self.border_elements.sync_pore_pcs(pore_id_list)
-
     @staticmethod
     @nb.njit(cache=True)
     def _njit_update_pore_entry_pc(
@@ -315,8 +306,6 @@ class SubsequentCycleSimulation(CycleSimulation):
             self.network.pn_core.throat.in_border,
             verbose=verbose,
         )
-        # Sync tree PCs for the updated throats
-        self.border_elements.sync_throat_pcs(throat_id_list)
 
     @staticmethod
     @nb.njit(cache=True)
