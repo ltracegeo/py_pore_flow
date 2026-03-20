@@ -14,6 +14,12 @@ from py_pore_flow.simulation.border_elements import BorderElements
 
 
 class CycleSimulation:
+    #: Number of fully-saturated fills to batch before recalculating trapped
+    #: elements.  Higher values reduce the cost of ``update_trapped_pores``
+    #: (which scans ALL elements) but may fill a few elements that became
+    #: trapped mid-batch.  Set to 1 for original per-fill trapping behavior.
+    trap_check_batch_size: int = 10
+
     def __init__(self, network, phase, calculate_full_conductance=False):
         self.network = network
         self.phase = phase
@@ -141,7 +147,9 @@ class CycleSimulation:
 
         no_invasion_left = False
         invasion_pc = pc
-        
+        fills_since_trap_check = 0
+        batch_size = self.trap_check_batch_size
+
         while True:
             try:
                 element_to_fill = self._get_element_to_fill(pc, self.border_elements, verbose=verbose)
@@ -164,7 +172,7 @@ class CycleSimulation:
                 element = self.network.pore
             else:
                 element = self.network.throat
-                
+
             if verbose: yield f"Filling {'pore' if element_type == PORE else 'throat'} {element_id} at Pc: {invasion_pc:.2f}"
 
             self._fill_element(element, element_id, invasion_pc)
@@ -174,34 +182,54 @@ class CycleSimulation:
                 self.phase_connection_checker.update_phase_connections(PORE, element_id)
             else:
                 self.phase_connection_checker.update_phase_connections(THROAT, element_id)
-            if (self.phase == OIL and element.get_So(element_id) == 1.0) or (
+
+            is_fully_saturated = (self.phase == OIL and element.get_So(element_id) == 1.0) or (
                 self.phase == WATER and element.get_Sw(element_id) == 1.0
-            ):
-                if verbose: yield "Updating trapping"
-                (
-                    new_trapped_pores,
-                    new_trapped_throats,
-                    new_untrapped_pores,
-                    new_untrapped_throats,
-                ) = self.trap_checker.update_trapped_pores()
-                
-                if verbose: yield "Refreshing border elements"
-                new_border_pores, new_border_throats = self._refresh_border_elements(
-                    reached_bubble, element, element_id, new_trapped_pores, new_trapped_throats
-                )
-                
-                if verbose: yield "Updating untrapped entry pressures"
-                self._update_pore_entry_pc(new_untrapped_pores, pc)
-                self._update_throat_entry_pc(new_untrapped_throats)
+            )
+
+            if is_fully_saturated:
+                fills_since_trap_check += 1
+
+                if reached_bubble or fills_since_trap_check >= batch_size:
+                    # Batch boundary: check trapping and do full border reset.
+                    if verbose: yield "Updating trapping (batched)"
+                    (
+                        new_trapped_pores,
+                        new_trapped_throats,
+                        new_untrapped_pores,
+                        new_untrapped_throats,
+                    ) = self.trap_checker.update_trapped_pores()
+
+                    if verbose: yield "Refreshing border elements (full reset)"
+                    new_border_pores, new_border_throats = self._refresh_border_elements(
+                        True, element, element_id, new_trapped_pores, new_trapped_throats
+                    )
+
+                    if verbose: yield "Updating untrapped entry pressures"
+                    self._update_pore_entry_pc(new_untrapped_pores, pc)
+                    self._update_throat_entry_pc(new_untrapped_throats)
+                    fills_since_trap_check = 0
+                else:
+                    # Deferred: incremental border update without trapping info.
+                    if verbose: yield "Refreshing border elements (deferred trapping)"
+                    new_border_pores, new_border_throats = self._refresh_border_elements(
+                        reached_bubble, element, element_id
+                    )
             else:
                 if verbose: yield "Refreshing border elements"
                 new_border_pores, new_border_throats = self._refresh_border_elements(
                     reached_bubble, element, element_id
                 )
-            
+
             if verbose: yield "Updating border entry pressures"
             self._update_border_pore_entry_pc(new_border_pores, pc)
             self._update_border_throat_entry_pc(new_border_throats)
+
+        # End of Pc step: flush any deferred trapping check
+        if fills_since_trap_check > 0:
+            self.trap_checker.update_trapped_pores()
+            self._refresh_border_elements(True, None, None)
+
         return sw_delta, invasion_pc, no_invasion_left
 
     def _check_for_bubble(self, element, element_id):

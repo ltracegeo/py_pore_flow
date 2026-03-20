@@ -7,7 +7,8 @@
       "Bash(python -m pytest tests/unit/simulation/step_by_sw_test.py -v)",
       "Bash(python -m pytest tests/unit/simulation/test_indexed_priority_tree.py -v)",
       "Bash(python:*)",
-      "Bash(find D:/Geoslicer/AI_test -name *multiscale* -path */prof_txt/*)"
+      "Bash(find D:/Geoslicer/AI_test -name *multiscale* -path */prof_txt/*)",
+      "Bash(find /d/Geoslicer/AI_test/claude -name *test*invasion* -o -name *test*trap*)"
     ]
   }
 }
