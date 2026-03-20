@@ -16,7 +16,7 @@ def test_border_elements_peek_best_drainage():
     throat_pc = np.array([800.0, 1200.0, 500.0, 400.0, 2500.0] + [0.0]*5)
 
     # In drainage, we do NOT negate PC (we want minimum PC)
-    be = BorderElements(pore_pc, throat_pc, min_pc=0.0, max_pc=5000.0, negate_pc=False)
+    be = BorderElements(n_pores, n_throats, pore_pc, throat_pc, negate_pc=False)
 
     be.add_pores_ids(np.array([0, 1, 2]))
     be.add_throats_ids(np.array([0, 1]))
@@ -48,7 +48,7 @@ def test_border_elements_peek_best_imbibition():
     throat_pc = np.array([800.0, 1200.0, 2500.0, 3000.0, 2500.0] + [0.0]*5)
 
     # In imbibition, we negate PC (we want maximum PC)
-    be = BorderElements(pore_pc, throat_pc, min_pc=-5000.0, max_pc=0.0, negate_pc=True)
+    be = BorderElements(n_pores, n_throats, pore_pc, throat_pc, negate_pc=True)
 
     be.add_pores_ids(np.array([0, 1, 2]))
     be.add_throats_ids(np.array([0, 1]))
@@ -97,7 +97,7 @@ def test_subsequent_cycle_get_element_to_fill():
     # 2. Add a snap_off pore with higher PC
     sim.network.pn_core.pore.entry_pressure[1] = 1800.0
     sim.network.pn_core.pore.water_filled[1] = False
-    sim.snap_off_pore_tree.add(1)
+    sim.snap_off_pore_tree.insert(1, sim.snap_off_sign * 1800.0)
     
     elem = sim._get_element_to_fill(2000.0, sim.border_elements)
     assert elem == (PORE, 1, 1800.0)
@@ -105,7 +105,7 @@ def test_subsequent_cycle_get_element_to_fill():
     # 3. Add a snap_off throat with tie-breaker
     sim.network.pn_core.throat.entry_pressure[1] = 1800.0
     sim.network.pn_core.throat.water_filled[1] = False
-    sim.snap_off_throat_tree.add(1)
+    sim.snap_off_throat_tree.insert(1, sim.snap_off_sign * 1800.0)
     
     # PORE should win ties against THROAT, so it should still be PORE 1
     elem = sim._get_element_to_fill(2000.0, sim.border_elements)

@@ -424,6 +424,29 @@ def _dt_bulk_insert(eidx, pcd, pos_of, free, state,
             inserted += 1
     return inserted
 
+@njit(cache=True)
+def _dt_bulk_update_pc(eidx, pcd, pos_of,
+                       pl, pr, pp, pcc, prt,
+                       indices, pcs, n):
+    """Update *n* elements from *indices* and *pcs* arrays in the PC tree."""
+    for i in range(n):
+        _dt_update_pc(eidx, pcd, pos_of, pl, pr, pp, pcc, prt, indices[i], pcs[i])
+
+@njit(cache=True)
+def _dt_bulk_remove(eidx, pcd, pos_of, free, state,
+                    il, ir, ip, ic, irt,
+                    pl, pr, pp, pcc, prt,
+                    indices, n):
+    """Remove *n* elements from *indices* array."""
+    removed = np.int64(0)
+    for i in range(n):
+        if _dt_remove(eidx, pcd, pos_of, free, state,
+                      il, ir, ip, ic, irt,
+                      pl, pr, pp, pcc, prt,
+                      indices[i]):
+            removed += 1
+    return removed
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Utility — traversal and validation
@@ -668,6 +691,34 @@ class IndexedPriorityTree:
             _dt_bulk_insert(
                 *self._all_args(),
                 indices.astype(np.int64), pcs.astype(np.float64), np.int64(n),
+            )
+
+    def insert_all(self, indices: np.ndarray, pcs: np.ndarray) -> None:
+        """Bulk-insert ``(indices[i], pcs[i])`` pairs without clearing."""
+        n = len(indices)
+        if n > 0:
+            _dt_bulk_insert(
+                *self._all_args(),
+                indices.astype(np.int64), pcs.astype(np.float64), np.int64(n),
+            )
+
+    def update_all(self, indices: np.ndarray, pcs: np.ndarray) -> None:
+        """Update multiple capillary pressures in bulk."""
+        n = len(indices)
+        if n > 0:
+            _dt_bulk_update_pc(
+                self._eidx, self._pcd, self._pos_of,
+                self._pl, self._pr, self._pp, self._pcc, self._prt,
+                indices.astype(np.int64), pcs.astype(np.float64), np.int64(n),
+            )
+
+    def remove_all(self, indices: np.ndarray) -> None:
+        """Remove multiple elements in bulk."""
+        n = len(indices)
+        if n > 0:
+            _dt_bulk_remove(
+                *self._all_args(),
+                indices.astype(np.int64), np.int64(n),
             )
 
     # ------------------------------------------------------------------ #

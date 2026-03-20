@@ -17,7 +17,7 @@ from py_pore_flow.equations.entry_pressure import PORE_BODY_FILLING_STRATEGY, ca
 from py_pore_flow.network.network import PORE, THROAT
 from py_pore_flow.simulation.cycle_simulation import CycleSimulation
 from py_pore_flow.simulation.saturation_calculator import SaturationCalculator
-from py_pore_flow.simulation.border_elements import PCBuckets
+from py_pore_flow.simulation.indexed_priority_tree import IndexedPriorityTree
 from py_pore_flow import log
 
 
@@ -31,8 +31,9 @@ class SubsequentCycleSimulation(CycleSimulation):
         self.use_pore_body_filling = c.use_pore_fill
         self.pore_body_filling_strategy = PORE_BODY_FILLING_STRATEGY[c.pore_fill_alg]
 
-        self.snap_off_pore_tree = PCBuckets(self.network.pn_core.pore.entry_pressure, self.global_min_pc, self.global_max_pc, negate_pc=(self.phase == WATER))
-        self.snap_off_throat_tree = PCBuckets(self.network.pn_core.throat.entry_pressure, self.global_min_pc, self.global_max_pc, negate_pc=(self.phase == WATER))
+        self.snap_off_pore_tree = IndexedPriorityTree(len(self.network.pn_core.pore.all))
+        self.snap_off_throat_tree = IndexedPriorityTree(len(self.network.pn_core.throat.all))
+        self.snap_off_sign = -1.0 if self.phase == WATER else 1.0
 
         self.new_snap_off_throats_array = np.empty(len(self.network.pn_core.throat.all), np.int64)
         self.new_snap_off_pores_array = np.empty(len(self.network.pn_core.pore.all), np.int64)
@@ -128,14 +129,14 @@ class SubsequentCycleSimulation(CycleSimulation):
             self._update_border_pore_entry_pc(pore_id_list, pc, verbose=verbose)
             self.snap_off_pore_tree.clear()
             if len(new_list) > 0:
-                self.snap_off_pore_tree.set_all(new_list)
+                self.snap_off_pore_tree.set_all(new_list, self.snap_off_sign * self.network.pn_core.pore.entry_pressure[new_list])
         else:
             new_snap_off_pores = self._update_pores_snap_offs_pcs(pore_id_list)
             self._update_border_pore_entry_pc(pore_id_list, pc, verbose=verbose)
-            for id in new_snap_off_pores:
-                self.snap_off_pore_tree.add(id)
-            for id in pore_id_list:
-                self.snap_off_pore_tree.update_pc(id)
+            if len(new_snap_off_pores) > 0:
+                self.snap_off_pore_tree.insert_all(new_snap_off_pores, self.snap_off_sign * self.network.pn_core.pore.entry_pressure[new_snap_off_pores])
+            if len(pore_id_list) > 0:
+                self.snap_off_pore_tree.update_all(pore_id_list, self.snap_off_sign * self.network.pn_core.pore.entry_pressure[pore_id_list])
 
         self.border_elements.sync_pore_pcs(pore_id_list)
 
@@ -251,14 +252,14 @@ class SubsequentCycleSimulation(CycleSimulation):
             self._update_border_throat_entry_pc(throat_id_list, verbose=verbose)
             self.snap_off_throat_tree.clear()
             if len(new_list) > 0:
-                self.snap_off_throat_tree.set_all(new_list)
+                self.snap_off_throat_tree.set_all(new_list, self.snap_off_sign * self.network.pn_core.throat.entry_pressure[new_list])
         else:
             new_snap_off_throats = self._update_throats_snap_offs_pcs(throat_id_list)
             self._update_border_throat_entry_pc(throat_id_list, verbose=verbose)
-            for id in new_snap_off_throats:
-                self.snap_off_throat_tree.add(id)
-            for id in throat_id_list:
-                self.snap_off_throat_tree.update_pc(id)
+            if len(new_snap_off_throats) > 0:
+                self.snap_off_throat_tree.insert_all(new_snap_off_throats, self.snap_off_sign * self.network.pn_core.throat.entry_pressure[new_snap_off_throats])
+            if len(throat_id_list) > 0:
+                self.snap_off_throat_tree.update_all(throat_id_list, self.snap_off_sign * self.network.pn_core.throat.entry_pressure[throat_id_list])
 
         self.border_elements.sync_throat_pcs(throat_id_list)
 
@@ -291,24 +292,20 @@ class SubsequentCycleSimulation(CycleSimulation):
         self._clear_snapoff_lists()
         
         best_p_id, best_p_pc = (-1, np.inf)
-        if not border_elements.pores_tree.is_empty():
-            best_p_id, best_p_real = border_elements.pores_tree.peek_best()
-            best_p_pc = -best_p_real if self.phase == WATER else best_p_real
+        if not border_elements.pores_tree.is_empty:
+            best_p_id, best_p_pc = border_elements.pores_tree.peek_min()
             
         best_t_id, best_t_pc = (-1, np.inf)
-        if not border_elements.throats_tree.is_empty():
-            best_t_id, best_t_real = border_elements.throats_tree.peek_best()
-            best_t_pc = -best_t_real if self.phase == WATER else best_t_real
+        if not border_elements.throats_tree.is_empty:
+            best_t_id, best_t_pc = border_elements.throats_tree.peek_min()
             
         best_sp_id, best_sp_pc = (-1, np.inf)
-        if not self.snap_off_pore_tree.is_empty():
-            best_sp_id, best_sp_real = self.snap_off_pore_tree.peek_best()
-            best_sp_pc = -best_sp_real if self.phase == WATER else best_sp_real
+        if not self.snap_off_pore_tree.is_empty:
+            best_sp_id, best_sp_pc = self.snap_off_pore_tree.peek_min()
             
         best_st_id, best_st_pc = (-1, np.inf)
-        if not self.snap_off_throat_tree.is_empty():
-            best_st_id, best_st_real = self.snap_off_throat_tree.peek_best()
-            best_st_pc = -best_st_real if self.phase == WATER else best_st_real
+        if not self.snap_off_throat_tree.is_empty:
+            best_st_id, best_st_pc = self.snap_off_throat_tree.peek_min()
             
         min_pc = min(best_p_pc, best_t_pc, best_sp_pc, best_st_pc)
         if min_pc == np.inf:
@@ -323,7 +320,7 @@ class SubsequentCycleSimulation(CycleSimulation):
         else:
             elem_type, elem_id = THROAT, best_st_id
             
-        true_pc = -min_pc if self.phase == WATER else min_pc
+        true_pc = border_elements.sign * min_pc
         
         if verbose:
             print("  Selected element: ", "pore" if elem_type == PORE else "throat", elem_id, " with PC: ", true_pc)
@@ -383,15 +380,13 @@ class SubsequentCycleSimulation(CycleSimulation):
         if len(pore_ids) > 0:
             filled_pores = self.network.pn_core.pore.water_filled[pore_ids] if self.phase == WATER else self.network.pn_core.pore.oil_filled[pore_ids]
             to_remove = pore_ids[filled_pores | self.network.pn_core.pore.trapped_evacuation[pore_ids]]
-            for p in to_remove:
-                self.snap_off_pore_tree.remove(p)
+            self.snap_off_pore_tree.remove_all(to_remove)
 
         throat_ids = self.snap_off_throat_tree.get_all_ids()
         if len(throat_ids) > 0:
             filled_throats = self.network.pn_core.throat.water_filled[throat_ids] if self.phase == WATER else self.network.pn_core.throat.oil_filled[throat_ids]
             to_remove = throat_ids[filled_throats | self.network.pn_core.throat.trapped_evacuation[throat_ids]]
-            for t in to_remove:
-                self.snap_off_throat_tree.remove(t)
+            self.snap_off_throat_tree.remove_all(to_remove)
 
     @abstractmethod
     def _update_hinging_contact_angles(self, pore_ids, throat_ids, pc):
