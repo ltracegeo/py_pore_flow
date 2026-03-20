@@ -30,11 +30,28 @@ class CycleSimulation:
 
         self.trap_checker = TrapChecker(network, self.phase)
 
+        # Calculate min and max PC across all elements for the buckets
+        pore_pcs = self.network.pn_core.pore.entry_pressure
+        throat_pcs = self.network.pn_core.throat.entry_pressure
+        
+        all_pcs = np.concatenate((pore_pcs, throat_pcs))
+        
+        if self.phase == WATER:
+            min_pc = -np.max(all_pcs)
+            max_pc = -np.min(all_pcs)
+        else:
+            min_pc = np.min(all_pcs)
+            max_pc = np.max(all_pcs)
+            
+        padding = max(abs(max_pc - min_pc) * 0.1, 100.0)
+        self.global_min_pc = min_pc - padding
+        self.global_max_pc = max_pc + padding
+
         self.border_elements = BorderElements(
-            len(self.network.pn_core.pore.all),
-            len(self.network.pn_core.throat.all),
             self.network.pn_core.pore.entry_pressure,
             self.network.pn_core.throat.entry_pressure,
+            self.global_min_pc,
+            self.global_max_pc,
             negate_pc=(self.phase == WATER)
         )
         self._refresh_border_elements(True, None, None)
