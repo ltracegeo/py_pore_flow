@@ -5,7 +5,6 @@ import openpnm as op
 
 from py_pore_flow.equations.geometry import WATER
 from py_pore_flow.simulation.cycle_simulation import CycleSimulation
-from py_pore_flow.simulation.border_elements import BorderElements
 from py_pore_flow.simulation.trap_checker import TrapChecker
 from py_pore_flow.simulation.clusters import PhaseConnectionChecker
 from py_pore_flow.network.network import initialize_pn, Network

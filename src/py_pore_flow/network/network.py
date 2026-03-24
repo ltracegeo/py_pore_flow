@@ -1,4 +1,6 @@
+from numba import njit
 import numpy as np
+import openpnm
 
 from py_pore_flow.equations.geometry import (
     MAX_NUMBER_OF_CORNERS,
@@ -14,7 +16,93 @@ from .network_core import NetworkCore
 from .network_manager import NetworkManager
 
 
-def initialize_pn(pn):
+class PoreNetwork(openpnm.network.Network):
+    """Local wrapper around OpenPNM's Network class.
+
+    Stores pore connections in a sparse (CSR-like) format instead of a dense
+    2-D array, since max_n_conns can be extremely large due to outlier pores.
+
+    The sparse representation uses three 1-D arrays stored directly on this
+    instance:
+        _conns_values  – concatenated connection (throat) ids for every pore
+        _conns_offsets – start index in _conns_values for each pore
+        _conns_counts  – number of connections for each pore
+
+    Access patterns:
+        pn["pore.conns"][pore_id]  →  1-D array of throat ids for that pore
+        pn["pore.conns"]           →  raises RuntimeError (use per-pore access)
+    """
+
+    _conns_values = None
+    _conns_offsets = None
+
+    # ------------------------------------------------------------------
+    # Thin proxy returned by  pn["pore.conns"]  so that  [...][pore_id]
+    # can resolve to the sparse slice without exposing the dense array.
+    # ------------------------------------------------------------------
+    class _ConnsAccessor:
+        __slots__ = ("_pn",)
+
+        def __init__(self, pn: "PoreNetwork"):
+            self._pn = pn
+
+        @property
+        def values(self):
+            return self._pn._conns_values
+
+        @property
+        def offsets(self):
+            return self._pn._conns_offsets
+
+        def __getitem__(self, pore_id):
+            start = self._pn._conns_offsets[pore_id]
+            end = self._pn._conns_offsets[pore_id + 1]
+            return self._pn._conns_values[start:end]
+
+        # Guard-rails: blow up on any attempt to treat this as a dense array
+        def __array__(self, *a, **kw):
+            raise RuntimeError(
+                "pore.conns is stored as a sparse structure.  "
+                "Index with pn['pore.conns'][pore_id] instead of converting to a dense array."
+            )
+
+        def __iter__(self):
+            raise RuntimeError(
+                "pore.conns is stored as a sparse structure.  "
+                "Index with pn['pore.conns'][pore_id] instead of iterating."
+            )
+
+        def __len__(self):
+            return len(self._pn._conns_offsets)
+
+    def init_sparse_conns(self, values: np.ndarray, offsets: np.ndarray):
+        self._conns_values = values
+        self._conns_offsets = offsets
+
+    def __getitem__(self, key):
+        if key == "pore.conns":
+            if self._conns_values is None:
+                raise RuntimeError("Sparse pore.conns has not been initialised yet.")
+            return self._ConnsAccessor(self)
+        return super().__getitem__(key)
+
+    def __setitem__(self, key, value):
+        if key == "pore.conns":
+            raise RuntimeError(
+                "Direct assignment to pn['pore.conns'] is not supported.  "
+                "Use pn.init_sparse_conns(values, offsets, counts) instead."
+            )
+        super().__setitem__(key, value)
+
+    @classmethod
+    def from_openpnm(cls, network: openpnm.network.Network) -> "PoreNetwork":
+        """Create a PoreNetwork from a plain OpenPNM Network instance."""
+        pore_network = cls()
+        pore_network.update(network)
+        return pore_network
+
+
+def initialize_pn(pn: openpnm.network.Network) -> None:
     def set_default(pn, key, value):
         if key not in pn:
             pn[key] = value
@@ -98,23 +186,47 @@ def initialize_pn(pn):
     pn["throat.hydraulic_conductance"] = 0.0
 
     # Initialize connection properties
-    pn["throat.n_conns"] = int(2)
+    pn["throat.n_conns"] = np.int64(2)
     pn["pore.n_conns"] = int(0)
 
     number_of_pores = len(pn["pore.all"])
+    offsets = np.zeros(number_of_pores + 1, dtype=np.int64)
+    _update_counts(offsets, pn["throat.conns"])
+    pn["pore.n_conns"] = offsets[1:].copy()
+    total_conns = int(offsets.sum())
+    _make_cummulative(offsets)
+    values = np.empty(total_conns, dtype=np.int64)
+    _fill_values(values, offsets, pn["throat.conns"])
 
-    pore_n_conns_list = [0] * number_of_pores
-    pore_conns_list = [None] * number_of_pores
-    for pore_id in pn.pores():
-        neighbor_throats_list = pn.find_neighbor_throats(pore_id)
-        pore_n_conns_list[pore_id] = len(neighbor_throats_list)
-        pore_conns_list[pore_id] = neighbor_throats_list
-
-    max_n_conns = max(pore_n_conns_list)
-    pn["pore.conns"] = np.empty((number_of_pores, max_n_conns), np.int64)
-    for pore_id in pn.pores():
-        pn["pore.n_conns"][pore_id] = pore_n_conns_list[pore_id]
-        pn["pore.conns"][pore_id] = np.resize(pore_conns_list[pore_id], max_n_conns)
+    pn.init_sparse_conns(values, offsets)
 
     # Required to maintain compatibility between windows and linux:
-    pn["throat.conns"] = pn["throat.conns"].astype(np.int64)
+    #pn["throat.conns"] = pn["throat.conns"].astype(np.int64)
+
+    # Build sparse representation for throat.conns (uniform 2 conns per throat)
+    number_of_throats = len(pn["throat.all"])
+    pn._throat_conns_values = pn["throat.conns"].ravel()
+    pn._throat_conns_offsets = np.arange(0, 2 * number_of_throats, 2, dtype=np.int64)
+
+@njit(cache=True)
+def _update_counts(counts, throat_conns):
+    for throat_id in range(len(throat_conns)):
+        counts[throat_conns[throat_id][0] + 1] += 1
+        counts[throat_conns[throat_id][1] + 1] += 1
+
+@njit(cache=True)
+def _make_cummulative(counts):
+    for i in range(1, len(counts)):
+        counts[i] += counts[i-1]
+
+@njit(cache=True)
+def _fill_values(values, offsets, throat_conns):
+    filled_values = np.zeros(len(offsets)-1, dtype=np.int64)
+    for throat_id in range(len(throat_conns)):
+        pore1, pore2 = throat_conns[throat_id]
+        index1 = offsets[pore1] + filled_values[pore1]
+        index2 = offsets[pore2] + filled_values[pore2]
+        values[index1] = throat_id
+        values[index2] = throat_id
+        filled_values[pore1] += 1
+        filled_values[pore2] += 1

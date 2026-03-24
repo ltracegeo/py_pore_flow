@@ -1,11 +1,12 @@
 import numpy as np
-import openpnm as op
 from typing import Literal
+
+from py_pore_flow.network.network import PoreNetwork
 
 
 def get_simple_network(
     initial_saturation: Literal["water_filled", "oil_filled", "mix_filled"] = "water_filled"
-    ) -> op.network.Network:
+    ) -> PoreNetwork:
     """
     Returns a simple network for testing purposes.
     The network structure is as follows:
@@ -84,6 +85,6 @@ def get_simple_network(
     else:
         raise ValueError(f"Invalid initial_saturation value: {initial_saturation}")
     
-    pn = op.network.Network()
+    pn = PoreNetwork()
     pn.update(pn_dict)
     return pn

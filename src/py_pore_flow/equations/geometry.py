@@ -611,8 +611,11 @@ def calculate_2nd_drainage_corner_bo(b, beta, theta_r, theta_a, theta_ho, R):
 @njit(cache=True)
 def calculate_multiphase_mask_drainage(is_multiphase, n_corners, b, oil_filled):
     for i in range(len(is_multiphase)):
-        if oil_filled[i] and np.any(b[i][: n_corners[i]] > 0):
-            is_multiphase[i] = True
+        if oil_filled[i]:
+            for j in range(n_corners[i]):
+                if b[i, j] > 0:
+                    is_multiphase[i] = True
+                    break
 
 
 @njit(cache=True)
@@ -629,15 +632,29 @@ def calculate_multiphase_mask_imbibition(
     pc,
 ):
     for i in range(len(is_multiphase)):
-        if (n_corners[i] == 0) or trapped[i] or (is_multiphase[i] and trapped_evacuation[i]):
+        nc = n_corners[i]
+        if (nc == 0) or trapped[i] or (is_multiphase[i] and trapped_evacuation[i]):
             continue
+
         if water_filled[i]:
-            if np.all(pc < oil_collapse_pc[i][: n_corners[i]]):
+            # np.all(pc < oil_collapse_pc[i][:nc]) — short-circuit on first failure
+            all_below = True
+            any_oil_layer = False
+            for j in range(nc):
+                if pc >= oil_collapse_pc[i, j]:
+                    all_below = False
+                    break
+
+            if all_below:
                 is_multiphase[i] = False
-            elif np.any(corner_oil_layer[i][: n_corners[i]]):
-                is_multiphase[i] = True
             else:
-                is_multiphase[i] = False
+                # Only check corner_oil_layer if we need to
+                for j in range(nc):
+                    if corner_oil_layer[i, j]:
+                        any_oil_layer = True
+                        break
+                is_multiphase[i] = any_oil_layer
+
         elif oil_filled[i] and not oil_filled_multiphase[i]:
             is_multiphase[i] = False
         else:
@@ -659,17 +676,29 @@ def calculate_multiphase_mask_2nd_drainage(
     pc,
 ):
     for i in range(len(is_multiphase)):
-        if (n_corners[i] == 0) or trapped[i] or (is_multiphase[i] and trapped_evacuation[i]):
+        nc = n_corners[i]
+        if (nc == 0) or trapped[i] or (is_multiphase[i] and trapped_evacuation[i]):
             continue
+
         if oil_filled[i]:
             if oil_filled_multiphase[i]:
                 is_multiphase[i] = True
-            elif (b_pinned[i][: n_corners[i]] > 0).any() and pc < np.max(
-                water_corner_collapse_pressure[i][: n_corners[i]]
-            ):
-                is_multiphase[i] = True
             else:
-                is_multiphase[i] = False
+                any_pinned = False
+                for j in range(nc):
+                    if b_pinned[i, j] > 0:
+                        any_pinned = True
+                        break
+
+                if any_pinned:
+                    max_collapse_pc = water_corner_collapse_pressure[i, 0]
+                    for j in range(1, nc):
+                        if water_corner_collapse_pressure[i, j] > max_collapse_pc:
+                            max_collapse_pc = water_corner_collapse_pressure[i, j]
+                    is_multiphase[i] = pc < max_collapse_pc
+                else:
+                    is_multiphase[i] = False
+
         elif water_filled[i] and water_filled_multiphase[i]:
             is_multiphase[i] = True
         else:

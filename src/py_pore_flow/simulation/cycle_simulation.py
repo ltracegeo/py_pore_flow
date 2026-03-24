@@ -30,7 +30,12 @@ class CycleSimulation:
 
         self.trap_checker = TrapChecker(network, self.phase)
 
-        self.border_elements = BorderElements()
+        n_throats = network.get_number_of_throats()
+        n_pores = network.get_number_of_pores()
+        self.border_elements = BorderElements(
+            n_throats=n_throats, 
+            n_pores=n_pores
+        )
         self._refresh_border_elements(True, None, None)
 
         self.trap_checker.update_trapped_pores()
@@ -304,7 +309,8 @@ class CycleSimulation:
             pn.pore.oil_connected_to_inlet,
             pn.pore.trapped,
             pn.pore.inlets,
-            pn.pore.conns,
+            pn.pore.conns_values,
+            pn.pore.conns_offsets,
             pn.pore.n_conns,
             pn.pore.in_border,
             pn.throat.water_filled,
@@ -312,7 +318,8 @@ class CycleSimulation:
             pn.throat.water_connected_to_inlet,
             pn.throat.oil_connected_to_inlet,
             pn.throat.trapped,
-            pn.throat.conns,
+            pn.throat.conns_values,
+            pn.throat.conns_offsets,
             pn.throat.n_conns,
             pn.throat.in_border,
         )
@@ -355,13 +362,15 @@ class CycleSimulation:
             filled_element.type,
             filled_element_id,
             pn.pore.trapped,
-            pn.pore.conns,
+            pn.pore.conns_values,
+            pn.pore.conns_offsets,
             pn.pore.n_conns,
             pn.pore.water_filled,
             pn.pore.oil_filled,
             pn.pore.in_border,
             pn.throat.trapped,
-            pn.throat.conns,
+            pn.throat.conns_values,
+            pn.throat.conns_offsets,
             pn.throat.n_conns,
             pn.throat.water_filled,
             pn.throat.oil_filled,
@@ -388,13 +397,15 @@ class CycleSimulation:
         filled_element_type,
         filled_element_id,
         pore_trapped,
-        pore_conns,
+        pore_conns_values,
+        pore_conns_offsets,
         pore_n_conns,
         pore_water_filled,
         pore_oil_filled,
         pore_in_border,
         throat_trapped,
-        throat_conns,
+        throat_conns_values,
+        throat_conns_offsets,
         throat_n_conns,
         throat_water_filled,
         throat_oil_filled,
@@ -404,7 +415,8 @@ class CycleSimulation:
     ):
         # setup
         if filled_element_type == PORE:
-            element_conns = pore_conns
+            element_conns_values = pore_conns_values
+            element_conns_offsets = pore_conns_offsets
             element_n_conns = pore_n_conns
             neighbor_trapped = throat_trapped
             neighbor_water_filled = throat_water_filled
@@ -412,7 +424,8 @@ class CycleSimulation:
             neighbor_in_border = throat_in_border
             new_border_neighbors = new_border_throats_array
         else:
-            element_conns = throat_conns
+            element_conns_values = throat_conns_values
+            element_conns_offsets = throat_conns_offsets
             element_n_conns = throat_n_conns
             neighbor_trapped = pore_trapped
             neighbor_water_filled = pore_water_filled
@@ -426,7 +439,9 @@ class CycleSimulation:
             neighbor_filled = neighbor_oil_filled
 
         # pores to add
-        neighbor_ids = element_conns[filled_element_id][: element_n_conns[filled_element_id]].astype(np.int64)
+        start = element_conns_offsets[filled_element_id]
+        end = start + element_n_conns[filled_element_id]
+        neighbor_ids = element_conns_values[start:end].astype(np.int64)
         new_neighbors_count = 0
         for id in neighbor_ids:
             if not neighbor_filled[id] and not neighbor_trapped[id] and not neighbor_in_border[id]:
@@ -484,7 +499,8 @@ class CycleSimulation:
         pore_oil_connected_to_inlet,
         pore_trapped,
         pore_inlets,
-        pore_conns,
+        pore_conns_values,
+        pore_conns_offsets,
         pore_n_conns,
         pore_in_border,
         throat_water_filled,
@@ -492,7 +508,8 @@ class CycleSimulation:
         throat_water_connected_to_inlet,
         throat_oil_connected_to_inlet,
         throat_trapped,
-        throat_conns,
+        throat_conns_values,
+        throat_conns_offsets,
         throat_n_conns,
         throat_in_border,
     ):
@@ -512,7 +529,9 @@ class CycleSimulation:
         for pore_id in range(len(pore_phase_filled)):
             is_in_border = False
             if (not pore_phase_filled[pore_id]) and not pore_trapped[pore_id]:
-                for throat_id in pore_conns[pore_id][: pore_n_conns[pore_id]]:
+                p_start = pore_conns_offsets[pore_id]
+                p_end = p_start + pore_n_conns[pore_id]
+                for throat_id in pore_conns_values[p_start:p_end]:
                     if throat_phase_connected_to_inlet[throat_id] and throat_phase_filled[throat_id]:
                         new_border_pores[border_pore_count] = pore_id
                         border_pore_count += 1
@@ -524,7 +543,9 @@ class CycleSimulation:
         for throat_id in range(len(throat_phase_filled)):
             is_in_border = False
             if (not throat_phase_filled[throat_id]) and not throat_trapped[throat_id]:
-                for pore_id in throat_conns[throat_id][: throat_n_conns[throat_id]]:
+                t_start = throat_conns_offsets[throat_id]
+                t_end = t_start + throat_n_conns[throat_id]
+                for pore_id in throat_conns_values[t_start:t_end]:
                     if pore_phase_connected_to_inlet[pore_id] and pore_phase_filled[pore_id]:
                         new_border_throats[border_throat_count] = throat_id
                         border_throat_count += 1

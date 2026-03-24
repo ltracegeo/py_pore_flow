@@ -1,35 +1,36 @@
-import numpy as np
-
+from py_pore_flow.data_structures.sparse_set import SparseSet
 
 class BorderElements:
     """
     Class to keep track of empty elements that are in contact with filled elements
     """
 
-    def __init__(self):
-        self.throats_ids = np.array([], np.int64)
-        self.pores_ids = np.array([], np.int64)
+    def __init__(self, n_pores, n_throats):
+        self.throats_set = SparseSet(n_throats)
+        self.pores_set = SparseSet(n_pores)
 
-    def set_throats_ids(self, throats_ids):
-        self.throats_ids = throats_ids
+    def set_throats_ids(self, throat_ids):
+        self.throats_set.reset()
+        self.throats_set.add(throat_ids)
 
-    def set_pores_ids(self, pores_ids):
-        self.pores_ids = pores_ids
+    def set_pores_ids(self, pore_ids):
+        self.pores_set.reset()
+        self.pores_set.add(pore_ids)
 
     def get_throats_ids(self):
-        return self.throats_ids
+        return self.throats_set.list()
 
     def get_pores_ids(self):
-        return self.pores_ids
+        return self.pores_set.list()
 
-    def add_throats_ids(self, throats_ids):
-        self.throats_ids = np.concatenate((self.throats_ids, throats_ids))
+    def add_throats_ids(self, throat_ids):
+        self.throats_set.add(throat_ids)
 
-    def add_pores_ids(self, pores_ids):
-        self.pores_ids = np.concatenate((self.pores_ids, pores_ids))
+    def add_pores_ids(self, pore_ids):
+        self.pores_set.add(pore_ids)
 
     def remove_throats_ids(self, throat_ids):
-        self.throats_ids = np.delete(self.throats_ids, np.isin(self.throats_ids, throat_ids))
+        self.throats_set.remove(throat_ids)
 
     def remove_pores_ids(self, pore_ids):
-        self.pores_ids = np.delete(self.pores_ids, np.isin(self.pores_ids, pore_ids))
+        self.pores_set.remove(pore_ids)
