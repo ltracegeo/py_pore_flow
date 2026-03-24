@@ -287,6 +287,26 @@ class SubsequentCycleSimulation(CycleSimulation):
 
         return element_to_fill
 
+    def _get_element_to_fill_from_heap(self, pc, verbose=False):
+        """Override to also consider snap-off elements alongside the heap.
+
+        Snap-off elements may not be in the border, so they are checked
+        separately via linear scan of the (typically small) snap-off lists,
+        then compared against the heap root.
+        """
+        from py_pore_flow.network.constants import PORE, THROAT
+
+        self._clear_snapoff_lists()
+
+        # Ensure snap-off elements are in the heap
+        for pid in self.snap_off_pore_list:
+            self.invasion_heap.insert(PORE, pid, self.network.pn_core.pore.entry_pressure[pid])
+        for tid in self.snap_off_throat_list:
+            self.invasion_heap.insert(THROAT, tid, self.network.pn_core.throat.entry_pressure[tid])
+
+        # Delegate to parent peek
+        return super()._get_element_to_fill_from_heap(pc, verbose=verbose)
+
     @abstractmethod
     def _can_be_filled(self, current_pc, invasion_pc):
         pass

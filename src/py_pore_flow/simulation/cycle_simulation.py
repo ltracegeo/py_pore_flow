@@ -11,9 +11,13 @@ from py_pore_flow.simulation.clusters import PhaseConnectionChecker
 from py_pore_flow.simulation.krel_calculator import KrelCalculator
 from py_pore_flow.simulation.trap_checker import TrapChecker
 from py_pore_flow.simulation.border_elements import BorderElements
+from py_pore_flow.simulation.invasion_heap import InvasionHeap
 
 
 class CycleSimulation:
+    # Subclasses override to False for imbibition (max-heap).
+    _use_min_heap: bool = True
+
     def __init__(self, network, phase, calculate_full_conductance=False):
         self.network = network
         self.phase = phase
@@ -31,7 +35,18 @@ class CycleSimulation:
         self.trap_checker = TrapChecker(network, self.phase)
 
         self.border_elements = BorderElements()
+
+        # Indexed heap for O(log n) element selection during invasion.
+        n_pores = len(self.network.pn_core.pore.all)
+        n_throats = len(self.network.pn_core.throat.all)
+        self.invasion_heap = InvasionHeap(n_pores, n_throats, is_min_heap=self._use_min_heap)
+
         self._refresh_border_elements(True, None, None)
+        # Populate heap with initial border elements
+        for pid in self.border_elements.get_pores_ids():
+            self.invasion_heap.insert(PORE, pid, self.network.pn_core.pore.entry_pressure[pid])
+        for tid in self.border_elements.get_throats_ids():
+            self.invasion_heap.insert(THROAT, tid, self.network.pn_core.throat.entry_pressure[tid])
 
         self.trap_checker.update_trapped_pores()
 
@@ -130,23 +145,76 @@ class CycleSimulation:
     def _update_entry_pressures(self, pc, verbose=False):
         pass
 
+    def _sync_heap_after_border_refresh(self, new_border_pores, new_border_throats, reached_bubble,
+                                         new_trapped_pores=np.empty(0, np.int64),
+                                         new_trapped_throats=np.empty(0, np.int64)):
+        """Synchronise the invasion heap after border elements change.
+
+        On a full reset (reached_bubble), rebuild the heap from scratch.
+        Otherwise, add new border elements and remove trapped/filled ones.
+        """
+        if reached_bubble:
+            self.invasion_heap.clear()
+            for pid in self.border_elements.get_pores_ids():
+                self.invasion_heap.insert(PORE, pid, self.network.pn_core.pore.entry_pressure[pid])
+            for tid in self.border_elements.get_throats_ids():
+                self.invasion_heap.insert(THROAT, tid, self.network.pn_core.throat.entry_pressure[tid])
+        else:
+            # Add newly-promoted border elements
+            for pid in new_border_pores:
+                self.invasion_heap.insert(PORE, pid, self.network.pn_core.pore.entry_pressure[pid])
+            for tid in new_border_throats:
+                self.invasion_heap.insert(THROAT, tid, self.network.pn_core.throat.entry_pressure[tid])
+            # Remove trapped elements
+            for pid in new_trapped_pores:
+                self.invasion_heap.remove(PORE, pid)
+            for tid in new_trapped_throats:
+                self.invasion_heap.remove(THROAT, tid)
+
+    def _sync_heap_entry_pressures(self, pore_ids, throat_ids):
+        """Update heap keys after entry pressures change for border elements."""
+        for pid in pore_ids:
+            if self.invasion_heap.contains(PORE, pid):
+                self.invasion_heap.update_key(PORE, pid, self.network.pn_core.pore.entry_pressure[pid])
+        for tid in throat_ids:
+            if self.invasion_heap.contains(THROAT, tid):
+                self.invasion_heap.update_key(THROAT, tid, self.network.pn_core.throat.entry_pressure[tid])
+
+    def _get_element_to_fill_from_heap(self, pc, verbose=False):
+        """Get the next element to fill from the heap. O(1) peek.
+
+        For subclasses with snap-off lists, this is overridden in
+        SubsequentCycleSimulation to also check snap-off elements.
+        """
+        result = self.invasion_heap.peek()
+        if result is None:
+            return None
+        etype, eid, pressure = result
+        if self._use_min_heap:
+            invasion_pc = max(pressure, pc)
+        else:
+            invasion_pc = min(pressure, pc)
+        if verbose:
+            print("  Selected element: ", "pore" if etype == PORE else "throat", eid, " with PC: ", pressure)
+        return (etype, eid, invasion_pc)
+
     def _update_invasions(self, pc, target_sw=None, verbose=False):
         sw_delta = 0.0
 
         if verbose: yield "Updating entry pressures"
         self._update_entry_pressures(pc, verbose=verbose)
 
+        # Sync heap keys for all current border elements after entry pressure update
+        self._sync_heap_entry_pressures(
+            self.border_elements.get_pores_ids(),
+            self.border_elements.get_throats_ids(),
+        )
+
         no_invasion_left = False
         invasion_pc = pc
-        
+
         while True:
-            try:
-                element_to_fill = self._get_element_to_fill(pc, self.border_elements, verbose=verbose)
-            except TypeError as e:
-                print(f"DEBUG: Actual class is {type(self)}")
-                print(f"DEBUG: Inheritance MRO: {type(self).mro()}")
-                print(e)
-                raise e
+            element_to_fill = self._get_element_to_fill_from_heap(pc, verbose=verbose)
 
             if element_to_fill is None:
                 no_invasion_left = True
@@ -157,11 +225,14 @@ class CycleSimulation:
             if (target_sw is not None and sw_delta >= target_sw) or not self._can_be_filled(pc, invasion_pc):
                 break
 
+            # Actually remove the element from the heap now that we commit to filling it
+            self.invasion_heap.remove(element_type, element_id)
+
             if element_type == PORE:
                 element = self.network.pore
             else:
                 element = self.network.throat
-                
+
             if verbose: yield f"Filling {'pore' if element_type == PORE else 'throat'} {element_id} at Pc: {invasion_pc:.2f}"
 
             self._fill_element(element, element_id, invasion_pc)
@@ -181,12 +252,16 @@ class CycleSimulation:
                     new_untrapped_pores,
                     new_untrapped_throats,
                 ) = self.trap_checker.update_trapped_pores()
-                
+
                 if verbose: yield "Refreshing border elements"
                 new_border_pores, new_border_throats = self._refresh_border_elements(
                     reached_bubble, element, element_id, new_trapped_pores, new_trapped_throats
                 )
-                
+                self._sync_heap_after_border_refresh(
+                    new_border_pores, new_border_throats, reached_bubble,
+                    new_trapped_pores, new_trapped_throats,
+                )
+
                 if verbose: yield "Updating untrapped entry pressures"
                 self._update_pore_entry_pc(new_untrapped_pores, pc)
                 self._update_throat_entry_pc(new_untrapped_throats)
@@ -195,10 +270,17 @@ class CycleSimulation:
                 new_border_pores, new_border_throats = self._refresh_border_elements(
                     reached_bubble, element, element_id
                 )
-            
+                self._sync_heap_after_border_refresh(
+                    new_border_pores, new_border_throats, reached_bubble,
+                )
+
             if verbose: yield "Updating border entry pressures"
             self._update_border_pore_entry_pc(new_border_pores, pc)
             self._update_border_throat_entry_pc(new_border_throats)
+
+            # Sync heap keys for newly updated border elements
+            self._sync_heap_entry_pressures(new_border_pores, new_border_throats)
+
         return sw_delta, invasion_pc, no_invasion_left
 
     def _check_for_bubble(self, element, element_id):

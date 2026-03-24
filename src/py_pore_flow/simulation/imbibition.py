@@ -22,6 +22,8 @@ from py_pore_flow import log
 
 
 class ImbibitionSimulation(SubsequentCycleSimulation):
+    _use_min_heap = False  # Imbibition selects maximum entry pressure.
+
     def __init__(self, network, pc_max, calculate_full_conductance=False):
         super().__init__(network, pc_max, WATER, calculate_full_conductance)
 
