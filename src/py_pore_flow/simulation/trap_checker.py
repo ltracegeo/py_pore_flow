@@ -88,7 +88,7 @@ class TrapChecker:
                 self.network.pn_core.throat.oil_connected_to_inlet,
             )
         return new_trapped_pores, new_trapped_throats, new_untrapped_pores, new_untrapped_throats
-        
+
 
     @staticmethod
     @nb.njit(cache=True)
@@ -104,6 +104,15 @@ class TrapChecker:
         new_trapped_count = 0
         new_untrapped_count = 0
         for element_id in range(len(element_trapped)):
+            # Fast path: element is not evading-filled and not currently trapped.
+            # Trapped status stays False; only evacuation may change.
+            if not evading_filled[element_id] and not element_trapped[element_id]:
+                new_trapped_evacuation = not invading_connected_to_inlet[element_id]
+                if element_trapped_evacuation[element_id] and not new_trapped_evacuation:
+                    new_untrapped[new_untrapped_count] = element_id
+                    new_untrapped_count += 1
+                element_trapped_evacuation[element_id] = new_trapped_evacuation
+                continue
             new_trapped_status = evading_filled[element_id] and not evading_connected_to_outlet[element_id]
             if not element_trapped[element_id] and new_trapped_status:
                 new_trapped[new_trapped_count] = element_id
