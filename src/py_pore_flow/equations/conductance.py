@@ -203,3 +203,5 @@ def calculate_network_conductance(Gp, throat_gp, throat_L, throat_conn, pore_gp,
             Gp[i] = 0
         else:
             Gp[i] = calculate_conductance(L, gp)
+
+

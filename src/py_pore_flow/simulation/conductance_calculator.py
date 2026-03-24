@@ -30,10 +30,27 @@ class ConductanceCalculator:
                     ]
                     f.write("\t".join(header) + "\n")
 
+        # Pre-allocate tiled advancing_contact_angle arrays to avoid
+        # creating a temporary array on every _calculate_multiphase_conductivity call.
+        # advancing_contact_angle is a 1D array; the Numba function expects a 2D
+        # (n_elements, MAX_NUMBER_OF_CORNERS) array with the same value per row.
+        self._pore_theta_a_tiled = np.ascontiguousarray(
+            np.tile(
+                self.network.pn_core.pore.advancing_contact_angle[:, np.newaxis],
+                MAX_NUMBER_OF_CORNERS,
+            )
+        )
+        self._throat_theta_a_tiled = np.ascontiguousarray(
+            np.tile(
+                self.network.pn_core.throat.advancing_contact_angle[:, np.newaxis],
+                MAX_NUMBER_OF_CORNERS,
+            )
+        )
+
     def _log_conductivity(self, element_type, phase, cond_type, gp, A, G, shape, Sw=None, So=None, b=None, bo=None, theta_h=None, beta=None, n_corners=None, has_water_in_center=None, has_oil_in_center=None):
         if not self.log_conductivity_file:
             return
-        
+
         print("--- Capturing traceback as a string ---")
         traceback.print_stack()
 
@@ -135,10 +152,10 @@ class ConductanceCalculator:
                 pn_element.shape,
                 phase,
             )
-            
+
             if self.log_conductivity_file:
                 self._log_conductivity(
-                    element_type, phase, "SINGLEPHASE", 
+                    element_type, phase, "SINGLEPHASE",
                     singlephase_conductivity, area, pn_element.shape_factor, pn_element.shape
                 )
 
@@ -149,14 +166,19 @@ class ConductanceCalculator:
             if element_type == PORE:
                 pn_element = self.network.pn_core.pore
                 area = self.network.pn_core.pore.area
+                theta_a_tiled = self._pore_theta_a_tiled
             else:  # element_type == THROAT:
                 pn_element = self.network.pn_core.throat
                 area = self.network.pn_core.throat.cross_sectional_area
+                theta_a_tiled = self._throat_theta_a_tiled
 
             if phase == WATER:
                 multiphase_conductivity = pn_element.water_multiphase_conductivity
             else:  # phase == OIL:
                 multiphase_conductivity = pn_element.oil_multiphase_conductivity
+
+            # Update the cached tiled array in-place from current advancing_contact_angle
+            theta_a_tiled[:, :] = pn_element.advancing_contact_angle[:, np.newaxis]
 
             calculate_network_multiphase_conductivity(
                 multiphase_conductivity,
@@ -169,14 +191,14 @@ class ConductanceCalculator:
                 pn_element.bo,
                 pn_element.corner_half_angle,
                 pn_element.hinging_contact_angle,
-                np.tile(pn_element.advancing_contact_angle[:, np.newaxis], MAX_NUMBER_OF_CORNERS),
+                theta_a_tiled,
                 pn_element.corner_oil_layer,
                 pn_element.n_corners,
                 pn_element.water_filled,
                 pn_element.oil_filled,
                 phase,
             )
-            
+
             if self.log_conductivity_file:
                 self._log_conductivity(
                     element_type, phase, "MULTIPHASE",
