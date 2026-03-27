@@ -4,16 +4,19 @@ Relative permeability calculator.
 Optimised version: avoids cloning the full OpenPNM network and calling
 openpnm.topotools.trim(). Instead, builds a masked subnetwork dict
 directly from the original network arrays, uses scipy for connected
-component detection, and solves on the masked subnetwork.
+component detection, and solves the sparse linear system directly
+without creating temporary OpenPNM Network objects.
 """
 
+from numba import njit
 import numpy as np
-from scipy.sparse import coo_matrix
+from pypardiso import spsolve
+from pyflowsolver import NetworkManager as FlowNetworkManager
+from scipy.sparse import coo_matrix, csr_matrix
 from scipy.sparse.csgraph import connected_components
 
 from py_pore_flow.equations.geometry import WATER, OIL
 from py_pore_flow.equations.conductance import calculate_absolute_permeability
-from py_pore_flow.network.network import NetworkManager
 from py_pore_flow.simulation.flow_rate_calculator import FlowRateCalculator
 
 
@@ -46,30 +49,34 @@ class KrelCalculator:
         """Compute relative permeability for *phase* without cloning the network.
 
         Steps:
-        1. Optionally update multiphase hydraulic conductance on the original network.
+        1. Update multiphase hydraulic conductance on the original network.
         2. Build a pore/throat mask for elements with nonzero phase saturation.
         3. Keep only throats whose *both* endpoint pores survive the mask.
         4. Detect connected components on the masked sub-graph (scipy).
-        5. For each component that spans inlets→outlets, build a sub-dict and solve.
+        5. For each component that spans inlets→outlets, solve flow directly.
         6. Sum flow rates and normalise by single-phase flow rate.
         """
-        if self.calculate_full_conductance:
-            flow_rate_calculator = FlowRateCalculator(self.network)
-            flow_rate_calculator.update_hydraulic_conductance(phase)
-            update_hc = False
-        else:
-            update_hc = True
+        # Always compute conductance on the full network first.
+        # Conductance is per-element, so the result is identical whether
+        # computed on the full network or per-component.
+        flow_rate_calculator = FlowRateCalculator(self.network)
+        flow_rate_calculator.update_hydraulic_conductance(phase)
 
         pn = self.network.pn
         sat_key = "pore.oil_saturation" if phase == OIL else "pore.water_saturation"
         tsat_key = "throat.oil_saturation" if phase == OIL else "throat.water_saturation"
+        phase_name = "oil" if phase == OIL else "water"
 
         pore_mask = pn[sat_key] > 0
         throat_mask = pn[tsat_key] > 0
 
         conns = pn["throat.conns"]
         # Also require both endpoint pores to be present
-        throat_mask = throat_mask & pore_mask[conns[:, 0]] & pore_mask[conns[:, 1]]
+        throat_mask = triple_compare(
+            throat_mask, 
+            pore_mask,
+            conns,
+        )
 
         n_pores_keep = pore_mask.sum()
         n_throats_keep = throat_mask.sum()
@@ -105,6 +112,8 @@ class KrelCalculator:
         if not valid_labels:
             return 0.0
 
+        cond_key = f"throat.{phase_name}_multiphase_conductance"
+
         total_flow_rate = 0.0
         for vlabel in valid_labels:
             component_pore_mask_sub = labels == vlabel
@@ -117,11 +126,9 @@ class KrelCalculator:
             )
             component_throat_ids_orig = throat_indices[component_throat_mask]
 
-            sub_pn = self._build_sub_dict(pn, component_pore_ids_orig, component_throat_ids_orig)
-            if sub_pn is None:
-                continue
-
-            flow_rate = self._solve_sub_dict(sub_pn, phase, update_hc)
+            flow_rate = self._solve_direct(
+                pn, component_pore_ids_orig, component_throat_ids_orig, cond_key,
+            )
             total_flow_rate += flow_rate
 
         sp_flow = self.singlephase_flow_rate[phase]
@@ -132,54 +139,61 @@ class KrelCalculator:
     # ── Helpers ───────────────────────────────────────────────────────────────
 
     @staticmethod
-    def _build_sub_dict(pn, pore_ids, throat_ids):
-        """Build a plain dict sub-network from the original pn using masks.
+    def _solve_direct(pn, pore_ids, throat_ids, cond_key):
+        """Solve flow on a connected component directly from arrays.
 
-        Returns None if the sub-network would be trivially unsolvable.
+        No OpenPNM Network objects are created — builds the sparse linear
+        system from raw numpy arrays and solves with pypardiso.
         """
         if len(pore_ids) == 0 or len(throat_ids) == 0:
-            return None
+            return 0.0
 
+        inlets = pn["pore.inlets"][pore_ids]
+        outlets = pn["pore.outlets"][pore_ids]
+
+        if not np.any(inlets) or not np.any(outlets):
+            return 0.0
+
+        # Remap pore indices to 0..n
         old_to_new = np.full(len(pn["pore.all"]), -1, dtype=np.int64)
         old_to_new[pore_ids] = np.arange(len(pore_ids), dtype=np.int64)
 
-        sub_pn = {}
-        for key in pn.keys():
-            prefix = key.split(".")[0]
-            if prefix == "pore":
-                sub_pn[key] = pn[key][pore_ids]
-            elif prefix == "throat":
-                sub_pn[key] = pn[key][throat_ids]
+        conn = old_to_new[pn["throat.conns"][throat_ids]].astype(np.int32)
+        cond = pn[cond_key][throat_ids].astype(np.float64)
 
-        # Remap connectivity
-        sub_pn["throat.conns"] = old_to_new[pn["throat.conns"][throat_ids]].astype(np.int64)
-
-        sub_pn["pore.all"] = np.ones(len(pore_ids), dtype=bool)
-        sub_pn["throat.all"] = np.ones(len(throat_ids), dtype=bool)
-
-        if not np.any(sub_pn.get("pore.inlets", np.array([]))):
-            return None
-        if not np.any(sub_pn.get("pore.outlets", np.array([]))):
-            return None
-
-        return sub_pn
-
-    def _solve_sub_dict(self, sub_pn, phase, update_hydraulic_conductance):
-        """Wrap a sub-dict into a temporary OpenPNM network and solve flow."""
-        import openpnm
-
-        temp_net = openpnm.network.Network()
-        temp_net.update(sub_pn)
-
-        if len(temp_net.throats()) == 0 or len(temp_net.pores()) == 0:
+        if np.all(cond == 0):
             return 0.0
 
-        new_network = NetworkManager(temp_net, log_conductivity_file=self.network.log_conductivity_file)
-        if len(new_network.get_inlets_ids()) == 0 or len(new_network.get_outlets_ids()) == 0:
+        positive_cond = cond[cond > 0]
+        if len(positive_cond) == 0:
             return 0.0
+        min_cond = positive_cond.min()
+        max_cond = positive_cond.max()
 
-        flow_rate_calculator = FlowRateCalculator(new_network)
-        return flow_rate_calculator.calculate_total_flow_rate(phase, update_hydraulic_conductance)
+        # Prevent pypardiso from breaking with values too close to 0
+        factor = 10 ** ((np.log10(min_cond) + np.log10(max_cond)) / 2)
+        cond = cond / factor
+
+        network_manager = FlowNetworkManager(
+            conn=conn, cond=cond, inlets=inlets, outlets=outlets,
+        )
+        network_manager.generate_sparse_system()
+        a_sparse_array, b_array = network_manager.get_sparse_system()
+
+        if len(a_sparse_array["val"]) == 0:
+            return factor
+
+        A_csr = csr_matrix((
+            a_sparse_array["val"],
+            a_sparse_array["col_idx"],
+            np.append(a_sparse_array["row_ptr"], a_sparse_array["val"].size),
+        ))
+
+        x = spsolve(A_csr, b_array)
+        pressure = network_manager.get_pressure_list(x)
+        flow_rate = network_manager.get_flow_rate(pressure)
+
+        return flow_rate * factor
 
     def _calculate_K(self):
         A, L = self._get_network_size(self.network.pn)
@@ -216,3 +230,17 @@ class KrelCalculator:
         length = element_max[flow_dimension] - element_min[flow_dimension]
 
         return cross_sectional_area, length
+
+@njit(cache=True)
+def triple_compare(
+    throat_mask, 
+    pore_mask,
+    conns,
+    ):
+    n = throat_mask.size
+    output = np.empty(n, dtype=np.bool_)
+    for i in range(n):
+        output[i] = throat_mask[i] \
+        & pore_mask[conns[i, 0]] \
+        & pore_mask[conns[i, 1]]
+    return output
