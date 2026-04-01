@@ -1,12 +1,12 @@
 import numpy as np
-import openpnm as op
 
 from py_pore_flow.graphic.manual_simulation import ManualSimulationPlot
+from py_pore_flow.network.network import PoreNetwork
 
 
 if __name__ == "__main__":
     from PySide2 import QtWidgets
-    pn = op.network.Network()
+    pn = PoreNetwork()
     pn_dict = {
         "throat.conns": np.array([[0, 1]]),
         "throat.radius": np.array([1.0e-05]),

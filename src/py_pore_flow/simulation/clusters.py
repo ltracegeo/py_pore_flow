@@ -128,11 +128,13 @@ class PhaseConnectionChecker2:
             throat_connected_to_inlet,
             throat_connected_to_outlet,
             pore_has_phase,
-            self.pn.pore.conns,
+            self.pn.pore.conns_values,
+            self.pn.pore.conns_offsets,
             self.pn.pore.n_conns,
             self.pore_cluster,
             throat_has_phase,
-            self.pn.throat.conns,
+            self.pn.throat.conns_values,
+            self.pn.throat.conns_offsets,
             self.throat_cluster,
             self.pn.pore.inlets,
             self.pn.pore.outlets,
@@ -181,11 +183,13 @@ class PhaseConnectionChecker2:
         throat_connected_to_inlet,
         throat_connected_to_outlet,
         pore_has_phase,
-        pore_conns,
+        pore_conns_values,
+        pore_conns_offsets,
         pore_n_conns,
         pore_cluster,
         throat_has_phase,
-        throat_conns,
+        throat_conns_values,
+        throat_conns_offsets,
         throat_cluster,
         pore_inlets,
         pore_outlets,
@@ -197,10 +201,12 @@ class PhaseConnectionChecker2:
             size_array,
             nT,
             pore_has_phase,
-            pore_conns,
+            pore_conns_values,
+            pore_conns_offsets,
             pore_n_conns,
             throat_has_phase,
-            throat_conns,
+            throat_conns_values,
+            throat_conns_offsets,
             pore_id_list,
             throat_id_list,
         )
@@ -211,12 +217,14 @@ class PhaseConnectionChecker2:
             pore_connected_to_inlet,
             pore_connected_to_outlet,
             pore_cluster,
-            pore_conns,
+            pore_conns_values,
+            pore_conns_offsets,
             pore_n_conns,
             throat_connected_to_inlet,
             throat_connected_to_outlet,
             throat_cluster,
-            throat_conns,
+            throat_conns_values,
+            throat_conns_offsets,
             pore_inlets,
             pore_outlets,
             pore_id_list,
@@ -546,10 +554,12 @@ def cluster_add_union(
     size_array,
     nT,
     pore_has_phase,
-    pore_conns,
+    pore_conns_values,
+    pore_conns_offsets,
     pore_n_conns,
     throat_has_phase,
-    throat_conns,
+    throat_conns_values,
+    throat_conns_offsets,
     pore_id_list,
     throat_id_list,
 ):
@@ -557,14 +567,18 @@ def cluster_add_union(
 
     for throat_id in throat_id_list:
         if throat_has_phase[throat_id]:
-            pore_0, pore_1 = throat_conns[throat_id]
+            t_start = throat_conns_offsets[throat_id]
+            pore_0 = throat_conns_values[t_start]
+            pore_1 = throat_conns_values[t_start + 1]
             if pore_has_phase[pore_0]:
                 union(throat_id, (pore_0 + nT))
             if pore_has_phase[pore_1]:
                 union(throat_id, (pore_1 + nT))
     for pore_id in pore_id_list:
         if pore_has_phase[pore_id]:
-            neighbor_throat_ids = pore_conns[pore_id][: pore_n_conns[pore_id]]
+            p_start = pore_conns_offsets[pore_id]
+            p_end = p_start + pore_n_conns[pore_id]
+            neighbor_throat_ids = pore_conns_values[p_start:p_end]
             for throat_id in neighbor_throat_ids:
                 if throat_has_phase[throat_id]:
                     union(throat_id, (pore_id + nT))
@@ -619,12 +633,14 @@ def cluster_update_connections(
     pore_connected_to_inlet,
     pore_connected_to_outlet,
     pore_cluster,
-    pore_conns,
+    pore_conns_values,
+    pore_conns_offsets,
     pore_n_conns,
     throat_connected_to_inlet,
     throat_connected_to_outlet,
     throat_cluster,
-    throat_conns,
+    throat_conns_values,
+    throat_conns_offsets,
     pore_inlets,
     pore_outlets,
     pore_id_list,
@@ -652,7 +668,8 @@ def cluster_update_connections(
             pore_connected_to_inlet,
             pore_connected_to_outlet,
             pore_cluster,
-            pore_conns,
+            pore_conns_values,
+            pore_conns_offsets,
             pore_n_conns,
             throat_connected_to_inlet,
             throat_connected_to_outlet,
@@ -669,8 +686,9 @@ def cluster_update_connections(
             throat_connected_to_inlet,
             throat_connected_to_outlet,
             throat_cluster,
-            throat_conns,
-            np.full(len(throat_conns), 2, np.int64),
+            throat_conns_values,
+            throat_conns_offsets,
+            np.full(len(throat_conns_offsets), 2, np.int64),
             pore_connected_to_inlet,
             pore_connected_to_outlet,
             pore_cluster,
@@ -688,7 +706,8 @@ def update_element_connection(
     element_connected_to_inlet,
     element_connected_to_outlet,
     element_cluster,
-    element_conns,
+    element_conns_values,
+    element_conns_offsets,
     element_n_conns,
     neighbor_connected_to_inlet,
     neighbor_connected_to_outlet,
@@ -713,7 +732,9 @@ def update_element_connection(
             neighbor_connected_to_inlet[neighbor_id] = cluster_has_inlets
             neighbor_connected_to_outlet[neighbor_id] = cluster_has_outlets
 
-    for neighbor_id in element_conns[changed_element_id][: element_n_conns[changed_element_id]]:
+    e_start = element_conns_offsets[changed_element_id]
+    e_end = e_start + element_n_conns[changed_element_id]
+    for neighbor_id in element_conns_values[e_start:e_end]:
         old_cluster = neighbor_cluster[neighbor_id]
         new_cluster = find(neighbor_id + wqupc_neighbor_id_offset)
         if new_cluster != old_cluster:

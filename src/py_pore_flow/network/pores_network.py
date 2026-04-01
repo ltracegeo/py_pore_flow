@@ -45,6 +45,8 @@ class PoresNetwork(ElementNetwork):
         self.piston_like_pressure = pn["pore.piston_like_pressure"]
         self.oil_layer_collapse_pressure = pn["pore.oil_layer_collapse_pressure"]
         self.conns = pn["pore.conns"]
+        self.conns_values = self.conns.values
+        self.conns_offsets = self.conns.offsets
         self.n_conns = pn["pore.n_conns"]
         self.area = pn["pore.area"]
         self.inlets = pn["pore.inlets"]

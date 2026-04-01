@@ -11,12 +11,13 @@ import numpy as np
 import openpnm
 
 import py_pore_flow as ppf
+from py_pore_flow.network.network import PoreNetwork
 from py_pore_flow.simulation.simulation import StepSimulation
 
 
 
 def print_props():
-    pn = openpnm.io.network_from_statoil("tests/resources/statoil", "a")
+    pn = PoreNetwork.from_openpnm(openpnm.io.network_from_statoil("tests/resources/statoil", "a"))
     print(pn.props())
 
 
@@ -100,7 +101,7 @@ def run_simulation(
         if re_match:
             network_name = re_match[1]
 
-    pn = openpnm.io.network_from_statoil(directory_path, network_name)
+    pn = PoreNetwork.from_openpnm(openpnm.io.network_from_statoil(directory_path, network_name))
 
     pore_N, throat_N = load_multiscale_values_from_dir(directory_path, network_name, pn)
     if pore_N is not None and throat_N is not None:

@@ -49,6 +49,8 @@ class ThroatsNetwork(ElementNetwork):
         self.piston_like_pressure = pn["throat.piston_like_pressure"]
         self.oil_layer_collapse_pressure = pn["throat.oil_layer_collapse_pressure"]
         self.conns = pn["throat.conns"]
+        self.conns_values = pn._throat_conns_values
+        self.conns_offsets = pn._throat_conns_offsets
         self.n_conns = pn["throat.n_conns"]
         self.cross_sectional_area = pn["throat.cross_sectional_area"]
         self.length = pn["throat.length"]

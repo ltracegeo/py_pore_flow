@@ -151,7 +151,8 @@ class SubsequentCycleSimulation(CycleSimulation):
             self.network.pn_core.pore.radius,
             self.network.pn_core.pore.shape_factor,
             self.network.pn_core.pore.imminent_snap_off,
-            self.network.pn_core.pore.conns,
+            self.network.pn_core.pore.conns_values,
+            self.network.pn_core.pore.conns_offsets,
             self.network.pn_core.pore.n_conns,
             pore_limiting_contact_angle,
             self.network.pn_core.throat.radius,
@@ -172,7 +173,8 @@ class SubsequentCycleSimulation(CycleSimulation):
         pore_radius,
         pore_shape_factor,
         pore_imminent_snap_off,
-        pore_conns,
+        pore_conns_values,
+        pore_conns_offsets,
         pore_n_conns,
         pore_limiting_contact_angle,
         throat_radius,
@@ -187,7 +189,9 @@ class SubsequentCycleSimulation(CycleSimulation):
                     print("  Pore ", pore_id, " PC calculation: Piston-like = ", element_pc)
                 continue
 
-            neighbors = pore_conns[pore_id][: pore_n_conns[pore_id]]
+            p_start = pore_conns_offsets[pore_id]
+            p_end = p_start + pore_n_conns[pore_id]
+            neighbors = pore_conns_values[p_start:p_end]
             mask = throat_receding_phase_filled[neighbors]
             filled_neighbors = neighbors[mask]
             number_of_filled_neighbors = filled_neighbors.size

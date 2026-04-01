@@ -34,7 +34,7 @@ from py_pore_flow.equations.entry_pressure import (
     calculate_snap_off_pc_network,
     calculate_imbibition_piston_like_displacement_pc_network,
 )
-from py_pore_flow.network.network import initialize_pn, NetworkManager
+from py_pore_flow.network.network import initialize_pn, NetworkManager, PoreNetwork
 from py_pore_flow.output import pn_to_vtu
 from py_pore_flow.parameters.parameter_manager import ParameterManager
 from py_pore_flow.simulation.second_drainage import SecondDrainageSimulation
@@ -885,11 +885,11 @@ class StepSimulation:
         return snapshot_dict
 
     @staticmethod
-    def load_snapshot(snapshot_file):
+    def load_snapshot(snapshot_file: str) -> tuple:
         with open(snapshot_file, "rb") as fp:
             snapshot_dict = pickle.load(fp)
 
-        pn = openpnm.network.Network()
+        pn = PoreNetwork()
         pn.update(snapshot_dict["network"])
         parameters = snapshot_dict["parameters"]
         parameters["pc_initial"] = snapshot_dict["pc"]
