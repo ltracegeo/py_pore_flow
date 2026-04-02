@@ -1,3 +1,4 @@
+from numba import njit
 import numpy as np
 import openpnm
 
@@ -34,7 +35,6 @@ class PoreNetwork(openpnm.network.Network):
 
     _conns_values = None
     _conns_offsets = None
-    _conns_counts = None
 
     # ------------------------------------------------------------------
     # Thin proxy returned by  pn["pore.conns"]  so that  [...][pore_id]
@@ -56,7 +56,7 @@ class PoreNetwork(openpnm.network.Network):
 
         def __getitem__(self, pore_id):
             start = self._pn._conns_offsets[pore_id]
-            end = start + self._pn._conns_counts[pore_id]
+            end = self._pn._conns_offsets[pore_id + 1]
             return self._pn._conns_values[start:end]
 
         # Guard-rails: blow up on any attempt to treat this as a dense array
@@ -75,10 +75,9 @@ class PoreNetwork(openpnm.network.Network):
         def __len__(self):
             return len(self._pn._conns_offsets)
 
-    def init_sparse_conns(self, values: np.ndarray, offsets: np.ndarray, counts: np.ndarray):
+    def init_sparse_conns(self, values: np.ndarray, offsets: np.ndarray):
         self._conns_values = values
         self._conns_offsets = offsets
-        self._conns_counts = counts
 
     def __getitem__(self, key):
         if key == "pore.conns":
@@ -191,33 +190,43 @@ def initialize_pn(pn: openpnm.network.Network) -> None:
     pn["pore.n_conns"] = int(0)
 
     number_of_pores = len(pn["pore.all"])
-
-    pore_n_conns_list = [0] * number_of_pores
-    pore_conns_list = [None] * number_of_pores
-    for pore_id in pn.pores():
-        neighbor_throats_list = pn.find_neighbor_throats(pore_id)
-        pore_n_conns_list[pore_id] = len(neighbor_throats_list)
-        pore_conns_list[pore_id] = neighbor_throats_list
-
-    # Build sparse (CSR-like) pore connections
-    counts = np.array(pore_n_conns_list, dtype=np.int64)
-    offsets = np.empty(number_of_pores, dtype=np.int64)
-    offsets[0] = 0
-    np.cumsum(counts[:-1], out=offsets[1:])
-    total_conns = int(counts.sum())
+    offsets = np.zeros(number_of_pores + 1, dtype=np.int64)
+    _update_counts(offsets, pn["throat.conns"])
+    pn["pore.n_conns"] = offsets[1:].copy()
+    total_conns = int(offsets.sum())
+    _make_cummulative(offsets)
     values = np.empty(total_conns, dtype=np.int64)
-    for pore_id in pn.pores():
-        start = offsets[pore_id]
-        end = start + counts[pore_id]
-        values[start:end] = pore_conns_list[pore_id]
+    _fill_values(values, offsets, pn["throat.conns"])
 
-    pn.init_sparse_conns(values, offsets, counts)
-    pn["pore.n_conns"] = counts
+    pn.init_sparse_conns(values, offsets)
 
     # Required to maintain compatibility between windows and linux:
-    pn["throat.conns"] = pn["throat.conns"].astype(np.int64)
+    #pn["throat.conns"] = pn["throat.conns"].astype(np.int64)
 
     # Build sparse representation for throat.conns (uniform 2 conns per throat)
     number_of_throats = len(pn["throat.all"])
     pn._throat_conns_values = pn["throat.conns"].ravel()
     pn._throat_conns_offsets = np.arange(0, 2 * number_of_throats, 2, dtype=np.int64)
+
+@njit(cache=True)
+def _update_counts(counts, throat_conns):
+    for throat_id in range(len(throat_conns)):
+        counts[throat_conns[throat_id][0] + 1] += 1
+        counts[throat_conns[throat_id][1] + 1] += 1
+
+@njit(cache=True)
+def _make_cummulative(counts):
+    for i in range(1, len(counts)):
+        counts[i] += counts[i-1]
+
+@njit(cache=True)
+def _fill_values(values, offsets, throat_conns):
+    filled_values = np.zeros(len(offsets)-1, dtype=np.int64)
+    for throat_id in range(len(throat_conns)):
+        pore1, pore2 = throat_conns[throat_id]
+        index1 = offsets[pore1] + filled_values[pore1]
+        index2 = offsets[pore2] + filled_values[pore2]
+        values[index1] = throat_id
+        values[index2] = throat_id
+        filled_values[pore1] += 1
+        filled_values[pore2] += 1
