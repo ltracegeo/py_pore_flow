@@ -342,19 +342,15 @@ class SubsequentCycleSimulation(CycleSimulation):
             if self.phase == WATER
             else self.network.pn_core.pore.oil_filled[self.snap_off_pore_list]
         )
-        self.snap_off_pore_list = np.delete(
-            self.snap_off_pore_list,
-            filled_pores | self.network.pn_core.pore.trapped_evacuation[self.snap_off_pore_list],
-        )
+        keep = ~(filled_pores | self.network.pn_core.pore.trapped_evacuation[self.snap_off_pore_list])
+        self.snap_off_pore_list = self.snap_off_pore_list[keep]
         filled_throats = (
             self.network.pn_core.throat.water_filled[self.snap_off_throat_list]
             if self.phase == WATER
             else self.network.pn_core.throat.oil_filled[self.snap_off_throat_list]
         )
-        self.snap_off_throat_list = np.delete(
-            self.snap_off_throat_list,
-            filled_throats | self.network.pn_core.throat.trapped_evacuation[self.snap_off_throat_list],
-        )
+        keep = ~(filled_throats | self.network.pn_core.throat.trapped_evacuation[self.snap_off_throat_list])
+        self.snap_off_throat_list = self.snap_off_throat_list[keep]
 
     @abstractmethod
     def _update_hinging_contact_angles(self, pore_ids, throat_ids, pc):
