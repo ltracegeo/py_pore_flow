@@ -276,9 +276,45 @@ def jit_reset_connections(
     )
 
 
+@nb.njit(cache=True)
+def build_cluster_lists(pore_cluster, throat_cluster, pore_next, throat_next, cluster_pore_head, cluster_throat_head):
+    cluster_pore_head[:] = -1
+    cluster_throat_head[:] = -1
+    for pid in range(len(pore_cluster)):
+        c = pore_cluster[pid]
+        if c >= 0:
+            pore_next[pid] = cluster_pore_head[c]
+            cluster_pore_head[c] = pid
+    for tid in range(len(throat_cluster)):
+        c = throat_cluster[tid]
+        if c >= 0:
+            throat_next[tid] = cluster_throat_head[c]
+            cluster_throat_head[c] = tid
+
+
 class ReductiblePhaseConnectionChecker2(PhaseConnectionChecker2):
     def __init__(self, pn, phase):
         super().__init__(pn, phase)
+
+        nP = len(pn.pore.all)
+        nT = len(pn.throat.all)
+
+        # Cluster membership linked lists (cluster_id → element chain)
+        max_clusters = 3 * (nP + nT)
+        self.pore_cluster_next = np.empty(nP, dtype=np.int64)
+        self.throat_cluster_next = np.empty(nT, dtype=np.int64)
+        self.cluster_pore_head = np.full(max_clusters, -1, dtype=np.int64)
+        self.cluster_throat_head = np.full(max_clusters, -1, dtype=np.int64)
+
+        # Pre-allocated work buffers for _njit_delete_connections
+        self._work_pore_scan = np.zeros(nP, dtype=np.bool_)
+        self._work_throat_scan = np.zeros(nT, dtype=np.bool_)
+        self._work_pore_ids = np.empty(nP, dtype=np.int64)
+        self._work_throat_ids = np.empty(nT, dtype=np.int64)
+        self._work_wqupc_parent = np.empty(nP + nT, dtype=np.uint32)
+        self._work_wqupc_size = np.empty(nP + nT, dtype=np.float64)
+        self._work_pore_cluster_temp = np.empty(nP, dtype=np.int64)
+        self._work_throat_cluster_temp = np.empty(nT, dtype=np.int64)
 
         self.pore_old_cluster = None
         self.throat_old_cluster = None
@@ -295,6 +331,14 @@ class ReductiblePhaseConnectionChecker2(PhaseConnectionChecker2):
         super().reset_connections()
 
         self.max_cluster_id = max(self.pore_cluster.max(), self.throat_cluster.max())
+        build_cluster_lists(
+            self.pore_cluster,
+            self.throat_cluster,
+            self.pore_cluster_next,
+            self.throat_cluster_next,
+            self.cluster_pore_head,
+            self.cluster_throat_head,
+        )
 
     def update_connections(self, pore_id_list, throat_id_list):
         if False:
@@ -343,6 +387,18 @@ class ReductiblePhaseConnectionChecker2(PhaseConnectionChecker2):
                 self.pn.pore.inlets,
                 self.pn.pore.outlets,
                 self.max_cluster_id,
+                self.pore_cluster_next,
+                self.throat_cluster_next,
+                self.cluster_pore_head,
+                self.cluster_throat_head,
+                self._work_pore_scan,
+                self._work_throat_scan,
+                self._work_pore_ids,
+                self._work_throat_ids,
+                self._work_wqupc_parent,
+                self._work_wqupc_size,
+                self._work_pore_cluster_temp,
+                self._work_throat_cluster_temp,
             )
         else:
             self.max_cluster_id = self._njit_delete_connections(
@@ -358,6 +414,18 @@ class ReductiblePhaseConnectionChecker2(PhaseConnectionChecker2):
                 self.pn.pore.inlets,
                 self.pn.pore.outlets,
                 self.max_cluster_id,
+                self.pore_cluster_next,
+                self.throat_cluster_next,
+                self.cluster_pore_head,
+                self.cluster_throat_head,
+                self._work_pore_scan,
+                self._work_throat_scan,
+                self._work_pore_ids,
+                self._work_throat_ids,
+                self._work_wqupc_parent,
+                self._work_wqupc_size,
+                self._work_pore_cluster_temp,
+                self._work_throat_cluster_temp,
             )
 
     @staticmethod
@@ -375,35 +443,79 @@ class ReductiblePhaseConnectionChecker2(PhaseConnectionChecker2):
         pore_inlets,
         pore_outlets,
         max_cluster_id,
+        pore_cluster_next,
+        throat_cluster_next,
+        cluster_pore_head,
+        cluster_throat_head,
+        pore_to_scan,
+        throat_to_scan,
+        pore_to_scan_buf,
+        throat_to_scan_buf,
+        wqupc_parent,
+        wqupc_size,
+        pore_cluster_temp,
+        throat_cluster_temp,
     ):
-        affected_clusters = np.empty(len(pores_changed) + len(throats_changed), dtype=np.int64)
-        for i, pore_id in enumerate(pores_changed):
-            affected_clusters[i] = pore_cluster[pore_id]
+        if len(pores_changed) == 0 and len(throats_changed) == 0:
+            return max_cluster_id
+
+        # --- Phase 1: Collect affected cluster IDs, mark changed elements ---
+        affected_set = set()
+        for pore_id in pores_changed:
+            affected_set.add(pore_cluster[pore_id])
             pore_cluster[pore_id] = -pore_id
-        for i, throat_id in enumerate(throats_changed):
-            affected_clusters[i + len(pores_changed)] = throat_cluster[throat_id]
+        for throat_id in throats_changed:
+            affected_set.add(throat_cluster[throat_id])
             throat_cluster[throat_id] = -throat_id
 
-        affected_clusters = np.array(list(set(affected_clusters)))
-        pore_to_scan = njit_isin(pore_cluster, affected_clusters)
-        throat_to_scan = njit_isin(throat_cluster, affected_clusters)
-        pore_to_scan_ids = np.where(pore_to_scan)[0]
-        throat_to_scan_ids = np.where(throat_to_scan)[0]
+        # --- Phase 2: Walk linked lists to find remaining members --- O(affected)
+        pore_scan_count = np.int64(0)
+        throat_scan_count = np.int64(0)
 
-        wqupc_nP = len(pore_to_scan)
-        wqupc_nT = len(throat_to_scan)
-        wqupc_parent_array = np.arange(wqupc_nP + wqupc_nT, dtype=np.uint32)
-        wqupc_size_array = np.ones((wqupc_nP + wqupc_nT))
+        for c in affected_set:
+            # Walk pore chain for cluster c
+            pid = cluster_pore_head[c]
+            while pid >= 0:
+                nxt = pore_cluster_next[pid]
+                if pore_cluster[pid] == c:
+                    pore_to_scan_buf[pore_scan_count] = pid
+                    pore_to_scan[pid] = True
+                    pore_scan_count += 1
+                pid = nxt
+            cluster_pore_head[c] = -1
 
-        pore_cluster_temp = np.empty(wqupc_nP, dtype=np.int64)
-        throat_cluster_temp = np.empty(wqupc_nT, dtype=np.int64)
+            # Walk throat chain for cluster c
+            tid = cluster_throat_head[c]
+            while tid >= 0:
+                nxt = throat_cluster_next[tid]
+                if throat_cluster[tid] == c:
+                    throat_to_scan_buf[throat_scan_count] = tid
+                    throat_to_scan[tid] = True
+                    throat_scan_count += 1
+                tid = nxt
+            cluster_throat_head[c] = -1
 
+        pore_scan_ids = pore_to_scan_buf[:pore_scan_count]
+        throat_scan_ids = throat_to_scan_buf[:throat_scan_count]
+
+        # --- Phase 3: Initialize WQUPC only for affected elements --- O(affected)
+        nT = len(throat_to_scan)
+        for i in range(pore_scan_count):
+            idx = pore_scan_ids[i] + nT
+            wqupc_parent[idx] = np.uint32(idx)
+            wqupc_size[idx] = 1.0
+        for i in range(throat_scan_count):
+            idx = throat_scan_ids[i]
+            wqupc_parent[idx] = np.uint32(idx)
+            wqupc_size[idx] = 1.0
+
+        # --- Phase 4: Re-cluster the affected subset ---
         jit_reset_connections(
-            wqupc_parent_array,
-            wqupc_size_array,
-            wqupc_nT,
-            pore_to_scan_ids,
-            throat_to_scan_ids,
+            wqupc_parent,
+            wqupc_size,
+            nT,
+            pore_scan_ids,
+            throat_scan_ids,
             pore_connected_to_inlet,
             pore_connected_to_outlet,
             throat_connected_to_inlet,
@@ -416,10 +528,17 @@ class ReductiblePhaseConnectionChecker2(PhaseConnectionChecker2):
             pore_inlets,
             pore_outlets,
         )
-        new_tem_pore_clusters = np.array(list(set(pore_cluster_temp[pore_to_scan])))
-        new_temp_throat_clusters = np.array(list(set(throat_cluster_temp[throat_to_scan])))
-        new_temp_clusters = np.array(list(set(np.concatenate((new_tem_pore_clusters, new_temp_throat_clusters)))))
-        new_clusters_ids = np.empty(len(new_temp_clusters), np.int32)
+
+        # --- Phase 5: Collect unique temp cluster IDs --- O(affected)
+        temp_cluster_set = set()
+        for i in range(pore_scan_count):
+            temp_cluster_set.add(pore_cluster_temp[pore_scan_ids[i]])
+        for i in range(throat_scan_count):
+            temp_cluster_set.add(throat_cluster_temp[throat_scan_ids[i]])
+
+        new_temp_clusters = np.array(list(temp_cluster_set))
+        affected_clusters = np.array(list(affected_set))
+        new_clusters_ids = np.empty(len(new_temp_clusters), np.int64)
 
         for i in range(len(new_temp_clusters)):
             if i < len(affected_clusters):
@@ -428,21 +547,41 @@ class ReductiblePhaseConnectionChecker2(PhaseConnectionChecker2):
                 max_cluster_id += 1
                 new_clusters_ids[i] = max_cluster_id
 
-        for i in range(wqupc_nP):
-            if pore_to_scan[i]:
-                temp_id = pore_cluster_temp[i]
-                for j in range(len(new_temp_clusters)):
-                    if temp_id == new_temp_clusters[j]:
-                        pore_cluster[i] = new_clusters_ids[j]
-                        break
+        # --- Phase 6: Map temp clusters to real IDs --- O(affected * k)
+        for i in range(pore_scan_count):
+            pid = pore_scan_ids[i]
+            temp_id = pore_cluster_temp[pid]
+            for j in range(len(new_temp_clusters)):
+                if temp_id == new_temp_clusters[j]:
+                    pore_cluster[pid] = new_clusters_ids[j]
+                    break
 
-        for i in range(wqupc_nT):
-            if throat_to_scan[i]:
-                temp_id = throat_cluster_temp[i]
-                for j in range(len(new_temp_clusters)):
-                    if temp_id == new_temp_clusters[j]:
-                        throat_cluster[i] = new_clusters_ids[j]
-                        break
+        for i in range(throat_scan_count):
+            tid = throat_scan_ids[i]
+            temp_id = throat_cluster_temp[tid]
+            for j in range(len(new_temp_clusters)):
+                if temp_id == new_temp_clusters[j]:
+                    throat_cluster[tid] = new_clusters_ids[j]
+                    break
+
+        # --- Phase 7: Rebuild linked lists for new cluster IDs --- O(affected)
+        for i in range(pore_scan_count):
+            pid = pore_scan_ids[i]
+            c = pore_cluster[pid]
+            pore_cluster_next[pid] = cluster_pore_head[c]
+            cluster_pore_head[c] = pid
+
+        for i in range(throat_scan_count):
+            tid = throat_scan_ids[i]
+            c = throat_cluster[tid]
+            throat_cluster_next[tid] = cluster_throat_head[c]
+            cluster_throat_head[c] = tid
+
+        # --- Phase 8: Cleanup boolean work buffers --- O(affected)
+        for i in range(pore_scan_count):
+            pore_to_scan[pore_scan_ids[i]] = False
+        for i in range(throat_scan_count):
+            throat_to_scan[throat_scan_ids[i]] = False
 
         return max_cluster_id
 
