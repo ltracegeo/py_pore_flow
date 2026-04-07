@@ -1,5 +1,4 @@
-import numpy as np
-from numba import njit, types, int32
+from py_pore_flow.equations.sparse_set import SparseSet
 
 class BorderElements:
     """
@@ -35,57 +34,3 @@ class BorderElements:
 
     def remove_pores_ids(self, pore_ids):
         self.pores_set.remove(pore_ids)
-
-
-class SparseSet:
-    def __init__(self, n: int):
-        self.dense = np.empty(n, dtype=np.int32)
-        self.sparse = np.empty(n, dtype=np.int32)  # no init needed
-        self.count = np.int32(0)
-        self.capacity = np.int32(n)
-
-    def reset(self):
-        self.count = np.int32(0)
-
-    def contains(self, x: int) -> bool:
-        i = self.sparse[x]
-        return 0 <= i < self.count and self.dense[i] == x
-
-    def add(self, x_array: np.ndarray) -> None:
-        self.count = self._add(x_array, self.sparse, self.dense, self.count)
-
-    @staticmethod
-    @njit
-    def _add(x_array, sparse, dense, count):
-        for x in x_array:
-            i = sparse[x]
-            if 0 <= i < count and dense[i] == x:
-                continue
-            sparse[x] = count
-            dense[count] = x
-            count += 1
-        return count
-
-    def remove(self, x_array: np.ndarray) -> None:
-        self.count = self._remove(x_array, self.sparse, self.dense, self.count)
-
-    @staticmethod
-    @njit
-    def _remove(x_array, sparse, dense, count):
-        for x in x_array:
-            i = sparse[x]
-            if not (0 <= i < count and dense[i] == x):
-                continue
-            last = dense[count - 1]
-            dense[i] = last
-            sparse[last] = i
-            count -= 1
-        return count
-
-    def list(self):
-        list_view = self.dense[: self.count]
-        list_view.flags.writeable
-        return list_view
-
-    def clear(self) -> None:
-        self.count = 0

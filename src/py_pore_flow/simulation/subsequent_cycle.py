@@ -14,6 +14,7 @@ from py_pore_flow.equations.geometry import (
 )
 import py_pore_flow.constants as c
 from py_pore_flow.equations.entry_pressure import PORE_BODY_FILLING_STRATEGY, calculate_pore_body_filling_pc
+from py_pore_flow.equations.sparse_set import SparseSet
 from py_pore_flow.network.network import PORE, THROAT
 from py_pore_flow.simulation.cycle_simulation import CycleSimulation
 from py_pore_flow.simulation.saturation_calculator import SaturationCalculator
@@ -30,8 +31,8 @@ class SubsequentCycleSimulation(CycleSimulation):
         self.use_pore_body_filling = c.use_pore_fill
         self.pore_body_filling_strategy = PORE_BODY_FILLING_STRATEGY[c.pore_fill_alg]
 
-        self.snap_off_throat_list = []
-        self.snap_off_pore_list = []
+        self.snap_off_throat_list = SparseSet(len(self.network.pn_core.throat.all))
+        self.snap_off_pore_list = SparseSet(len(self.network.pn_core.pore.all))
 
         self.new_snap_off_throats_array = np.empty(len(self.network.pn_core.throat.all), np.int64)
         self.new_snap_off_pores_array = np.empty(len(self.network.pn_core.pore.all), np.int64)
@@ -123,11 +124,11 @@ class SubsequentCycleSimulation(CycleSimulation):
 
     def _update_pore_entry_pc(self, pore_id_list, pc, replace_snap_off=False, verbose=False):
         if replace_snap_off:
-            self.snap_off_pore_list = self._update_pores_snap_offs_pcs(self.network.pn.pores())
+            self.snap_off_pore_list.set_from_array(self._update_pores_snap_offs_pcs(self.network.pn.pores()))
         else:
             new_snap_off_pores = self._update_pores_snap_offs_pcs(pore_id_list)
             if len(new_snap_off_pores) > 0:
-                self.snap_off_pore_list = np.unique(np.concatenate((self.snap_off_pore_list, new_snap_off_pores)))
+                self.snap_off_pore_list.add(new_snap_off_pores)
 
         self._update_border_pore_entry_pc(pore_id_list, pc, verbose=verbose)
 
@@ -243,11 +244,11 @@ class SubsequentCycleSimulation(CycleSimulation):
 
     def _update_throat_entry_pc(self, throat_id_list, replace_snap_off=False, verbose=False):
         if replace_snap_off:
-            self.snap_off_throat_list = self._update_throats_snap_offs_pcs(self.network.pn.throats())
+            self.snap_off_throat_list.set_from_array(self._update_throats_snap_offs_pcs(self.network.pn.throats()))
         else:
             new_snap_off_throats = self._update_throats_snap_offs_pcs(throat_id_list)
             if len(new_snap_off_throats) > 0:
-                self.snap_off_throat_list = np.unique(np.concatenate((self.snap_off_throat_list, new_snap_off_throats)))
+                self.snap_off_throat_list.add(new_snap_off_throats)
 
         self._update_border_throat_entry_pc(throat_id_list, verbose=verbose)
 
@@ -278,8 +279,8 @@ class SubsequentCycleSimulation(CycleSimulation):
 
     def _get_element_to_fill(self, pc, border_elements, verbose=False):
         self._clear_snapoff_lists()
-        pore_id_list = np.concatenate((border_elements.get_pores_ids(), self.snap_off_pore_list))
-        throat_id_list = np.concatenate((border_elements.get_throats_ids(), self.snap_off_throat_list))
+        pore_id_list = np.concatenate((border_elements.get_pores_ids(), self.snap_off_pore_list.list()))
+        throat_id_list = np.concatenate((border_elements.get_throats_ids(), self.snap_off_throat_list.list()))
         element_to_fill = self._jit_pore_throats_element_to_fill(
             pc,
             pore_id_list,
@@ -337,24 +338,14 @@ class SubsequentCycleSimulation(CycleSimulation):
         return elements_to_update[:j]
 
     def _clear_snapoff_lists(self):
-        filled_pores = (
-            self.network.pn_core.pore.water_filled[self.snap_off_pore_list]
-            if self.phase == WATER
-            else self.network.pn_core.pore.oil_filled[self.snap_off_pore_list]
+        pore_filled = (
+            self.network.pn_core.pore.water_filled if self.phase == WATER else self.network.pn_core.pore.oil_filled
         )
-        self.snap_off_pore_list = np.delete(
-            self.snap_off_pore_list,
-            filled_pores | self.network.pn_core.pore.trapped_evacuation[self.snap_off_pore_list],
+        self.snap_off_pore_list.remove_where(pore_filled, self.network.pn_core.pore.trapped_evacuation)
+        throat_filled = (
+            self.network.pn_core.throat.water_filled if self.phase == WATER else self.network.pn_core.throat.oil_filled
         )
-        filled_throats = (
-            self.network.pn_core.throat.water_filled[self.snap_off_throat_list]
-            if self.phase == WATER
-            else self.network.pn_core.throat.oil_filled[self.snap_off_throat_list]
-        )
-        self.snap_off_throat_list = np.delete(
-            self.snap_off_throat_list,
-            filled_throats | self.network.pn_core.throat.trapped_evacuation[self.snap_off_throat_list],
-        )
+        self.snap_off_throat_list.remove_where(throat_filled, self.network.pn_core.throat.trapped_evacuation)
 
     @abstractmethod
     def _update_hinging_contact_angles(self, pore_ids, throat_ids, pc):
