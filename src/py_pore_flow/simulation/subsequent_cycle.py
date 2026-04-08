@@ -14,7 +14,7 @@ from py_pore_flow.equations.geometry import (
 )
 import py_pore_flow.constants as c
 from py_pore_flow.equations.entry_pressure import PORE_BODY_FILLING_STRATEGY, calculate_pore_body_filling_pc
-from py_pore_flow.equations.sparse_set import SparseSet
+from py_pore_flow.data_structures.sparse_set import SparseSet
 from py_pore_flow.network.network import PORE, THROAT
 from py_pore_flow.simulation.cycle_simulation import CycleSimulation
 from py_pore_flow.simulation.saturation_calculator import SaturationCalculator

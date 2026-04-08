@@ -1,4 +1,4 @@
-from py_pore_flow.equations.sparse_set import SparseSet
+from py_pore_flow.data_structures.sparse_set import SparseSet
 
 class BorderElements:
     """
