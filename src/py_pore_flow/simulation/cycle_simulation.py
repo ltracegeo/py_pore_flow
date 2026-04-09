@@ -14,26 +14,28 @@ from py_pore_flow.simulation.border_elements import BorderElements
 
 
 class CycleSimulation:
-    def __init__(self, network, phase, calculate_full_conductance=False):
+    def __init__(self, network, phase, calculate_full_conductance=False, batch_invasions="none"):
         self.network = network
         self.phase = phase
+        self.batch_invasions = batch_invasions
 
         self.krel_calculator = KrelCalculator(self.network, calculate_full_conductance)
 
         self.phase_connection_checker = PhaseConnectionChecker(network, self.phase)
         self.phase_connection_checker.reset_phase_connections()
 
-        self.new_border_pores_array = np.empty(len(self.network.pn_core.pore.all), np.int64)
-        self.new_border_throats_array = np.empty(len(self.network.pn_core.throat.all), np.int64)
-        self.old_border_pores_array = np.empty(len(self.network.pn_core.pore.all), np.int64)
-        self.old_border_throats_array = np.empty(len(self.network.pn_core.throat.all), np.int64)
+        n_pores = network.get_number_of_pores()
+        n_throats = network.get_number_of_throats()
+
+        self.new_border_pores_array = np.empty(n_pores, np.int64)
+        self.new_border_throats_array = np.empty(n_throats, np.int64)
+        self.old_border_pores_array = np.empty(n_pores, np.int64)
+        self.old_border_throats_array = np.empty(n_throats, np.int64)
 
         self.trap_checker = TrapChecker(network, self.phase)
 
-        n_throats = network.get_number_of_throats()
-        n_pores = network.get_number_of_pores()
         self.border_elements = BorderElements(
-            n_throats=n_throats, 
+            n_throats=n_throats,
             n_pores=n_pores
         )
         self._refresh_border_elements(True, None, None)
@@ -43,6 +45,16 @@ class CycleSimulation:
         self.saturation_calculator = None
 
         self.current_pc = None
+
+        # Pre-allocated work buffers for batch invasion modes.
+        if batch_invasions != "none":
+            self._batch_pore_queue = np.empty(n_pores, np.int64)
+            self._batch_throat_queue = np.empty(n_throats, np.int64)
+            self._batch_pore_visited = np.zeros(n_pores, np.bool_)
+            self._batch_throat_visited = np.zeros(n_throats, np.bool_)
+        if batch_invasions == "partial":
+            self._batch_next_pore_queue = np.empty(n_pores, np.int64)
+            self._batch_next_throat_queue = np.empty(n_throats, np.int64)
 
     def update_pc(self, pc, target_sw=None, verbose=False):
         invasion_pc = pc
@@ -136,6 +148,11 @@ class CycleSimulation:
         pass
 
     def _update_invasions(self, pc, target_sw=None, verbose=False):
+        if self.batch_invasions == "full":
+            return (yield from self._update_invasions_batched(pc, target_sw, verbose))
+        if self.batch_invasions == "partial":
+            return (yield from self._update_invasions_partial_batch(pc, target_sw, verbose))
+
         sw_delta = 0.0
 
         if verbose: yield "Updating entry pressures"
@@ -205,6 +222,478 @@ class CycleSimulation:
             self._update_border_pore_entry_pc(new_border_pores, pc)
             self._update_border_throat_entry_pc(new_border_throats)
         return sw_delta, invasion_pc, no_invasion_left
+
+    def _update_invasions_batched(self, pc, target_sw=None, verbose=False):
+        sw_delta = 0.0
+
+        if verbose: yield "Updating entry pressures (batch mode)"
+        self._update_entry_pressures(pc, verbose=verbose)
+
+        pc_tolerant = pc
+
+        pn = self.network.pn_core
+        border_pore_ids = self.border_elements.get_pores_ids()
+        border_throat_ids = self.border_elements.get_throats_ids()
+
+        if self.phase == OIL:
+            pore_filled = pn.pore.oil_filled
+            throat_filled = pn.throat.oil_filled
+        else:
+            pore_filled = pn.pore.water_filled
+            throat_filled = pn.throat.water_filled
+
+        # Reset visited buffers.
+        self._batch_pore_visited[:] = False
+        self._batch_throat_visited[:] = False
+
+        # Collect all elements to invade via BFS wavefront.
+        pore_fill_count, throat_fill_count = self._njit_collect_batch_elements(
+            pc_tolerant,
+            self.phase,
+            border_pore_ids,
+            border_throat_ids,
+            pn.pore.entry_pressure,
+            pn.throat.entry_pressure,
+            pore_filled,
+            throat_filled,
+            pn.pore.trapped,
+            pn.throat.trapped,
+            pn.pore.conns_values,
+            pn.pore.conns_offsets,
+            pn.pore.n_conns,
+            pn.throat.conns_values,
+            pn.throat.conns_offsets,
+            self._batch_pore_queue,
+            self._batch_throat_queue,
+            self._batch_pore_visited,
+            self._batch_throat_visited,
+        )
+
+        pores_to_fill = self._batch_pore_queue[:pore_fill_count]
+        throats_to_fill = self._batch_throat_queue[:throat_fill_count]
+
+        if verbose:
+            yield f"Batch: invading {pore_fill_count} pores and {throat_fill_count} throats"
+
+        # Invade collected elements, stopping if target_sw is reached.
+        any_filled = False
+        for i in range(pore_fill_count):
+            if target_sw is not None and sw_delta >= target_sw:
+                break
+            pore_id = pores_to_fill[i]
+            self._fill_element(self.network.pore, pore_id, pc)
+            sw_delta += self._update_element_filled_geometry(pc, self.network.pore, pore_id)
+            any_filled = True
+
+        if not (target_sw is not None and sw_delta >= target_sw):
+            for i in range(throat_fill_count):
+                if target_sw is not None and sw_delta >= target_sw:
+                    break
+                throat_id = throats_to_fill[i]
+                self._fill_element(self.network.throat, throat_id, pc)
+                sw_delta += self._update_element_filled_geometry(pc, self.network.throat, throat_id)
+                any_filled = True
+
+        # Post-batch recalculations (once).
+        if any_filled:
+            if verbose: yield "Batch: rebuilding phase connections"
+            self.phase_connection_checker.reset_phase_connections()
+
+            if verbose: yield "Batch: updating trapping"
+            self.trap_checker.update_trapped_pores()
+
+            if verbose: yield "Batch: resetting border elements"
+            new_border_pores, new_border_throats = self._refresh_border_elements(True, None, None)
+
+            if verbose: yield "Batch: updating border entry pressures"
+            self._update_border_pore_entry_pc(new_border_pores, pc)
+            self._update_border_throat_entry_pc(new_border_throats)
+
+        # Determine invasion_pc for the caller (_step_by_sw uses it to
+        # advance Pc to the next candidate).  Reuse the existing
+        # _get_element_to_fill which also accounts for snap-off elements.
+        element_to_fill = self._get_element_to_fill(pc, self.border_elements)
+        if element_to_fill is not None:
+            _, _, invasion_pc = element_to_fill
+            no_invasion_left = False
+        else:
+            invasion_pc = pc
+            no_invasion_left = True
+
+        return sw_delta, invasion_pc, no_invasion_left
+
+    def _update_invasions_partial_batch(self, pc, target_sw=None, verbose=False):
+        total_sw_delta = 0.0
+
+        if verbose: yield "Updating entry pressures (partial batch mode)"
+        self._update_entry_pressures(pc, verbose=verbose)
+
+        # Compute tolerant Pc (1% shift in invasion direction).
+        if self.phase == OIL:
+            pc_tolerant = pc * 1.01 if pc > 0 else pc * 0.99
+        else:
+            pc_tolerant = pc * 0.99 if pc > 0 else pc * 1.01
+
+        pn = self.network.pn_core
+        if self.phase == OIL:
+            pore_filled = pn.pore.oil_filled
+            throat_filled = pn.throat.oil_filled
+        else:
+            pore_filled = pn.pore.water_filled
+            throat_filled = pn.throat.water_filled
+
+        self._batch_pore_visited[:] = False
+        self._batch_throat_visited[:] = False
+
+        # --- Layer 0: seed from current border elements ---
+        border_pore_ids = self.border_elements.get_pores_ids()
+        border_throat_ids = self.border_elements.get_throats_ids()
+
+        pore_fill_count, throat_fill_count, next_pore_count, next_throat_count = (
+            self._njit_collect_single_layer(
+                pc_tolerant,
+                self.phase,
+                border_pore_ids,
+                border_throat_ids,
+                pn.pore.entry_pressure,
+                pn.throat.entry_pressure,
+                pore_filled,
+                throat_filled,
+                pn.pore.trapped,
+                pn.throat.trapped,
+                pn.pore.conns_values,
+                pn.pore.conns_offsets,
+                pn.pore.n_conns,
+                pn.throat.conns_values,
+                pn.throat.conns_offsets,
+                self._batch_pore_queue,
+                self._batch_throat_queue,
+                self._batch_pore_visited,
+                self._batch_throat_visited,
+                self._batch_next_pore_queue,
+                self._batch_next_throat_queue,
+            )
+        )
+
+        sw_limit_reached = False
+
+        # Process layers until no more elements qualify or target_sw reached.
+        while pore_fill_count > 0 or throat_fill_count > 0:
+            if verbose:
+                yield f"Partial batch layer: invading {pore_fill_count} pores and {throat_fill_count} throats"
+
+            # Invade this layer, stopping if target_sw is reached.
+            for i in range(pore_fill_count):
+                if target_sw is not None and total_sw_delta >= target_sw:
+                    sw_limit_reached = True
+                    break
+                pore_id = self._batch_pore_queue[i]
+                self._fill_element(self.network.pore, pore_id, pc)
+                total_sw_delta += self._update_element_filled_geometry(pc, self.network.pore, pore_id)
+
+            if not sw_limit_reached:
+                for i in range(throat_fill_count):
+                    if target_sw is not None and total_sw_delta >= target_sw:
+                        sw_limit_reached = True
+                        break
+                    throat_id = self._batch_throat_queue[i]
+                    self._fill_element(self.network.throat, throat_id, pc)
+                    total_sw_delta += self._update_element_filled_geometry(pc, self.network.throat, throat_id)
+
+            # Post-layer recalculations.
+            if verbose: yield "Partial batch: rebuilding phase connections"
+            self.phase_connection_checker.reset_phase_connections()
+
+            if verbose: yield "Partial batch: updating trapping"
+            self.trap_checker.update_trapped_pores()
+
+            if verbose: yield "Partial batch: resetting border elements"
+            new_border_pores, new_border_throats = self._refresh_border_elements(True, None, None)
+
+            if verbose: yield "Partial batch: updating border entry pressures"
+            self._update_border_pore_entry_pc(new_border_pores, pc)
+            self._update_border_throat_entry_pc(new_border_throats)
+
+            if sw_limit_reached:
+                break
+
+            # --- Next layer: seed from the neighbor candidates found above ---
+            if next_pore_count == 0 and next_throat_count == 0:
+                break
+
+            # Re-read filled/trapped since they changed after recalculations.
+            if self.phase == OIL:
+                pore_filled = pn.pore.oil_filled
+                throat_filled = pn.throat.oil_filled
+            else:
+                pore_filled = pn.pore.water_filled
+                throat_filled = pn.throat.water_filled
+
+            next_pores = self._batch_next_pore_queue[:next_pore_count]
+            next_throats = self._batch_next_throat_queue[:next_throat_count]
+
+            # Reset visited so next-layer candidates aren't skipped.
+            # pore_filled/throat_filled already prevent re-invading.
+            self._batch_pore_visited[:] = False
+            self._batch_throat_visited[:] = False
+
+            pore_fill_count, throat_fill_count, next_pore_count, next_throat_count = (
+                self._njit_collect_single_layer(
+                    pc_tolerant,
+                    self.phase,
+                    next_pores,
+                    next_throats,
+                    pn.pore.entry_pressure,
+                    pn.throat.entry_pressure,
+                    pore_filled,
+                    throat_filled,
+                    pn.pore.trapped,
+                    pn.throat.trapped,
+                    pn.pore.conns_values,
+                    pn.pore.conns_offsets,
+                    pn.pore.n_conns,
+                    pn.throat.conns_values,
+                    pn.throat.conns_offsets,
+                    self._batch_pore_queue,
+                    self._batch_throat_queue,
+                    self._batch_pore_visited,
+                    self._batch_throat_visited,
+                    self._batch_next_pore_queue,
+                    self._batch_next_throat_queue,
+                )
+            )
+
+        # Determine invasion_pc for _step_by_sw advancement.
+        element_to_fill = self._get_element_to_fill(pc, self.border_elements)
+        if element_to_fill is not None:
+            _, _, invasion_pc = element_to_fill
+            no_invasion_left = False
+        else:
+            invasion_pc = pc
+            no_invasion_left = True
+
+        return total_sw_delta, invasion_pc, no_invasion_left
+
+    @staticmethod
+    @nb.njit(cache=True)
+    def _njit_collect_single_layer(
+        pc_tolerant,
+        phase,
+        candidate_pore_ids,
+        candidate_throat_ids,
+        pore_entry_pressure,
+        throat_entry_pressure,
+        pore_filled,
+        throat_filled,
+        pore_trapped,
+        throat_trapped,
+        pore_conns_values,
+        pore_conns_offsets,
+        pore_n_conns,
+        throat_conns_values,
+        throat_conns_offsets,
+        pore_queue,
+        throat_queue,
+        pore_visited,
+        throat_visited,
+        next_pore_queue,
+        next_throat_queue,
+    ):
+        """Collect one layer of qualifying elements from candidates and discover
+        their qualifying neighbors as the next layer.
+
+        Returns (pore_fill_count, throat_fill_count,
+                 next_pore_count, next_throat_count).
+
+        pore_queue[:pore_fill_count]   = pore IDs to invade this layer.
+        throat_queue[:throat_fill_count] = throat IDs to invade this layer.
+        next_pore_queue[:next_pore_count]   = neighbor pore candidates for next layer.
+        next_throat_queue[:next_throat_count] = neighbor throat candidates for next layer.
+        """
+        is_drainage = phase == OIL
+        pore_fill_count = 0
+        throat_fill_count = 0
+        next_pore_count = 0
+        next_throat_count = 0
+
+        # Filter candidate pores that qualify.
+        for i in range(len(candidate_pore_ids)):
+            pid = candidate_pore_ids[i]
+            if pore_visited[pid] or pore_filled[pid] or pore_trapped[pid]:
+                continue
+            ep = pore_entry_pressure[pid]
+            if is_drainage:
+                qualifies = pc_tolerant >= ep
+            else:
+                qualifies = pc_tolerant <= ep
+            if qualifies:
+                pore_queue[pore_fill_count] = pid
+                pore_fill_count += 1
+                pore_visited[pid] = True
+
+        # Filter candidate throats that qualify.
+        for i in range(len(candidate_throat_ids)):
+            tid = candidate_throat_ids[i]
+            if throat_visited[tid] or throat_filled[tid] or throat_trapped[tid]:
+                continue
+            ep = throat_entry_pressure[tid]
+            if is_drainage:
+                qualifies = pc_tolerant >= ep
+            else:
+                qualifies = pc_tolerant <= ep
+            if qualifies:
+                throat_queue[throat_fill_count] = tid
+                throat_fill_count += 1
+                throat_visited[tid] = True
+
+        # Discover neighbors of qualifying pores → throat neighbors.
+        for i in range(pore_fill_count):
+            pid = pore_queue[i]
+            start = pore_conns_offsets[pid]
+            end = start + pore_n_conns[pid]
+            for j in range(start, end):
+                tid = pore_conns_values[j]
+                if throat_visited[tid] or throat_filled[tid] or throat_trapped[tid]:
+                    continue
+                ep = throat_entry_pressure[tid]
+                if is_drainage:
+                    qualifies = pc_tolerant >= ep
+                else:
+                    qualifies = pc_tolerant <= ep
+                if qualifies:
+                    next_throat_queue[next_throat_count] = tid
+                    next_throat_count += 1
+                    throat_visited[tid] = True
+
+        # Discover neighbors of qualifying throats → pore neighbors.
+        for i in range(throat_fill_count):
+            tid = throat_queue[i]
+            t_start = throat_conns_offsets[tid]
+            pore_0 = throat_conns_values[t_start]
+            pore_1 = throat_conns_values[t_start + 1]
+            for pid in (pore_0, pore_1):
+                if pore_visited[pid] or pore_filled[pid] or pore_trapped[pid]:
+                    continue
+                ep = pore_entry_pressure[pid]
+                if is_drainage:
+                    qualifies = pc_tolerant >= ep
+                else:
+                    qualifies = pc_tolerant <= ep
+                if qualifies:
+                    next_pore_queue[next_pore_count] = pid
+                    next_pore_count += 1
+                    pore_visited[pid] = True
+
+        return pore_fill_count, throat_fill_count, next_pore_count, next_throat_count
+
+    @staticmethod
+    @nb.njit(cache=True)
+    def _njit_collect_batch_elements(
+        pc_tolerant,
+        phase,
+        border_pore_ids,
+        border_throat_ids,
+        pore_entry_pressure,
+        throat_entry_pressure,
+        pore_filled,
+        throat_filled,
+        pore_trapped,
+        throat_trapped,
+        pore_conns_values,
+        pore_conns_offsets,
+        pore_n_conns,
+        throat_conns_values,
+        throat_conns_offsets,
+        pore_queue,
+        throat_queue,
+        pore_visited,
+        throat_visited,
+    ):
+        """BFS wavefront collection of elements to invade in batch mode.
+
+        Returns (pore_fill_count, throat_fill_count).  The first
+        pore_fill_count entries of pore_queue and throat_fill_count entries
+        of throat_queue contain the element IDs to invade.
+        """
+        is_drainage = phase == OIL
+        pore_head = 0
+        pore_tail = 0
+        throat_head = 0
+        throat_tail = 0
+
+        # Seed from border pores.
+        for i in range(len(border_pore_ids)):
+            pid = border_pore_ids[i]
+            if pore_visited[pid]:
+                continue
+            ep = pore_entry_pressure[pid]
+            if is_drainage:
+                qualifies = pc_tolerant >= ep
+            else:
+                qualifies = pc_tolerant <= ep
+            if qualifies:
+                pore_queue[pore_tail] = pid
+                pore_tail += 1
+                pore_visited[pid] = True
+
+        # Seed from border throats.
+        for i in range(len(border_throat_ids)):
+            tid = border_throat_ids[i]
+            if throat_visited[tid]:
+                continue
+            ep = throat_entry_pressure[tid]
+            if is_drainage:
+                qualifies = pc_tolerant >= ep
+            else:
+                qualifies = pc_tolerant <= ep
+            if qualifies:
+                throat_queue[throat_tail] = tid
+                throat_tail += 1
+                throat_visited[tid] = True
+
+        # BFS: alternate between pore and throat queues until both are empty.
+        while pore_head < pore_tail or throat_head < throat_tail:
+            # Process pore queue → discover throat neighbors.
+            while pore_head < pore_tail:
+                pid = pore_queue[pore_head]
+                pore_head += 1
+                start = pore_conns_offsets[pid]
+                end = start + pore_n_conns[pid]
+                for j in range(start, end):
+                    tid = pore_conns_values[j]
+                    if throat_visited[tid] or throat_filled[tid] or throat_trapped[tid]:
+                        continue
+                    ep = throat_entry_pressure[tid]
+                    if is_drainage:
+                        qualifies = pc_tolerant >= ep
+                    else:
+                        qualifies = pc_tolerant <= ep
+                    if qualifies:
+                        throat_queue[throat_tail] = tid
+                        throat_tail += 1
+                        throat_visited[tid] = True
+
+            # Process throat queue → discover pore neighbors.
+            while throat_head < throat_tail:
+                tid = throat_queue[throat_head]
+                throat_head += 1
+                t_start = throat_conns_offsets[tid]
+                pore_0 = throat_conns_values[t_start]
+                pore_1 = throat_conns_values[t_start + 1]
+                for pid in (pore_0, pore_1):
+                    if pore_visited[pid] or pore_filled[pid] or pore_trapped[pid]:
+                        continue
+                    ep = pore_entry_pressure[pid]
+                    if is_drainage:
+                        qualifies = pc_tolerant >= ep
+                    else:
+                        qualifies = pc_tolerant <= ep
+                    if qualifies:
+                        pore_queue[pore_tail] = pid
+                        pore_tail += 1
+                        pore_visited[pid] = True
+
+        return pore_tail, throat_tail
 
     def _check_for_bubble(self, element, element_id):
 

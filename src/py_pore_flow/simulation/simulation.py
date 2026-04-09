@@ -829,10 +829,11 @@ class StepSimulation:
 
     def set_cycle(self, cycle="imbibition"):
         self.cycle = cycle
+        batch = self.parameter_manager.batch_invasions
         if cycle == "drainage":
             self.parameter_manager.update_initial_cas(self.network)
             calculate_drainage_values(self.network, self.max_pc)
-            self.simulation = DrainageSimulation(self.network, self.calculate_full_conductance)
+            self.simulation = DrainageSimulation(self.network, self.calculate_full_conductance, batch_invasions=batch)
             self.max_pc = 0
         elif cycle == "imbibition":
             calculate_drainage_pinned_b(
@@ -841,12 +842,12 @@ class StepSimulation:
             update_wettability_property(self.network)
             self.parameter_manager.update_equilibrium_cas(self.network)
             calculate_imbibition_values(self.network, self.max_pc)
-            self.simulation = ImbibitionSimulation(self.network, self.max_pc, self.calculate_full_conductance)
+            self.simulation = ImbibitionSimulation(self.network, self.max_pc, self.calculate_full_conductance, batch_invasions=batch)
             self.min_pc = self.max_pc
         elif cycle == "2nd_drainage":
             self.parameter_manager.update_2nd_drainage_ca(self.network)
             calculate_2nd_drainage_values(self.network, self.min_pc)
-            self.simulation = SecondDrainageSimulation(self.network, self.max_pc, self.calculate_full_conductance)
+            self.simulation = SecondDrainageSimulation(self.network, self.max_pc, self.calculate_full_conductance, batch_invasions=batch)
 
     def update(self, pc, skip_invasions=False, verbose=False):
         if skip_invasions:

@@ -22,8 +22,8 @@ from py_pore_flow import log
 
 
 class ImbibitionSimulation(SubsequentCycleSimulation):
-    def __init__(self, network, pc_max, calculate_full_conductance=False):
-        super().__init__(network, pc_max, WATER, calculate_full_conductance)
+    def __init__(self, network, pc_max, calculate_full_conductance=False, batch_invasions=False):
+        super().__init__(network, pc_max, WATER, calculate_full_conductance, batch_invasions=batch_invasions)
 
     def _update_multiphase_mask(self, pc, pc_old):
         calculate_multiphase_mask_imbibition(

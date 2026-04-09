@@ -69,6 +69,7 @@ DEFAULT_PARAMETERS = {
     "skip_2nd_drainage": False,
     "enforced_swi_1": 0.0,
     "enforced_swi_2": 1.0,
+    "batch_invasions": "none",
 }
 
 
@@ -145,6 +146,10 @@ class ParameterManager:
     @property
     def skip_2nd_drainage(self):
         return self.parameters_dict["skip_2nd_drainage"]
+
+    @property
+    def batch_invasions(self):
+        return self.parameters_dict["batch_invasions"]
 
     @property
     def enforced_swi_1(self):
