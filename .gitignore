@@ -1,4 +1,6 @@
 *.pyc
 *.egg-info/
+*.log
+*.tsv
 build
 __pycache__/

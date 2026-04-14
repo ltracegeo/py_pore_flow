@@ -16,17 +16,17 @@ MAX_NUMBER_OF_CORNERS = 4
 
 
 @njit(cache=True)
-def calculate_drainage_network_saturation(shape, c, pc, a, oil_filled):
+def calculate_drainage_network_saturation(shape, c, pc, a, oil_filled, verbose=False):
     number_of_elements = len(shape)
     sw = np.empty(number_of_elements, np.float64)
     so = np.empty(number_of_elements, np.float64)
     for i in range(number_of_elements):
-        sw[i], so[i] = calculate_drainage_element_saturation(shape[i], c[i], pc, a[i], oil_filled[i])
+        sw[i], so[i] = calculate_drainage_element_saturation(shape[i], c[i], pc, a[i], oil_filled[i], verbose=verbose)
     return sw, so
 
 
 @njit(cache=True)
-def calculate_drainage_element_saturation(shape, C_r, current_Pc, A, oil_filled):
+def calculate_drainage_element_saturation(shape, C_r, current_Pc, A, oil_filled, verbose=False):
     if not oil_filled:
         return 1.0, 0.0
 
@@ -46,11 +46,14 @@ def calculate_drainage_element_saturation(shape, C_r, current_Pc, A, oil_filled)
         Sw = 1
     So = 1 - Sw
 
+    if verbose:
+        print("    Saturation calculation (Drainage): Pc=", Pc, " A=", A, " Aw=", Aw, " -> Sw=", Sw)
+
     return Sw, So
 
 
 @njit(cache=True)
-def calculate_imbibition_network_saturation(a, oil_filled, theta_a, theta_h, beta, bi, bo, n_corners, has_oil_layer):
+def calculate_imbibition_network_saturation(a, oil_filled, theta_a, theta_h, beta, bi, bo, n_corners, has_oil_layer, verbose=False):
     number_of_elements = len(a)
     sw = np.empty(number_of_elements, np.float64)
     so = np.empty(number_of_elements, np.float64)
@@ -65,12 +68,13 @@ def calculate_imbibition_network_saturation(a, oil_filled, theta_a, theta_h, bet
             bo[i],
             n_corners[i],
             has_oil_layer[i],
+            verbose=verbose,
         )
     return sw, so
 
 
 @njit(cache=True)
-def calculate_imbibition_element_saturation(A, oil_filled, theta_a, theta_h, beta, bi, bo, n_corners, has_oil_layer):
+def calculate_imbibition_element_saturation(A, oil_filled, theta_a, theta_h, beta, bi, bo, n_corners, has_oil_layer, verbose=False):
     if oil_filled:
         Aw = calculate_water_layer_area(bi, beta, theta_h, n_corners)
         if Aw < 0:
@@ -80,6 +84,8 @@ def calculate_imbibition_element_saturation(A, oil_filled, theta_a, theta_h, bet
         else:
             Sw = 1
         So = 1 - Sw
+        if verbose:
+            print("    Saturation calculation (Imbibition, Oil-filled): Aw=", Aw, " A=", A, " -> Sw=", Sw)
     else:
         Ao = calculate_element_oil_layer_area(theta_a, theta_h, beta, bi, bo, n_corners, has_oil_layer)
         if Ao < 0:
@@ -92,6 +98,8 @@ def calculate_imbibition_element_saturation(A, oil_filled, theta_a, theta_h, bet
         else:
             So = 1.0
         Sw = 1.0 - So
+        if verbose:
+            print("    Saturation calculation (Imbibition, Water-filled): Ao=", Ao, " A=", A, " -> Sw=", Sw)
 
     return Sw, So
 
@@ -242,7 +250,7 @@ def calculate_network_hinging_contact_angle(
 
 
 @njit(cache=True)
-def calculate_hinging_contact_angle(Pc, beta, b, n_corners, theta_r, theta_a, theta_hi):
+def calculate_hinging_contact_angle(Pc, beta, b, n_corners, theta_r, theta_a, theta_hi, verbose=False):
     if Pc == 0:
         for i in range(int(n_corners)):
             theta_hi[i] = pi / 2 - beta[i]
@@ -258,7 +266,12 @@ def calculate_hinging_contact_angle(Pc, beta, b, n_corners, theta_r, theta_a, th
                 elif x < -1:
                     x = -1
                 theta_hi[i] = acos(x) - beta[i]
+    
+    old_theta_hi = theta_hi.copy()
     theta_hi[:] = np.clip(theta_hi, theta_r, theta_a)
+
+    if verbose:
+        print("    Hinging contact angle calculation: Pc=", Pc, " beta=", beta[:int(n_corners)], " b=", b[:int(n_corners)], " -> theta_h (before clip)=", old_theta_hi[:int(n_corners)], " -> theta_h=", theta_hi[:int(n_corners)])
 
 
 @njit(cache=True)
@@ -598,8 +611,11 @@ def calculate_2nd_drainage_corner_bo(b, beta, theta_r, theta_a, theta_ho, R):
 @njit(cache=True)
 def calculate_multiphase_mask_drainage(is_multiphase, n_corners, b, oil_filled):
     for i in range(len(is_multiphase)):
-        if oil_filled[i] and np.any(b[i][: n_corners[i]] > 0):
-            is_multiphase[i] = True
+        if oil_filled[i]:
+            for j in range(n_corners[i]):
+                if b[i, j] > 0:
+                    is_multiphase[i] = True
+                    break
 
 
 @njit(cache=True)
@@ -616,15 +632,29 @@ def calculate_multiphase_mask_imbibition(
     pc,
 ):
     for i in range(len(is_multiphase)):
-        if (n_corners[i] == 0) or trapped[i] or (is_multiphase[i] and trapped_evacuation[i]):
+        nc = n_corners[i]
+        if (nc == 0) or trapped[i] or (is_multiphase[i] and trapped_evacuation[i]):
             continue
+
         if water_filled[i]:
-            if np.all(pc < oil_collapse_pc[i][: n_corners[i]]):
+            # np.all(pc < oil_collapse_pc[i][:nc]) — short-circuit on first failure
+            all_below = True
+            any_oil_layer = False
+            for j in range(nc):
+                if pc >= oil_collapse_pc[i, j]:
+                    all_below = False
+                    break
+
+            if all_below:
                 is_multiphase[i] = False
-            elif np.any(corner_oil_layer[i][: n_corners[i]]):
-                is_multiphase[i] = True
             else:
-                is_multiphase[i] = False
+                # Only check corner_oil_layer if we need to
+                for j in range(nc):
+                    if corner_oil_layer[i, j]:
+                        any_oil_layer = True
+                        break
+                is_multiphase[i] = any_oil_layer
+
         elif oil_filled[i] and not oil_filled_multiphase[i]:
             is_multiphase[i] = False
         else:
@@ -646,17 +676,29 @@ def calculate_multiphase_mask_2nd_drainage(
     pc,
 ):
     for i in range(len(is_multiphase)):
-        if (n_corners[i] == 0) or trapped[i] or (is_multiphase[i] and trapped_evacuation[i]):
+        nc = n_corners[i]
+        if (nc == 0) or trapped[i] or (is_multiphase[i] and trapped_evacuation[i]):
             continue
+
         if oil_filled[i]:
             if oil_filled_multiphase[i]:
                 is_multiphase[i] = True
-            elif (b_pinned[i][: n_corners[i]] > 0).any() and pc < np.max(
-                water_corner_collapse_pressure[i][: n_corners[i]]
-            ):
-                is_multiphase[i] = True
             else:
-                is_multiphase[i] = False
+                any_pinned = False
+                for j in range(nc):
+                    if b_pinned[i, j] > 0:
+                        any_pinned = True
+                        break
+
+                if any_pinned:
+                    max_collapse_pc = water_corner_collapse_pressure[i, 0]
+                    for j in range(1, nc):
+                        if water_corner_collapse_pressure[i, j] > max_collapse_pc:
+                            max_collapse_pc = water_corner_collapse_pressure[i, j]
+                    is_multiphase[i] = pc < max_collapse_pc
+                else:
+                    is_multiphase[i] = False
+
         elif water_filled[i] and water_filled_multiphase[i]:
             is_multiphase[i] = True
         else:

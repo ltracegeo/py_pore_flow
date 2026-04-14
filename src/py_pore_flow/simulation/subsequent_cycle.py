@@ -14,14 +14,16 @@ from py_pore_flow.equations.geometry import (
 )
 import py_pore_flow.constants as c
 from py_pore_flow.equations.entry_pressure import PORE_BODY_FILLING_STRATEGY, calculate_pore_body_filling_pc
-from py_pore_flow.network import PORE, THROAT
-from py_pore_flow.simulation.cycle_simulation import CycleSimulation, SaturationCalculator
+from py_pore_flow.data_structures.sparse_set import SparseSet
+from py_pore_flow.network.network import PORE, THROAT
+from py_pore_flow.simulation.cycle_simulation import CycleSimulation
+from py_pore_flow.simulation.saturation_calculator import SaturationCalculator
 from py_pore_flow import log
 
 
 class SubsequentCycleSimulation(CycleSimulation):
-    def __init__(self, network, pc_max, phase, calculate_full_conductance=False):
-        super().__init__(network, phase, calculate_full_conductance)
+    def __init__(self, network, pc_max, phase, calculate_full_conductance=False, batch_invasions=False):
+        super().__init__(network, phase, calculate_full_conductance, batch_invasions=batch_invasions)
         self.saturation_calculator = SubsequentSaturation(network, self.phase)
 
         self.Rmin = calculate_r(pc_max, 100000)
@@ -29,8 +31,8 @@ class SubsequentCycleSimulation(CycleSimulation):
         self.use_pore_body_filling = c.use_pore_fill
         self.pore_body_filling_strategy = PORE_BODY_FILLING_STRATEGY[c.pore_fill_alg]
 
-        self.snap_off_throat_list = []
-        self.snap_off_pore_list = []
+        self.snap_off_throat_list = SparseSet(len(self.network.pn_core.throat.all))
+        self.snap_off_pore_list = SparseSet(len(self.network.pn_core.pore.all))
 
         self.new_snap_off_throats_array = np.empty(len(self.network.pn_core.throat.all), np.int64)
         self.new_snap_off_pores_array = np.empty(len(self.network.pn_core.pore.all), np.int64)
@@ -100,7 +102,7 @@ class SubsequentCycleSimulation(CycleSimulation):
             self.network.pn_core.pore.trapped_evacuation,
         )
 
-    def __update_water_layers(self, pore_ids, throat_ids):
+    def _update_water_layers(self, pore_ids, throat_ids):
         check_water_layer_network(
             self.network.pn_core.throat.corner_water_layer,
             throat_ids,
@@ -116,21 +118,21 @@ class SubsequentCycleSimulation(CycleSimulation):
             self.network.pn_core.pore.oil_filled,
         )
 
-    def _update_entry_pressures(self, pc):
-        self._update_throat_entry_pc(self.border_elements.get_throats_ids(), True)
-        self._update_pore_entry_pc(self.border_elements.get_pores_ids(), pc, True)
+    def _update_entry_pressures(self, pc, verbose=False):
+        self._update_throat_entry_pc(self.border_elements.get_throats_ids(), True, verbose=verbose)
+        self._update_pore_entry_pc(self.border_elements.get_pores_ids(), pc, True, verbose=verbose)
 
-    def _update_pore_entry_pc(self, pore_id_list, pc, replace_snap_off=False):
+    def _update_pore_entry_pc(self, pore_id_list, pc, replace_snap_off=False, verbose=False):
         if replace_snap_off:
-            self.snap_off_pore_list = self._update_pores_snap_offs_pcs(self.network.pn.pores())
+            self.snap_off_pore_list.set_from_array(self._update_pores_snap_offs_pcs(self.network.pn.pores()))
         else:
             new_snap_off_pores = self._update_pores_snap_offs_pcs(pore_id_list)
             if len(new_snap_off_pores) > 0:
-                self.snap_off_pore_list = np.unique(np.concatenate((self.snap_off_pore_list, new_snap_off_pores)))
+                self.snap_off_pore_list.add(new_snap_off_pores)
 
-        self._update_border_pore_entry_pc(pore_id_list, pc)
+        self._update_border_pore_entry_pc(pore_id_list, pc, verbose=verbose)
 
-    def _update_border_pore_entry_pc(self, pore_id_list, pc):
+    def _update_border_pore_entry_pc(self, pore_id_list, pc, verbose=False):
         pore_limiting_contact_angle = (
             self.network.pn_core.pore.advancing_contact_angle
             if self.phase == WATER
@@ -139,7 +141,7 @@ class SubsequentCycleSimulation(CycleSimulation):
         throat_receding_phase_filled = (
             self.network.pn_core.throat.oil_filled if self.phase == WATER else self.network.pn_core.throat.water_filled
         )
-        self.__njit_update_pore_entry_pc(
+        self._njit_update_pore_entry_pc(
             self.network.pn_core.pore.entry_pressure,
             pore_id_list,
             pc,
@@ -150,16 +152,18 @@ class SubsequentCycleSimulation(CycleSimulation):
             self.network.pn_core.pore.radius,
             self.network.pn_core.pore.shape_factor,
             self.network.pn_core.pore.imminent_snap_off,
-            self.network.pn_core.pore.conns,
+            self.network.pn_core.pore.conns_values,
+            self.network.pn_core.pore.conns_offsets,
             self.network.pn_core.pore.n_conns,
             pore_limiting_contact_angle,
             self.network.pn_core.throat.radius,
             throat_receding_phase_filled,
+            verbose=verbose,
         )
 
     @staticmethod
     @nb.njit(cache=True)
-    def __njit_update_pore_entry_pc(
+    def _njit_update_pore_entry_pc(
         pore_entry_pressure,
         pore_id_list,
         pc,
@@ -170,19 +174,25 @@ class SubsequentCycleSimulation(CycleSimulation):
         pore_radius,
         pore_shape_factor,
         pore_imminent_snap_off,
-        pore_conns,
+        pore_conns_values,
+        pore_conns_offsets,
         pore_n_conns,
         pore_limiting_contact_angle,
         throat_radius,
         throat_receding_phase_filled,
+        verbose=False,
     ):
         for pore_id in pore_id_list:
             if not use_pore_body_filling or pc <= 0:
                 element_pc = pore_piston_like_pressure[pore_id]
                 pore_entry_pressure[pore_id] = element_pc
+                if verbose:
+                    print("  Pore ", pore_id, " PC calculation: Piston-like = ", element_pc)
                 continue
 
-            neighbors = pore_conns[pore_id][: pore_n_conns[pore_id]]
+            p_start = pore_conns_offsets[pore_id]
+            p_end = p_start + pore_n_conns[pore_id]
+            neighbors = pore_conns_values[p_start:p_end]
             mask = throat_receding_phase_filled[neighbors]
             filled_neighbors = neighbors[mask]
             number_of_filled_neighbors = filled_neighbors.size
@@ -190,6 +200,8 @@ class SubsequentCycleSimulation(CycleSimulation):
             if number_of_filled_neighbors <= 1:
                 element_pc = pore_piston_like_pressure[pore_id]
                 pore_entry_pressure[pore_id] = element_pc
+                if verbose:
+                    print("  Pore ", pore_id, " PC calculation: Piston-like = ", element_pc, " (Filled neighbors <= 1)")
             else:
                 throats_radii = throat_radius[filled_neighbors]
 
@@ -204,60 +216,78 @@ class SubsequentCycleSimulation(CycleSimulation):
                 piston_like_pressure = pore_piston_like_pressure[pore_id]
 
                 if phase == WATER and pore_body_filling_pressure > piston_like_pressure:
+                    element_pc = piston_like_pressure
                     pore_entry_pressure[pore_id] = piston_like_pressure
                 elif phase == OIL and pore_body_filling_pressure < piston_like_pressure:
+                    element_pc = piston_like_pressure
                     pore_entry_pressure[pore_id] = piston_like_pressure
                 else:
                     if pore_imminent_snap_off[pore_id]:
                         if phase == WATER:
                             if pore_body_filling_pressure > pore_entry_pressure[pore_id]:
+                                element_pc = pore_body_filling_pressure
                                 pore_entry_pressure[pore_id] = pore_body_filling_pressure
+                            else:
+                                element_pc = pore_entry_pressure[pore_id]
                         else:
                             if pore_body_filling_pressure < pore_entry_pressure[pore_id]:
+                                element_pc = pore_body_filling_pressure
                                 pore_entry_pressure[pore_id] = pore_body_filling_pressure
+                            else:
+                                element_pc = pore_entry_pressure[pore_id]
                     else:
+                        element_pc = pore_body_filling_pressure
                         pore_entry_pressure[pore_id] = pore_body_filling_pressure
 
-    def _update_throat_entry_pc(self, throat_id_list, replace_snap_off=False):
+                if verbose:
+                    print("  Pore ", pore_id, " PC calculation: Piston-like = ", piston_like_pressure, ", Body-filling = ", pore_body_filling_pressure, " -> Selected = ", element_pc)
+
+    def _update_throat_entry_pc(self, throat_id_list, replace_snap_off=False, verbose=False):
         if replace_snap_off:
-            self.snap_off_throat_list = self._update_throats_snap_offs_pcs(self.network.pn.throats())
+            self.snap_off_throat_list.set_from_array(self._update_throats_snap_offs_pcs(self.network.pn.throats()))
         else:
             new_snap_off_throats = self._update_throats_snap_offs_pcs(throat_id_list)
             if len(new_snap_off_throats) > 0:
-                self.snap_off_throat_list = np.unique(np.concatenate((self.snap_off_throat_list, new_snap_off_throats)))
+                self.snap_off_throat_list.add(new_snap_off_throats)
 
-        self._update_border_throat_entry_pc(throat_id_list)
+        self._update_border_throat_entry_pc(throat_id_list, verbose=verbose)
 
-    def _update_border_throat_entry_pc(self, throat_id_list):
-        self.__njit_update_throat_entry_pc(
+    def _update_border_throat_entry_pc(self, throat_id_list, verbose=False):
+        self._njit_update_throat_entry_pc(
             throat_id_list,
             self.network.pn_core.throat.entry_pressure,
             self.network.pn_core.throat.piston_like_pressure,
             self.network.pn_core.throat.in_border,
+            verbose=verbose,
         )
 
     @staticmethod
     @nb.njit(cache=True)
-    def __njit_update_throat_entry_pc(
+    def _njit_update_throat_entry_pc(
         throat_id_list,
         throat_entry_pressure,
         throat_piston_like_pressure,
         throat_in_border,
+        verbose=False,
     ):
         for throat_id in throat_id_list:
             if throat_in_border[throat_id]:
-                throat_entry_pressure[throat_id] = throat_piston_like_pressure[throat_id]
+                pressure = throat_piston_like_pressure[throat_id]
+                throat_entry_pressure[throat_id] = pressure
+                if verbose:
+                    print("  Throat ", throat_id, " PC calculation: Piston-like = ", pressure)
 
-    def _get_element_to_fill(self, pc, border_elements):
-        self.__clear_snapoff_lists()
-        pore_id_list = np.concatenate((border_elements.get_pores_ids(), self.snap_off_pore_list))
-        throat_id_list = np.concatenate((border_elements.get_throats_ids(), self.snap_off_throat_list))
+    def _get_element_to_fill(self, pc, border_elements, verbose=False):
+        self._clear_snapoff_lists()
+        pore_id_list = np.concatenate((border_elements.get_pores_ids(), self.snap_off_pore_list.list()))
+        throat_id_list = np.concatenate((border_elements.get_throats_ids(), self.snap_off_throat_list.list()))
         element_to_fill = self._jit_pore_throats_element_to_fill(
             pc,
             pore_id_list,
             self.network.pn_core.pore.entry_pressure,
             throat_id_list,
             self.network.pn_core.throat.entry_pressure,
+            verbose=verbose,
         )
 
         return element_to_fill
@@ -267,7 +297,7 @@ class SubsequentCycleSimulation(CycleSimulation):
         pass
 
     def _update_network_geometry(self, pc):
-        pore_ids = self.__get_elements_to_update(
+        pore_ids = self._get_elements_to_update(
             self.pores_to_update,
             self.phase,
             pc,
@@ -275,7 +305,7 @@ class SubsequentCycleSimulation(CycleSimulation):
             self.network.pn_core.pore.imminent_snap_off,
             self.network.pn_core.pore.snap_off_pressure,
         )
-        throat_ids = self.__get_elements_to_update(
+        throat_ids = self._get_elements_to_update(
             self.throats_to_update,
             self.phase,
             pc,
@@ -286,12 +316,12 @@ class SubsequentCycleSimulation(CycleSimulation):
         self._update_hinging_contact_angles(pore_ids, throat_ids, pc)
         self._update_b(pore_ids, throat_ids, pc)
         self._update_oil_layers(pore_ids, throat_ids, pc)
-        self.__update_water_layers(pore_ids, throat_ids)
+        self._update_water_layers(pore_ids, throat_ids)
         super()._update_network_geometry(pc)
 
     @staticmethod
     @nb.njit(cache=True)
-    def __get_elements_to_update(
+    def _get_elements_to_update(
         elements_to_update, phase, pc, trapped_evacuation, imminent_snap_off, snap_off_pressure
     ):
         j = 0
@@ -307,25 +337,15 @@ class SubsequentCycleSimulation(CycleSimulation):
                     j += 1
         return elements_to_update[:j]
 
-    def __clear_snapoff_lists(self):
-        filled_pores = (
-            self.network.pn_core.pore.water_filled[self.snap_off_pore_list]
-            if self.phase == WATER
-            else self.network.pn_core.pore.oil_filled[self.snap_off_pore_list]
+    def _clear_snapoff_lists(self):
+        pore_filled = (
+            self.network.pn_core.pore.water_filled if self.phase == WATER else self.network.pn_core.pore.oil_filled
         )
-        self.snap_off_pore_list = np.delete(
-            self.snap_off_pore_list,
-            filled_pores | self.network.pn_core.pore.trapped_evacuation[self.snap_off_pore_list],
+        self.snap_off_pore_list.remove_where(pore_filled, self.network.pn_core.pore.trapped_evacuation)
+        throat_filled = (
+            self.network.pn_core.throat.water_filled if self.phase == WATER else self.network.pn_core.throat.oil_filled
         )
-        filled_throats = (
-            self.network.pn_core.throat.water_filled[self.snap_off_throat_list]
-            if self.phase == WATER
-            else self.network.pn_core.throat.oil_filled[self.snap_off_throat_list]
-        )
-        self.snap_off_throat_list = np.delete(
-            self.snap_off_throat_list,
-            filled_throats | self.network.pn_core.throat.trapped_evacuation[self.snap_off_throat_list],
-        )
+        self.snap_off_throat_list.remove_where(throat_filled, self.network.pn_core.throat.trapped_evacuation)
 
     @abstractmethod
     def _update_hinging_contact_angles(self, pore_ids, throat_ids, pc):
@@ -344,7 +364,7 @@ class SubsequentSaturation(SaturationCalculator):
     def __init__(self, network, phase):
         super().__init__(network, phase)
 
-    def _get_pores_saturations(self, pc):
+    def _get_pores_saturations(self, pc, verbose=False):
         return calculate_imbibition_network_saturation(
             self.network.pn_core.pore.area,
             self.network.pn_core.pore.oil_filled,
@@ -355,9 +375,10 @@ class SubsequentSaturation(SaturationCalculator):
             self.network.pn_core.pore.bo,
             self.network.pn_core.pore.n_corners,
             self.network.pn_core.pore.corner_oil_layer,
+            verbose=verbose,
         )
 
-    def _get_throats_saturations(self, pc):
+    def _get_throats_saturations(self, pc, verbose=False):
         return calculate_imbibition_network_saturation(
             self.network.pn_core.throat.cross_sectional_area,
             self.network.pn_core.throat.oil_filled,
@@ -368,9 +389,10 @@ class SubsequentSaturation(SaturationCalculator):
             self.network.pn_core.throat.bo,
             self.network.pn_core.throat.n_corners,
             self.network.pn_core.throat.corner_oil_layer,
+            verbose=verbose,
         )
 
-    def _get_element_saturations(self, element_type, id, pc):
+    def _get_element_saturations(self, element_type, id, pc, verbose=False):
         if element_type == PORE:
             element_data = self.network.pn_core.pore
             area = self.network.pn_core.pore.area[id]
@@ -388,4 +410,5 @@ class SubsequentSaturation(SaturationCalculator):
             element_data.bo[id],
             element_data.n_corners[id],
             element_data.corner_oil_layer[id],
+            verbose=verbose,
         )
