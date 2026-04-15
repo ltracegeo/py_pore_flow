@@ -102,7 +102,7 @@ class PoreNetwork(openpnm.network.Network):
         return pore_network
 
 
-def initialize_pn(pn: openpnm.network.Network) -> None:
+def initialize_pn(pn: PoreNetwork) -> None:
     def set_default(pn, key, value):
         if key not in pn:
             pn[key] = value
@@ -200,12 +200,9 @@ def initialize_pn(pn: openpnm.network.Network) -> None:
 
     pn.init_sparse_conns(values, offsets)
 
-    # Required to maintain compatibility between windows and linux:
-    #pn["throat.conns"] = pn["throat.conns"].astype(np.int64)
-
     # Build sparse representation for throat.conns (uniform 2 conns per throat)
     number_of_throats = len(pn["throat.all"])
-    pn._throat_conns_values = pn["throat.conns"].ravel()
+    pn._throat_conns_values = pn["throat.conns"].ravel().astype(np.int64)
     pn._throat_conns_offsets = np.arange(0, 2 * number_of_throats, 2, dtype=np.int64)
 
 @njit(cache=True)
