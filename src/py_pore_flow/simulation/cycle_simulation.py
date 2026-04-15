@@ -56,6 +56,20 @@ class CycleSimulation:
             self._batch_next_pore_queue = np.empty(n_pores, np.int64)
             self._batch_next_throat_queue = np.empty(n_throats, np.int64)
 
+    def _get_batch_seed_ids(self):
+        """Return (pore_ids, throat_ids) to seed Layer-0 of batched invasions.
+
+        By default only the current border is returned. Subclasses that track
+        additional invadable elements outside the border (e.g. snap-off
+        candidates in subsequent cycles) must override this to include them,
+        otherwise those elements may never be picked up by the BFS and the
+        caller can spin forever trying to advance Pc through them.
+        """
+        return (
+            self.border_elements.get_pores_ids(),
+            self.border_elements.get_throats_ids(),
+        )
+
     def update_pc(self, pc, target_sw=None, verbose=False):
         invasion_pc = pc
         old_pc = pc
@@ -232,8 +246,7 @@ class CycleSimulation:
         pc_tolerant = pc
 
         pn = self.network.pn_core
-        border_pore_ids = self.border_elements.get_pores_ids()
-        border_throat_ids = self.border_elements.get_throats_ids()
+        seed_pore_ids, seed_throat_ids = self._get_batch_seed_ids()
 
         if self.phase == OIL:
             pore_filled = pn.pore.oil_filled
@@ -250,8 +263,8 @@ class CycleSimulation:
         pore_fill_count, throat_fill_count = self._njit_collect_batch_elements(
             pc_tolerant,
             self.phase,
-            border_pore_ids,
-            border_throat_ids,
+            seed_pore_ids,
+            seed_throat_ids,
             pn.pore.entry_pressure,
             pn.throat.entry_pressure,
             pore_filled,
@@ -345,16 +358,16 @@ class CycleSimulation:
         self._batch_pore_visited[:] = False
         self._batch_throat_visited[:] = False
 
-        # --- Layer 0: seed from current border elements ---
-        border_pore_ids = self.border_elements.get_pores_ids()
-        border_throat_ids = self.border_elements.get_throats_ids()
+        # --- Layer 0: seed from current border elements (and any extras such
+        # as snap-off candidates in subsequent cycles) ---
+        seed_pore_ids, seed_throat_ids = self._get_batch_seed_ids()
 
         pore_fill_count, throat_fill_count, next_pore_count, next_throat_count = (
             self._njit_collect_single_layer(
                 pc_tolerant,
                 self.phase,
-                border_pore_ids,
-                border_throat_ids,
+                seed_pore_ids,
+                seed_throat_ids,
                 pn.pore.entry_pressure,
                 pn.throat.entry_pressure,
                 pore_filled,

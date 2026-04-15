@@ -122,6 +122,39 @@ class SubsequentCycleSimulation(CycleSimulation):
         self._update_throat_entry_pc(self.border_elements.get_throats_ids(), True, verbose=verbose)
         self._update_pore_entry_pc(self.border_elements.get_pores_ids(), pc, True, verbose=verbose)
 
+    def _get_batch_seed_ids(self):
+        """Seed batched invasions with border + snap-off candidates.
+
+        Snap-off elements are interior (not on the border between filled and
+        unfilled regions) but are still invadable.  If we only seed from the
+        border, the BFS in ``_update_invasions_batched`` /
+        ``_update_invasions_partial_batch`` can miss them entirely.  When the
+        next element to fill is a snap-off candidate, ``_get_element_to_fill``
+        still finds it and clamps ``invasion_pc`` to the current ``pc``,
+        causing the caller's ``update_pc`` loop to spin with ``sw_delta=0``
+        and ``no_invasion_left=False``.  Including snap-off ids here lets
+        Layer-0 fill them and break the spin.
+        """
+        border_pores, border_throats = super()._get_batch_seed_ids()
+        snap_off_pores = self.snap_off_pore_list.list()
+        snap_off_throats = self.snap_off_throat_list.list()
+
+        if len(snap_off_pores) == 0:
+            pore_ids = border_pores
+        elif len(border_pores) == 0:
+            pore_ids = snap_off_pores
+        else:
+            pore_ids = np.concatenate((border_pores, snap_off_pores))
+
+        if len(snap_off_throats) == 0:
+            throat_ids = border_throats
+        elif len(border_throats) == 0:
+            throat_ids = snap_off_throats
+        else:
+            throat_ids = np.concatenate((border_throats, snap_off_throats))
+
+        return pore_ids, throat_ids
+
     def _update_pore_entry_pc(self, pore_id_list, pc, replace_snap_off=False, verbose=False):
         if replace_snap_off:
             self.snap_off_pore_list.set_from_array(self._update_pores_snap_offs_pcs(self.network.pn.pores()))
