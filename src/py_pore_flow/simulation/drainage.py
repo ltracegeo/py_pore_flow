@@ -55,8 +55,10 @@ class DrainageSimulation(CycleSimulation):
             pc,
             border_elements.get_pores_ids(),
             self.network.pn_core.pore.entry_pressure,
+            self.network.pn_core.pore.trapped,
             border_elements.get_throats_ids(),
             self.network.pn_core.throat.entry_pressure,
+            self.network.pn_core.throat.trapped,
             verbose=verbose,
         )
         return element_to_fill
@@ -67,8 +69,10 @@ class DrainageSimulation(CycleSimulation):
         pc,
         pore_id_list,
         pore_entry_pressure,
+        pore_trapped,
         throat_id_list,
         throat_entry_pressure,
+        throat_trapped,
         verbose=False,
     ):
         min_pressure = np.inf
@@ -79,6 +83,8 @@ class DrainageSimulation(CycleSimulation):
             return None
 
         for id in pore_id_list:
+            if pore_trapped[id]:
+                continue
             pressure = pore_entry_pressure[id]
             if pressure < min_pressure:
                 min_pressure = pressure
@@ -86,6 +92,8 @@ class DrainageSimulation(CycleSimulation):
                 min_type = PORE
 
         for id in throat_id_list:
+            if throat_trapped[id]:
+                continue
             pressure = throat_entry_pressure[id]
             if pressure < min_pressure:
                 min_pressure = pressure

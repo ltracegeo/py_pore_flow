@@ -322,8 +322,10 @@ class SubsequentCycleSimulation(CycleSimulation):
             pc,
             pore_id_list,
             self.network.pn_core.pore.entry_pressure,
+            self.network.pn_core.pore.trapped,
             throat_id_list,
             self.network.pn_core.throat.entry_pressure,
+            self.network.pn_core.throat.trapped,
             verbose=verbose,
         )
 

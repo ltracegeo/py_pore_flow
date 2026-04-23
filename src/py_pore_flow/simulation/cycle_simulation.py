@@ -40,7 +40,13 @@ class CycleSimulation:
         )
         self._refresh_border_elements(True, None, None)
 
+        # First trap-check may mark pores already in the border as trapped;
+        # refresh again so the border never contains trapped elements.  Without
+        # this, the batch seeder (which correctly rejects trapped) can produce
+        # an empty layer while _get_element_to_fill still picks the trapped
+        # border pore, and update_pc spins forever at the same pc.
         self.trap_checker.update_trapped_pores()
+        self._refresh_border_elements(True, None, None)
 
         self.saturation_calculator = None
 

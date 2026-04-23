@@ -64,8 +64,10 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
         pc,
         pore_id_list,
         pore_entry_pressure,
+        pore_trapped,
         throat_id_list,
         throat_entry_pressure,
+        throat_trapped,
         verbose=False,
     ):
         min_pressure = np.inf
@@ -76,6 +78,8 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
             return None
 
         for id in pore_id_list:
+            if pore_trapped[id]:
+                continue
             pressure = pore_entry_pressure[id]
             if pressure < min_pressure:
                 min_pressure = pressure
@@ -83,6 +87,8 @@ class SecondDrainageSimulation(SubsequentCycleSimulation):
                 min_type = PORE
 
         for id in throat_id_list:
+            if throat_trapped[id]:
+                continue
             pressure = throat_entry_pressure[id]
             if pressure < min_pressure:
                 min_pressure = pressure

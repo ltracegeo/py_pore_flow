@@ -61,8 +61,10 @@ class ImbibitionSimulation(SubsequentCycleSimulation):
         pc,
         pore_id_list,
         pore_entry_pressure,
+        pore_trapped,
         throat_id_list,
         throat_entry_pressure,
+        throat_trapped,
         verbose=False,
     ):
         max_pressure = -np.inf
@@ -73,6 +75,8 @@ class ImbibitionSimulation(SubsequentCycleSimulation):
             return None
 
         for id in pore_id_list:
+            if pore_trapped[id]:
+                continue
             pressure = pore_entry_pressure[id]
             if pressure > max_pressure:
                 max_pressure = pressure
@@ -80,6 +84,8 @@ class ImbibitionSimulation(SubsequentCycleSimulation):
                 max_type = PORE
 
         for id in throat_id_list:
+            if throat_trapped[id]:
+                continue
             pressure = throat_entry_pressure[id]
             if pressure > max_pressure:
                 max_pressure = pressure
