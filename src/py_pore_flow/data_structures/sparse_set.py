@@ -65,6 +65,25 @@ class SparseSet:
                 i += 1
         return count
 
+    def remove_where3(self, mask_a, mask_b, mask_c):
+        """Remove elements where any of mask_a/mask_b/mask_c is True for that element."""
+        self.count = self._remove_where3(self.sparse, self.dense, self.count, mask_a, mask_b, mask_c)
+
+    @staticmethod
+    @njit
+    def _remove_where3(sparse, dense, count, mask_a, mask_b, mask_c):
+        i = np.int32(0)
+        while i < count:
+            x = dense[i]
+            if mask_a[x] or mask_b[x] or mask_c[x]:
+                last = dense[count - 1]
+                dense[i] = last
+                sparse[last] = i
+                count -= 1
+            else:
+                i += 1
+        return count
+
     def set_from_array(self, x_array):
         """Reset and bulk-load from a numpy array (assumed unique)."""
         self.count = self._set_from_array(x_array, self.sparse, self.dense)

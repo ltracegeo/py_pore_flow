@@ -51,6 +51,7 @@ class SubsequentCycleSimulation(CycleSimulation):
         element_snap_off_viability,
         entry_pressure,
         element_snap_off_pc,
+        element_trapped_evacuation,
         element_trapped,
     ):
         snap_off_elements_count = 0
@@ -59,6 +60,7 @@ class SubsequentCycleSimulation(CycleSimulation):
                 element_snap_off_viability[element_id]
                 and not element_filled[element_id]
                 and element_shape[element_id] != CIRCLE
+                and not element_trapped_evacuation[element_id]
                 and not element_trapped[element_id]
             ):
                 entry_pressure[element_id] = element_snap_off_pc[element_id]
@@ -84,6 +86,7 @@ class SubsequentCycleSimulation(CycleSimulation):
             self.network.pn_core.throat.entry_pressure,
             self.network.pn_core.throat.snap_off_pressure,
             self.network.pn_core.throat.trapped_evacuation,
+            self.network.pn_core.throat.trapped,
         )
 
     def _update_pores_snap_offs_pcs(self, pore_ids):
@@ -100,6 +103,7 @@ class SubsequentCycleSimulation(CycleSimulation):
             self.network.pn_core.pore.entry_pressure,
             self.network.pn_core.pore.snap_off_pressure,
             self.network.pn_core.pore.trapped_evacuation,
+            self.network.pn_core.pore.trapped,
         )
 
     def _update_water_layers(self, pore_ids, throat_ids):
@@ -371,14 +375,26 @@ class SubsequentCycleSimulation(CycleSimulation):
         return elements_to_update[:j]
 
     def _clear_snapoff_lists(self):
+        # `trapped` is tracked separately from `trapped_evacuation`; an element
+        # flagged `trapped` after it was added to the snap-off list would
+        # otherwise be picked by _get_element_to_fill and spin update_pc,
+        # because the batch seeder correctly rejects trapped elements.
         pore_filled = (
             self.network.pn_core.pore.water_filled if self.phase == WATER else self.network.pn_core.pore.oil_filled
         )
-        self.snap_off_pore_list.remove_where(pore_filled, self.network.pn_core.pore.trapped_evacuation)
+        self.snap_off_pore_list.remove_where3(
+            pore_filled,
+            self.network.pn_core.pore.trapped_evacuation,
+            self.network.pn_core.pore.trapped,
+        )
         throat_filled = (
             self.network.pn_core.throat.water_filled if self.phase == WATER else self.network.pn_core.throat.oil_filled
         )
-        self.snap_off_throat_list.remove_where(throat_filled, self.network.pn_core.throat.trapped_evacuation)
+        self.snap_off_throat_list.remove_where3(
+            throat_filled,
+            self.network.pn_core.throat.trapped_evacuation,
+            self.network.pn_core.throat.trapped,
+        )
 
     @abstractmethod
     def _update_hinging_contact_angles(self, pore_ids, throat_ids, pc):
