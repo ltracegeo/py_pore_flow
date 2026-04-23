@@ -325,8 +325,10 @@ class CycleSimulation:
             new_border_pores, new_border_throats = self._refresh_border_elements(True, None, None)
 
             if verbose: yield "Batch: updating border entry pressures"
-            self._update_border_pore_entry_pc(new_border_pores, pc)
-            self._update_border_throat_entry_pc(new_border_throats)
+            if len(new_border_pores) > 0:
+                self._update_border_pore_entry_pc(new_border_pores, pc)
+            if len(new_border_throats) > 0:
+                self._update_border_throat_entry_pc(new_border_throats)
 
         # Determine invasion_pc for the caller (_step_by_sw uses it to
         # advance Pc to the next candidate).  Reuse the existing
@@ -401,7 +403,13 @@ class CycleSimulation:
             if verbose:
                 yield f"Partial batch layer: invading {pore_fill_count} pores and {throat_fill_count} throats"
 
-            # Invade this layer, stopping if target_sw is reached.
+            layer_pores_invaded = 0
+            layer_throats_invaded = 0
+
+            # Invade this layer, stopping if target_sw is reached.  Update
+            # phase connections incrementally per fill -- this replaces the
+            # O(network) reset_phase_connections() we used to do once per
+            # layer, and matches what the non-batch path already does.
             for i in range(pore_fill_count):
                 if target_sw is not None and total_sw_delta >= target_sw:
                     sw_limit_reached = True
@@ -409,6 +417,8 @@ class CycleSimulation:
                 pore_id = self._batch_pore_queue[i]
                 self._fill_element(self.network.pore, pore_id, pc)
                 total_sw_delta += self._update_element_filled_geometry(pc, self.network.pore, pore_id)
+                self.phase_connection_checker.update_phase_connections(PORE, pore_id)
+                layer_pores_invaded += 1
 
             if not sw_limit_reached:
                 for i in range(throat_fill_count):
@@ -418,11 +428,21 @@ class CycleSimulation:
                     throat_id = self._batch_throat_queue[i]
                     self._fill_element(self.network.throat, throat_id, pc)
                     total_sw_delta += self._update_element_filled_geometry(pc, self.network.throat, throat_id)
+                    self.phase_connection_checker.update_phase_connections(THROAT, throat_id)
+                    layer_throats_invaded += 1
 
-            # Post-layer recalculations.
-            if verbose: yield "Partial batch: rebuilding phase connections"
-            self.phase_connection_checker.reset_phase_connections()
+            # Skip post-layer work when the layer invaded nothing (target_sw
+            # was already exhausted on entry): no state changed so trap check
+            # and border refresh would be no-ops.
+            if layer_pores_invaded == 0 and layer_throats_invaded == 0:
+                if sw_limit_reached:
+                    break
+                # No invasions and nothing changed, so the next-layer queues
+                # are equally empty -- fall through to exit the while loop.
+                break
 
+            # Post-layer recalculations (only when at least one element was
+            # actually filled this layer).
             if verbose: yield "Partial batch: updating trapping"
             self.trap_checker.update_trapped_pores()
 
@@ -430,8 +450,10 @@ class CycleSimulation:
             new_border_pores, new_border_throats = self._refresh_border_elements(True, None, None)
 
             if verbose: yield "Partial batch: updating border entry pressures"
-            self._update_border_pore_entry_pc(new_border_pores, pc)
-            self._update_border_throat_entry_pc(new_border_throats)
+            if len(new_border_pores) > 0:
+                self._update_border_pore_entry_pc(new_border_pores, pc)
+            if len(new_border_throats) > 0:
+                self._update_border_throat_entry_pc(new_border_throats)
 
             if sw_limit_reached:
                 break
