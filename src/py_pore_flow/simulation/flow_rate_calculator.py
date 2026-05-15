@@ -110,7 +110,7 @@ class FlowRateCalculator:
             if SOLVER == "petsc":
                 x = self._petsc_solver(A_csr, b_array, initial_guess=initial_guess)
             else:
-                x = self._pypardiso_solver(A_csr, b_array)
+                x = np.atleast_1d(self._pypardiso_solver(A_csr, b_array))
 
             pressure = network_manager.get_pressure_list(x)
             flow_rate = network_manager.get_flow_rate(pressure)
