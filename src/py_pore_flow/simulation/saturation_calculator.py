@@ -92,12 +92,6 @@ class SaturationCalculator:
             ),
             np.concatenate(
                 (
-                    self.network.pn_core.throat.clay_volume,
-                    self.network.pn_core.pore.clay_volume,
-                )
-            ),
-            np.concatenate(
-                (
                     self.network.pn_core.throat.N,
                     self.network.pn_core.pore.N,
                 )

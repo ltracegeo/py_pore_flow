@@ -139,10 +139,10 @@ def calculate_water_layer_area(b, beta, theta, n_corners):
 
 
 @njit(cache=True)
-def calculate_sw_total(Sw, V, Vclay, N, total_volume):
+def calculate_sw_total(Sw, V, number_of_capilaries, total_volume):
     sum = 0
     for i in range(len(Sw)):
-        sum += (Sw[i] * V[i] + Vclay[i]) * N[i]
+        sum += Sw[i] * V[i] * number_of_capilaries[i]
     Sw_total = sum / total_volume
     return Sw_total
 

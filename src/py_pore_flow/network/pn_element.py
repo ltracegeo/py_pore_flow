@@ -25,9 +25,6 @@ class PnElement(ABC):
     def get_V(self, id):
         return self.element.volume[id]
 
-    def get_Vclay(self, id):
-        return self.element.clay_volume[id]
-
     def get_Sw(self, id):
         return self.element.water_saturation[id]
 
