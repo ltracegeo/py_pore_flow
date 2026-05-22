@@ -35,19 +35,19 @@ def load_multiscale_values_from_dir(directory, network_name, pn):
 
     num_pores = len(pn["pore.all"])
     num_throats = len(pn["throat.all"])
-    pore_N = np.full(num_pores, 1.0, dtype=np.float64)
-    throat_N = np.full(num_throats, 1.0, dtype=np.float64)
+    pore_number_of_capilaries = np.full(num_pores, 1.0, dtype=np.float64)
+    throat_number_of_capilaries = np.full(num_throats, 1.0, dtype=np.float64)
     for line in node3_content.strip().splitlines():
         pid_str, N_str = line.split()[:2]
         pid = int(pid_str)
-        pore_N[pid - 1] = float(N_str)
+        pore_number_of_capilaries[pid - 1] = float(N_str)
     for line in link3_content.strip().splitlines():
         parts = line.split()
         tid = int(parts[0])
         if tid <= num_throats:
-            throat_N[tid - 1] = float(parts[3])
+            throat_number_of_capilaries[tid - 1] = float(parts[3])
 
-    return pore_N, throat_N
+    return pore_number_of_capilaries, throat_number_of_capilaries
 
 
 def run(
@@ -103,9 +103,9 @@ def run_simulation(
 
     pn = PoreNetwork.from_openpnm(openpnm.io.network_from_statoil(directory_path, network_name))
 
-    pore_N, throat_N = load_multiscale_values_from_dir(directory_path, network_name, pn)
-    if pore_N is not None and throat_N is not None:
-        pn["pore.N"], pn["throat.N"] = pore_N, throat_N
+    pore_number_of_capilaries, throat_number_of_capilaries = load_multiscale_values_from_dir(directory_path, network_name, pn)
+    if pore_number_of_capilaries is not None and throat_number_of_capilaries is not None:
+        pn["pore.number_of_capilaries"], pn["throat.number_of_capilaries"] = pore_number_of_capilaries, throat_number_of_capilaries
 
     if not parameters:
         try:

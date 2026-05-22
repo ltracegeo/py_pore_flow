@@ -13,8 +13,8 @@ class SaturationCalculator:
         self.network = network
         self.phase = phase
 
-        self.total_volume = (self.network.pn_core.pore.volume * self.network.pn_core.pore.N).sum() + (
-            self.network.pn_core.throat.volume * self.network.pn_core.throat.N
+        self.total_volume = (self.network.pn_core.pore.volume * self.network.pn_core.pore.number_of_capilaries).sum() + (
+            self.network.pn_core.throat.volume * self.network.pn_core.throat.number_of_capilaries
         ).sum()
 
     def update_saturations(self, pc, verbose=False):
@@ -72,9 +72,9 @@ class SaturationCalculator:
             element_data.is_multiphase[id] = False
 
         if self.phase == OIL:
-            return so_diff * (element_data.volume[id] * element_data.N[id]) / self.total_volume
+            return so_diff * (element_data.volume[id] * element_data.number_of_capilaries[id]) / self.total_volume
         else:
-            return sw_diff * (element_data.volume[id] * element_data.N[id]) / self.total_volume
+            return sw_diff * (element_data.volume[id] * element_data.number_of_capilaries[id]) / self.total_volume
 
     def calculate_sw_total(self):
         return calculate_sw_total(
@@ -92,8 +92,8 @@ class SaturationCalculator:
             ),
             np.concatenate(
                 (
-                    self.network.pn_core.throat.N,
-                    self.network.pn_core.pore.N,
+                    self.network.pn_core.throat.number_of_capilaries,
+                    self.network.pn_core.pore.number_of_capilaries,
                 )
             ),
             self.total_volume,

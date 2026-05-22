@@ -173,8 +173,8 @@ def initialize_pn(pn: PoreNetwork) -> None:
         )
 
         pn[f"{element_type}.id"] = list(range(len(pn[f"{element_type}.all"])))
-        if f"{element_type}.N" not in pn:
-            pn[f"{element_type}.N"] = 1
+        if f"{element_type}.number_of_capilaries" not in pn:
+            pn[f"{element_type}.number_of_capilaries"] = 1
         pn[f"{element_type}.changed_wettability"] = False
         pn[f"{element_type}.imminent_snap_off"] = False
         pn[f"{element_type}.in_border"] = False

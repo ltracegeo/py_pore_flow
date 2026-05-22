@@ -65,7 +65,7 @@ class ThroatsNetwork(ElementNetwork):
         self.water_connected_to_inlet = pn["throat.water_connected_to_inlet"]
         self.water_connected_to_outlet = pn["throat.water_connected_to_outlet"]
         self.id = pn["throat.id"]
-        self.N = pn["throat.N"]
+        self.number_of_capilaries = pn["throat.number_of_capilaries"]
         self.changed_wettability = pn["throat.changed_wettability"]
         self.imminent_snap_off = pn["throat.imminent_snap_off"]
         self.in_border = pn["throat.in_border"]

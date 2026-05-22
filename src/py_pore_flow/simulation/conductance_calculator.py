@@ -142,7 +142,7 @@ class ConductanceCalculator:
                     singlephase_conductivity, area, pn_element.shape_factor, pn_element.shape
                 )
 
-            singlephase_conductivity *= pn_element.N
+            singlephase_conductivity *= pn_element.number_of_capilaries
 
     def _calculate_multiphase_conductivity(self, phase):
         for element_type in [PORE, THROAT]:
@@ -192,4 +192,4 @@ class ConductanceCalculator:
                     has_oil_in_center=pn_element.oil_filled
                 )
 
-            multiphase_conductivity *= pn_element.N
+            multiphase_conductivity *= pn_element.number_of_capilaries

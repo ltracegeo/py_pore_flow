@@ -62,7 +62,7 @@ class PoresNetwork(ElementNetwork):
         self.water_connected_to_inlet = pn["pore.water_connected_to_inlet"]
         self.water_connected_to_outlet = pn["pore.water_connected_to_outlet"]
         self.id = pn["pore.id"]
-        self.N = pn["pore.N"]
+        self.number_of_capilaries = pn["pore.number_of_capilaries"]
         self.changed_wettability = pn["pore.changed_wettability"]
         self.imminent_snap_off = pn["pore.imminent_snap_off"]
         self.in_border = pn["pore.in_border"]
