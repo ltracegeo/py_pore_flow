@@ -58,18 +58,23 @@ class SaturationCalculator:
         else:
             should_update = so > element_data.oil_saturation[id]
 
-        if should_update:
-            element_data.water_saturation[id] = sw
-            element_data.oil_saturation[id] = so
-            if sw > 0 and so > 0:
-                element_data.is_multiphase[id] = True
-            else:
-                element_data.is_multiphase[id] = False
+        if not should_update:
+            # error
+            return 0
+
+        sw_diff = sw - element_data.water_saturation[id]
+        so_diff = so - element_data.oil_saturation[id]
+        element_data.water_saturation[id] = sw
+        element_data.oil_saturation[id] = so
+        if sw > 0 and so > 0:
+            element_data.is_multiphase[id] = True
+        else:
+            element_data.is_multiphase[id] = False
 
         if self.phase == OIL:
-            return element_data.oil_saturation[id] * element_data.volume[id] / self.total_volume
+            return so_diff * (element_data.volume[id] * element_data.N[id]) / self.total_volume
         else:
-            return element_data.water_saturation[id] * element_data.volume[id] / self.total_volume
+            return sw_diff * (element_data.volume[id] * element_data.N[id]) / self.total_volume
 
     def calculate_sw_total(self):
         return calculate_sw_total(
