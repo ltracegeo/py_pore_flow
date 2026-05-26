@@ -95,7 +95,7 @@ def run_simulation(
 ):
     network_name = ""
     my_path = Path(directory_path)
-    pattern = re.compile("(\S+)_node1.dat")
+    pattern = re.compile(r"(\S+)_node1.dat")
     for filepath in my_path.iterdir():
         re_match = pattern.match(filepath.name)
         if re_match:
