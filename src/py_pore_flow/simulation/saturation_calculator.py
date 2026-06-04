@@ -13,9 +13,12 @@ class SaturationCalculator:
         self.network = network
         self.phase = phase
 
-        self.total_volume = (self.network.pn_core.pore.volume * self.network.pn_core.pore.number_of_capilaries).sum() + (
-            self.network.pn_core.throat.volume * self.network.pn_core.throat.number_of_capilaries
-        ).sum()
+        self.total_volume = (
+            ((self.network.pn_core.pore.volume + self.network.pn_core.pore.clay_volume) *
+                self.network.pn_core.pore.number_of_capilaries).sum() +
+            ((self.network.pn_core.throat.volume + self.network.pn_core.throat.clay_volume) *
+                self.network.pn_core.throat.number_of_capilaries).sum()
+        )
 
     def update_saturations(self, pc, verbose=False):
         pore_sw, pore_so = self._get_pores_saturations(pc, verbose=verbose)
@@ -88,6 +91,12 @@ class SaturationCalculator:
                 (
                     self.network.pn_core.throat.volume,
                     self.network.pn_core.pore.volume,
+                )
+            ),
+            np.concatenate(
+                (
+                    self.network.pn_core.throat.clay_volume,
+                    self.network.pn_core.pore.clay_volume,
                 )
             ),
             np.concatenate(

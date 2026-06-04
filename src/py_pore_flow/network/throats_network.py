@@ -9,6 +9,7 @@ class ThroatsNetwork(ElementNetwork):
         self.shape_factor = pn["throat.shape_factor"]
         self.radius = pn["throat.radius"]
         self.volume = pn["throat.volume"]
+        self.clay_volume = pn["throat.clay_volume"]
         self.oil_filled = pn["throat.oil_filled"]
         self.water_filled = pn["throat.water_filled"]
         self.oil_saturation = pn["throat.oil_saturation"]

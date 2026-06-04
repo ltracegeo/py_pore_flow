@@ -54,11 +54,13 @@ def get_simple_network(
         "throat.shape_factor": np.ones(Nt)*0.05,
         "throat.radius": np.ones(Nt) * 5e-6,
         "throat.volume": np.ones(Nt) * 1e-15,
+        "throat.clay_volume": np.zeros(Nt),
         "throat.cross_sectional_area": np.ones(Nt) * 1e-10,
         "throat.length": np.ones(Nt) * 1e-5,
         "pore.shape_factor": np.ones(Np)*0.05,
         "pore.radius": np.ones(Np) * 1e-5,
         "pore.volume": np.ones(Np) * 1e-14,
+        "pore.clay_volume": np.zeros(Np),
         "pore.area": np.ones(Np) * 1e-9,
         "pore.length": np.ones(Np) * 1e-5,
     }
