@@ -189,7 +189,7 @@ class KrelCalculator:
             np.append(a_sparse_array["row_ptr"], a_sparse_array["val"].size),
         ))
 
-        x = spsolve(A_csr, b_array)
+        x = np.atleast_1d(spsolve(A_csr, b_array))
         pressure = network_manager.get_pressure_list(x)
         flow_rate = network_manager.get_flow_rate(pressure)
 
