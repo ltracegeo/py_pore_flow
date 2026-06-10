@@ -3,6 +3,8 @@ import math
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pyqtgraph as pg
+from PySide2 import QtCore, QtGui, QtWidgets
 
 
 WATER = 0
