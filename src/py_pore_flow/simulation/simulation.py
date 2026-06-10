@@ -1,3 +1,4 @@
+from pathlib import Path
 import pickle
 import sys
 import time
@@ -36,7 +37,8 @@ from py_pore_flow.equations.entry_pressure import (
     calculate_imbibition_piston_like_displacement_pc_network,
 )
 from py_pore_flow.network.network import initialize_pn, NetworkManager, PoreNetwork
-from py_pore_flow.output import pn_to_vtu
+from py_pore_flow.output.diagnostics import DiagnosticsWriter
+from py_pore_flow.output.vtu import pn_to_vtu
 from py_pore_flow.parameters.parameter_manager import ParameterManager
 from py_pore_flow.simulation.second_drainage import SecondDrainageSimulation
 from py_pore_flow.simulation.drainage import DrainageSimulation
@@ -66,6 +68,7 @@ def run_two_phase_simulation(
     second_drainage_snapshot_pc=None,
     config=None,
     progress_callback=None,
+    diagnostics_output_path=None,
 ):
     previous_limit = sys.getrecursionlimit()
 
@@ -92,6 +95,7 @@ def run_two_phase_simulation(
         second_drainage_snapshot_pc,
         config,
         progress_callback,
+        diagnostics_output_path,
     )
 
     skip_drainage = config is not None and config["skip_drainage"]
@@ -108,6 +112,7 @@ def run_two_phase_simulation(
             cycle[i] = [i+1] * len(Pc[i])
         else:
             simulation.skip_cycle()
+    simulation.end()
 
     sys.setrecursionlimit(previous_limit)
 
@@ -137,6 +142,7 @@ class Simulation:
         second_drainage_snapshot_pc=None,
         config=None,
         progress_callback=None,
+        diagnostics_output_path=False,
     ):
         self.pn = pn
         self.drainage_snapshot_pc = drainage_snapshot_pc
@@ -156,6 +162,7 @@ class Simulation:
             generate_cas=generate_cas,
             calculate_full_conductance=generate_vtu,
             set_initial_values=set_initial_values,
+            diagnostics_output_path=diagnostics_output_path,
         )
         self.parameter_manager = self.step_simulation.get_parameter_manager()
 
@@ -177,16 +184,6 @@ class Simulation:
 
         if generate_vtu:
             pn_to_vtu(self.pn, self.pc_incrementer.get_pc(), 1, 0)
-
-    def run_drainage(self):
-        self.step_simulation.set_max_pc(self.parameter_manager.pc_maximum)
-        return self._run_cycle("drainage")
-
-    def run_imbibition(self):
-        return self._run_cycle("imbibition")
-
-    def run_2nd_drainage(self):
-        return self._run_cycle("2nd_drainage")
     
     def skip_cycle(self):
         self.current_cycle_number += 1
@@ -211,6 +208,9 @@ class Simulation:
             return Pc, Sw, Krw, Kro
         else:
             return generator
+
+    def end(self):
+        self.step_simulation.end_simulation()
 
     def _get_network_state_str(self):
         pn = self.pn
@@ -313,6 +313,7 @@ class Simulation:
                 if verbose: yield _verbose_msg("Updating PC incrementer")
                 self.pc_incrementer.update_pc(self.Sw_array[-1])
 
+        self.step_simulation.end_cycle()
         self._check_snapshot_final(cycle_name, current_pc)
 
         if verbose: yield f"Final Cycle State:\n{self._get_network_state_str()}"
@@ -824,6 +825,7 @@ class StepSimulation:
         generate_cas=True,
         calculate_full_conductance=False,
         set_initial_values=True,
+        diagnostics_output_path=False,
     ):
         self.simulation = None
         self.max_pc = config["max_pc"] if config else None
@@ -832,6 +834,7 @@ class StepSimulation:
         self.is_first_step = True
         self.current_pc = 0
         self.cycle = "drainage"
+        self.diagnostics_output_path = diagnostics_output_path
 
         self.parameter_manager = ParameterManager(parameters_dict)
 
@@ -846,6 +849,8 @@ class StepSimulation:
 
         if set_initial_values:
             calculate_initial_values(self.network)
+        
+        self.diagnostics_writer = None
 
     def set_max_pc(self, max_pc):
         self.max_pc = max_pc
@@ -856,6 +861,9 @@ class StepSimulation:
         if cycle == "drainage":
             self.parameter_manager.update_initial_cas(self.network)
             calculate_drainage_values(self.network, self.max_pc)
+            if self.diagnostics_output_path:
+                Path(self.diagnostics_output_path).mkdir(parents=True, exist_ok=True)
+                self.diagnostics_writer = DiagnosticsWriter(self.network, self.diagnostics_output_path)
             self.simulation = DrainageSimulation(self.network, self.calculate_full_conductance, batch_invasions=batch)
             self.max_pc = 0
         elif cycle == "imbibition":
@@ -888,6 +896,8 @@ class StepSimulation:
 
         pores_filled, total_pores, percentage = self.simulation.get_oil_filled_percentage()
 
+        if self.diagnostics_writer is not None:
+            self.diagnostics_writer.save_state()
         return self.current_pc, Sw, Krw, Kro, pores_filled, total_pores, percentage
 
     def get_pores_left(self):
@@ -907,6 +917,14 @@ class StepSimulation:
         snapshot_dict["cycle"] = self.cycle
         snapshot_dict["network"] = self.network.pn.copy()
         return snapshot_dict
+
+    def end_cycle(self):
+        if self.diagnostics_writer is not None:
+            self.diagnostics_writer.save_cycle_data()
+
+    def end_simulation(self):
+        if self.diagnostics_writer is not None:
+            self.diagnostics_writer.close()
 
     @staticmethod
     def load_snapshot(snapshot_file: str) -> tuple:
@@ -952,8 +970,17 @@ class MultiStepSimulation(StepSimulation):
         generate_cas=True,
         calculate_full_conductance=False,
         set_initial_values=True,
+        diagnostics_output_path=False,
     ):
-        super().__init__(pn, parameters_dict, config, generate_cas, calculate_full_conductance, set_initial_values)
+        super().__init__(
+            pn,
+            parameters_dict,
+            config,
+            generate_cas,
+            calculate_full_conductance,
+            set_initial_values,
+            diagnostics_output_path,
+        )
         self.pc_incrementer = None
         self.sw_step = None
         self.no_invasion_left = False
