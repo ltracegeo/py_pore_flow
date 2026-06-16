@@ -16,14 +16,14 @@ from py_pore_flow.equations.geometry import (
     calculate_oil_layer_network,
     check_water_layer,
 )
-from py_pore_flow.simulation.cycle_simulation import PORE, THROAT
+from py_pore_flow.network.network import PORE, THROAT
 from py_pore_flow.simulation.subsequent_cycle import SubsequentCycleSimulation
 from py_pore_flow import log
 
 
 class ImbibitionSimulation(SubsequentCycleSimulation):
-    def __init__(self, network, pc_max, calculate_full_conductance=False):
-        super().__init__(network, pc_max, WATER, calculate_full_conductance)
+    def __init__(self, network, pc_max, calculate_full_conductance=False, batch_invasions=False):
+        super().__init__(network, pc_max, WATER, calculate_full_conductance, batch_invasions=batch_invasions)
 
     def _update_multiphase_mask(self, pc, pc_old):
         calculate_multiphase_mask_imbibition(
@@ -61,8 +61,11 @@ class ImbibitionSimulation(SubsequentCycleSimulation):
         pc,
         pore_id_list,
         pore_entry_pressure,
+        pore_trapped,
         throat_id_list,
         throat_entry_pressure,
+        throat_trapped,
+        verbose=False,
     ):
         max_pressure = -np.inf
         max_id = -1
@@ -72,6 +75,8 @@ class ImbibitionSimulation(SubsequentCycleSimulation):
             return None
 
         for id in pore_id_list:
+            if pore_trapped[id]:
+                continue
             pressure = pore_entry_pressure[id]
             if pressure > max_pressure:
                 max_pressure = pressure
@@ -79,30 +84,43 @@ class ImbibitionSimulation(SubsequentCycleSimulation):
                 max_type = PORE
 
         for id in throat_id_list:
+            if throat_trapped[id]:
+                continue
             pressure = throat_entry_pressure[id]
             if pressure > max_pressure:
                 max_pressure = pressure
                 max_id = id
                 max_type = THROAT
 
-        return (max_type, max_id, min(max_pressure, pc))
+        if max_id != -1:
+            if verbose:
+                print("  Selected element: ", "pore" if max_type == PORE else "throat", max_id, " with PC: ", max_pressure)
+            return (max_type, max_id, min(max_pressure, pc))
+        else:
+            return None
 
-    def _update_element_filled_geometry(self, pc, element):
-        self.__update_element_pinned_hinging_contact_angles(element.type, element.id, pc)
-        self.__update_element_pinned_b(element.type, element.id, pc)
-        element.corner_oil_layer = calculate_oil_layer(
-            element.advancing_contact_angle, element.beta, element.n_corners, pc
+    def _update_element_filled_geometry(self, pc, element, element_id, verbose=False):
+        self._update_element_pinned_hinging_contact_angles(element.type, element_id, pc)
+        self._update_element_pinned_b(element.type, element_id, pc)
+        element.set_corner_oil_layer(
+            element_id,
+            calculate_oil_layer(
+                element.get_advancing_contact_angle(element_id),
+                element.get_beta(element_id),
+                element.get_n_corners(element_id),
+                pc,
+            ),
         )
-        self.__update_oil_layer_element(element.type, element.id, pc)
+        self._update_oil_layer_element(element.type, element_id, pc)
 
-        self.__update_element_bo(element.type, element.id, pc)
-        self.__check_water_layer(element.type, element.id)
-        self._update_element_hinging_contact_angles(element.type, element.id, pc)
-        self.__update_element_b(element.type, element.id, pc)
+        self._update_element_bo(element.type, element_id, pc)
+        self._check_water_layer(element.type, element_id)
+        self._update_element_hinging_contact_angles(element.type, element_id, pc, verbose=verbose)
+        self._update_element_b(element.type, element_id, pc)
 
-        return super()._update_element_filled_geometry(pc, element)
+        return super()._update_element_filled_geometry(pc, element, element_id, verbose=verbose)
 
-    def __update_element_pinned_b(self, element_type, id, pc):
+    def _update_element_pinned_b(self, element_type, id, pc):
         if element_type == PORE:
             element = self.network.pn_core.pore
         else:
@@ -122,7 +140,7 @@ class ImbibitionSimulation(SubsequentCycleSimulation):
             pc,
         )
 
-    def __update_element_bo(self, element_type, id, pc):
+    def _update_element_bo(self, element_type, id, pc):
         if element_type == PORE:
             element = self.network.pn_core.pore
         else:
@@ -137,7 +155,7 @@ class ImbibitionSimulation(SubsequentCycleSimulation):
             pc,
         )
 
-    def __update_oil_layer_element(self, element_type, id, pc):
+    def _update_oil_layer_element(self, element_type, id, pc):
         if element_type == PORE:
             element = self.network.pn_core.pore
         else:
@@ -151,7 +169,7 @@ class ImbibitionSimulation(SubsequentCycleSimulation):
             pc,
         )
 
-    def __check_water_layer(self, element_type, id):
+    def _check_water_layer(self, element_type, id):
         if element_type == PORE:
             element = self.network.pn_core.pore
         else:
@@ -162,7 +180,7 @@ class ImbibitionSimulation(SubsequentCycleSimulation):
             element.oil_filled[id],
         )
 
-    def __update_element_pinned_hinging_contact_angles(self, element_type, id, pc):
+    def _update_element_pinned_hinging_contact_angles(self, element_type, id, pc):
         if element_type == PORE:
             element_data = self.network.pn_core.pore
         else:
@@ -177,7 +195,7 @@ class ImbibitionSimulation(SubsequentCycleSimulation):
             element_data.hinging_contact_angle[id],
         )
 
-    def __update_element_b(self, element_type, id, pc):
+    def _update_element_b(self, element_type, id, pc):
         if element_type == PORE:
             element = self.network.pn_core.pore
         else:

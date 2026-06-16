@@ -1,9 +1,7 @@
 import numpy as np
-import openpnm as op
-from PySide2 import QtCore, QtGui, QtTest, QtWidgets
-import pyqtgraph as pg
 
 from py_pore_flow.graphic.manual_simulation import ElementWidget
+from py_pore_flow.network.network import PoreNetwork
 from py_pore_flow.simulation.simulation import StepSimulation
 
 
@@ -69,7 +67,7 @@ class GraphicalTests:
         self.test_display.close()
 
     def oil_layer(self):
-        pn = op.network.Network()
+        pn = PoreNetwork()
         pn_dict = {
             "throat.conns": np.array([[0, 1]]),
             "throat.radius": np.array([1.0e-05]),
@@ -117,7 +115,7 @@ class GraphicalTests:
         self.test_display.update_pc(-15000, 1000)
 
     def snap_off_water_layer(self):
-        pn = op.network.Network()
+        pn = PoreNetwork()
         pn_dict = {
             "throat.conns": np.array([[0, 1]]),
             "throat.radius": np.array([1.0e-05]),
@@ -167,7 +165,7 @@ class GraphicalTests:
         self.test_display.update_pc(1546, 2000)
 
     def collapse_oil_layer(self):
-        pn = op.network.Network()
+        pn = PoreNetwork()
         pn_dict = {
             "throat.conns": np.array([[0, 1]]),
             "throat.radius": np.array([1.0e-05]),
@@ -218,7 +216,7 @@ class GraphicalTests:
         self.test_display.update_pc(-3522, 1000)
 
     def snap_off_2nd_drainage(self):
-        pn = op.network.Network()
+        pn = PoreNetwork()
         pn_dict = {
             "throat.conns": np.array([[0, 1]]),
             "throat.radius": np.array([1.0e-05]),
@@ -273,7 +271,7 @@ class GraphicalTests:
         self.test_display.update_pc(2277, 1000)
 
     def snap_off_2nd_drainage_2(self):
-        pn = op.network.Network()
+        pn = PoreNetwork()
         pn_dict = {
             "throat.conns": np.array([[0, 1]]),
             "throat.radius": np.array([1.0e-05]),
@@ -331,7 +329,7 @@ class GraphicalTests:
         self.test_display.update_pc(-191, 1000)
 
     def water_layer_2nd_drainage(self):
-        pn = op.network.Network()
+        pn = PoreNetwork()
         pn_dict = {
             "throat.conns": np.array([[0, 1]]),
             "throat.radius": np.array([1.0e-05]),
@@ -382,6 +380,8 @@ class GraphicalTests:
 
 
 if __name__ == "__main__":
+    from PySide2 import QtCore, QtGui, QtTest, QtWidgets
+    import pyqtgraph as pg  
     app = QtWidgets.QApplication([])
     graphical_test = GraphicalTests()
     QtCore.QTimer.singleShot(1, graphical_test.run)

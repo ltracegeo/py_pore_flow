@@ -70,7 +70,13 @@ def calculate_imbibition_piston_like_displacement_pc_network(
 
 @njit(cache=True)
 def calculate_imbibition_piston_like_displacement_pc_element(
-    shape_factor, radius, advancing_contact_angle, receding_contact_angle, beta, n_corners, Rmin
+    shape_factor, 
+    radius, 
+    advancing_contact_angle, 
+    receding_contact_angle, 
+    beta, 
+    n_corners, 
+    Rmin,
 ):
     b = np.empty(n_corners, np.float64)
     theta_h = np.empty(n_corners, np.float64)
@@ -185,15 +191,23 @@ PORE_BODY_FILLING_STRATEGY = {
 
 
 @njit(cache=True)
-def calculate_pore_body_filling_pc(strategy, r, theta_a, oil_filled_throats_n, throats_radii, G):
+def calculate_pore_body_filling_pc(strategy, r, theta_a, oil_filled_throats_n, throats_radii, G, verbose=False):
     if strategy == BLUNT1:
-        return calculate_pore_body_filling_blunt1_pc(r, theta_a, oil_filled_throats_n, throats_radii, G)
+        pc = calculate_pore_body_filling_blunt1_pc(r, theta_a, oil_filled_throats_n, throats_radii, G)
+        if verbose: print("      Body-filling (BLUNT1): r=", r, " theta_a=", theta_a, " n=", oil_filled_throats_n, " -> Pc=", pc)
+        return pc
     elif strategy == BLUNT2:
-        return calculate_pore_body_filling_blunt2_pc(r, theta_a, oil_filled_throats_n, throats_radii, G)
+        pc = calculate_pore_body_filling_blunt2_pc(r, theta_a, oil_filled_throats_n, throats_radii, G)
+        if verbose: print("      Body-filling (BLUNT2): r=", r, " theta_a=", theta_a, " n=", oil_filled_throats_n, " -> Pc=", pc)
+        return pc
     elif strategy == OREN1:
-        return calculate_pore_body_filling_oren1_pc(r, theta_a, oil_filled_throats_n, throats_radii, G)
+        pc = calculate_pore_body_filling_oren1_pc(r, theta_a, oil_filled_throats_n, throats_radii, G)
+        if verbose: print("      Body-filling (OREN1): r=", r, " theta_a=", theta_a, " n=", oil_filled_throats_n, " throats_radii=", throats_radii, " -> Pc=", pc)
+        return pc
     else:
-        return calculate_pore_body_filling_oren2_pc(r, theta_a, oil_filled_throats_n, throats_radii, G)
+        pc = calculate_pore_body_filling_oren2_pc(r, theta_a, oil_filled_throats_n, throats_radii, G)
+        if verbose: print("      Body-filling (OREN2): r=", r, " theta_a=", theta_a, " n=", oil_filled_throats_n, " throats_radii=", throats_radii, " G=", G, " -> Pc=", pc)
+        return pc
 
 
 @njit(cache=True)

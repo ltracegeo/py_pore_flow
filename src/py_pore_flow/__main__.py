@@ -9,16 +9,15 @@ import os
 
 import numpy as np
 import openpnm
-from PySide2 import QtWidgets
 
 import py_pore_flow as ppf
-from py_pore_flow.graphic.manual_simulation import ManualSimulationPlot
-from py_pore_flow.graphic.plot_krel import plot_krel
+from py_pore_flow.network.network import PoreNetwork
 from py_pore_flow.simulation.simulation import StepSimulation
 
 
+
 def print_props():
-    pn = openpnm.io.network_from_statoil("tests/resources/statoil", "a")
+    pn = PoreNetwork.from_openpnm(openpnm.io.network_from_statoil("tests/resources/statoil", "a"))
     print(pn.props())
 
 
@@ -36,19 +35,19 @@ def load_multiscale_values_from_dir(directory, network_name, pn):
 
     num_pores = len(pn["pore.all"])
     num_throats = len(pn["throat.all"])
-    pore_N = np.full(num_pores, 1.0, dtype=np.float64)
-    throat_N = np.full(num_throats, 1.0, dtype=np.float64)
+    pore_number_of_capilaries = np.full(num_pores, 1.0, dtype=np.float64)
+    throat_number_of_capilaries = np.full(num_throats, 1.0, dtype=np.float64)
     for line in node3_content.strip().splitlines():
         pid_str, N_str = line.split()[:2]
         pid = int(pid_str)
-        pore_N[pid - 1] = float(N_str)
+        pore_number_of_capilaries[pid - 1] = float(N_str)
     for line in link3_content.strip().splitlines():
         parts = line.split()
         tid = int(parts[0])
         if tid <= num_throats:
-            throat_N[tid - 1] = float(parts[3])
+            throat_number_of_capilaries[tid - 1] = float(parts[3])
 
-    return pore_N, throat_N
+    return pore_number_of_capilaries, throat_number_of_capilaries
 
 
 def run(
@@ -65,7 +64,9 @@ def run(
     sample_directory = Path(sample_directory).as_posix()
     if enable_profiling:
         prof = cProfile.Profile()
-        prof.run(f'run_simulation("{sample_directory}", {{}}, {manual}, {generate_vtu}, {debug})')
+        prof.run(
+            f'run_simulation("{sample_directory}", {{}}, {manual}, {generate_vtu}, {debug}, show_final_plot={show_final_plot})'
+        )
         prof.dump_stats("output.prof")
     else:
         run_simulation(
@@ -94,17 +95,17 @@ def run_simulation(
 ):
     network_name = ""
     my_path = Path(directory_path)
-    pattern = re.compile("(\S+)_node1.dat")
+    pattern = re.compile(r"(\S+)_node1.dat")
     for filepath in my_path.iterdir():
         re_match = pattern.match(filepath.name)
         if re_match:
             network_name = re_match[1]
 
-    pn = openpnm.io.network_from_statoil(directory_path, network_name)
+    pn = PoreNetwork.from_openpnm(openpnm.io.network_from_statoil(directory_path, network_name))
 
-    pore_N, throat_N = load_multiscale_values_from_dir(directory_path, network_name, pn)
-    if pore_N is not None and throat_N is not None:
-        pn["pore.N"], pn["throat.N"] = pore_N, throat_N
+    pore_number_of_capilaries, throat_number_of_capilaries = load_multiscale_values_from_dir(directory_path, network_name, pn)
+    if pore_number_of_capilaries is not None and throat_number_of_capilaries is not None:
+        pn["pore.number_of_capilaries"], pn["throat.number_of_capilaries"] = pore_number_of_capilaries, throat_number_of_capilaries
 
     if not parameters:
         try:
@@ -130,6 +131,9 @@ def run_simulation(
 
 
 def manual_simulation(pn, parameters):
+    from py_pore_flow.graphic.manual_simulation import ManualSimulationPlot
+    from PySide2 import QtWidgets
+
     simulation = ManualSimulationPlot(pn, parameters)
 
     app = QtWidgets.QApplication([])
@@ -170,6 +174,8 @@ def automatic_simulation(
     print(f"Time elapsed: {time_elapsed}")
 
     if show_final_plot:
+        from py_pore_flow.graphic.plot_krel import plot_krel
+
         plot_krel(cycle, Sw, Krw, Kro)
 
 

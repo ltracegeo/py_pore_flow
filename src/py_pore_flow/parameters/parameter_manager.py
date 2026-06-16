@@ -69,6 +69,7 @@ DEFAULT_PARAMETERS = {
     "skip_2nd_drainage": False,
     "enforced_swi_1": 0.0,
     "enforced_swi_2": 1.0,
+    "batch_invasions": "none",
 }
 
 
@@ -147,6 +148,10 @@ class ParameterManager:
         return self.parameters_dict["skip_2nd_drainage"]
 
     @property
+    def batch_invasions(self):
+        return self.parameters_dict["batch_invasions"]
+
+    @property
     def enforced_swi_1(self):
         return self.parameters_dict["enforced_swi_1"]
 
@@ -155,8 +160,8 @@ class ParameterManager:
         return self.parameters_dict["enforced_swi_2"]
 
     def generate_contact_angles(self, network):
-        self.__update_cas(network, "initial")
-        self.__update_cas(network, "equilibrium")
+        self._update_cas(network, "initial")
+        self._update_cas(network, "equilibrium")
 
     def update_initial_cas(self, network):
         network.pn_core.pore.advancing_contact_angle[:] = network.pn_core.pore.initial_advancing_ca
@@ -186,24 +191,24 @@ class ParameterManager:
             network.pn_core.throat.changed_wettability
         ] = network.pn_core.throat.equilibrium_receding_ca[network.pn_core.throat.changed_wettability]
 
-    def __update_cas(self, network, prefix):
-        advancing_ca_array, receding_ca_array = self.__generate_cas(
+    def _update_cas(self, network, prefix):
+        advancing_ca_array, receding_ca_array = self._generate_cas(
             prefix, len(network.pn_core.pore.radius), network.pn_core.pore.radius
         )
         network.pn_core[f"pore.{prefix}_advancing_ca"] = advancing_ca_array
         network.pn_core[f"pore.{prefix}_receding_ca"] = receding_ca_array
 
-        advancing_ca_array, receding_ca_array = self.__generate_cas(
+        advancing_ca_array, receding_ca_array = self._generate_cas(
             prefix, len(network.pn_core.throat.radius), network.pn_core.throat.radius
         )
         network.pn_core[f"throat.{prefix}_advancing_ca"] = advancing_ca_array
         network.pn_core[f"throat.{prefix}_receding_ca"] = receding_ca_array
 
-    def __generate_cas(self, prefix, size, radius_array):
-        intrinsic_ca_array = self.__generate_intrinsic_cas(prefix, size, radius_array)
+    def _generate_cas(self, prefix, size, radius_array):
+        intrinsic_ca_array = self._generate_intrinsic_cas(prefix, size, radius_array)
         model_class = self.parameters_dict[f"{prefix}_ca_model"]
         separation_angle = math.radians(self.parameters_dict[f"{prefix}_ca_separation"])
-        advancing_ca_array, receding_ca_array = self.__calculate_cas(
+        advancing_ca_array, receding_ca_array = self._calculate_cas(
             intrinsic_ca_array,
             model_class,
             separation_angle,
@@ -212,11 +217,11 @@ class ParameterManager:
         # ParameterManager.show_points(np.degrees(intrinsic_ca_array), np.degrees(receding_ca_array), np.degrees(advancing_ca_array))
         return advancing_ca_array, receding_ca_array
 
-    def __generate_intrinsic_cas(self, prefix, size, radius_array):
+    def _generate_intrinsic_cas(self, prefix, size, radius_array):
         if prefix == "equilibrium":
             fraction = self.parameters_dict[f"second_ca_fraction"]
             if fraction == 0:
-                intrisic_ca_array = self.__generate_fraction_cas("equilibrium", size, radius_array)
+                intrisic_ca_array = self._generate_fraction_cas("equilibrium", size, radius_array)
             else:
                 fraction_size = round(size * fraction)
                 indexes = list(range(size))
@@ -224,23 +229,23 @@ class ParameterManager:
                 first_dist_indexes = indexes[fraction_size:]
                 second_dist_indexes = indexes[0:fraction_size]
                 intrisic_ca_array = np.empty(size, dtype=np.float64)
-                intrisic_ca_array[first_dist_indexes] = self.__generate_fraction_cas(
+                intrisic_ca_array[first_dist_indexes] = self._generate_fraction_cas(
                     "equilibrium", len(first_dist_indexes), radius_array[first_dist_indexes]
                 )
-                intrisic_ca_array[second_dist_indexes] = self.__generate_fraction_cas(
+                intrisic_ca_array[second_dist_indexes] = self._generate_fraction_cas(
                     "second", len(second_dist_indexes), radius_array[second_dist_indexes]
                 )
         else:
-            intrisic_ca_array = self.__generate_fraction_cas(prefix, size, radius_array)
+            intrisic_ca_array = self._generate_fraction_cas(prefix, size, radius_array)
         return intrisic_ca_array
 
-    def __generate_fraction_cas(self, prefix, size, radius_array):
+    def _generate_fraction_cas(self, prefix, size, radius_array):
         center = math.radians(self.parameters_dict[f"{prefix}_ca_center"])
         range = math.radians(self.parameters_dict[f"{prefix}_ca_range"])
         gamma = self.parameters_dict[f"{prefix}_ca_gamma"]
         delta = self.parameters_dict[f"{prefix}_ca_delta"]
         sigma = self.parameters_dict[f"{prefix}_ca_sigma"]
-        intrinsic_ca_array = self.__generate_ca_distribution(
+        intrinsic_ca_array = self._generate_ca_distribution(
             delta,
             gamma,
             sigma,
@@ -254,7 +259,7 @@ class ParameterManager:
         return intrinsic_ca_array
 
     @staticmethod
-    def __generate_ca_distribution(delta, gamma, sigma, center, range, size, radius_array, correlation, distribution):
+    def _generate_ca_distribution(delta, gamma, sigma, center, range, size, radius_array, correlation, distribution):
         if distribution == "weibull":
             reference_ca_array = weibull(size, delta, gamma, center, range)
         elif distribution == "gaussian":
@@ -278,7 +283,7 @@ class ParameterManager:
 
     @staticmethod
     @njit(cache=True)
-    def __calculate_cas(intrinsic_ca_array, model_class, separation_angle):
+    def _calculate_cas(intrinsic_ca_array, model_class, separation_angle):
         if model_class == 1:
             advancing_ca_array = intrinsic_ca_array
             receding_ca_array = intrinsic_ca_array
@@ -349,9 +354,9 @@ class ParameterManager:
         plot_item = win.addPlot(left="quant", bottom="angle")
 
         hist, edges = np.histogram(data, bins=90)
-        curve_item0 = pg.PlotCurveItem(edges, hist, stepMode=True, pen=pg.mkPen(QtGui.QColor(0, 255, 255), width=2))
+        curve_item0 = pg.PlotCurveItem(edges, hist, stepMode="center", pen=pg.mkPen(QtGui.QColor(0, 255, 255), width=2))
         # hist, edges = np.histogram(data2, bins=50)
-        # curve_item1 = pg.PlotCurveItem(edges, hist, stepMode=True, pen=pg.mkPen(QtGui.QColor(255, 0, 255), width=2))
+        # curve_item1 = pg.PlotCurveItem(edges, hist, stepMode="center", pen=pg.mkPen(QtGui.QColor(255, 0, 255), width=2))
         plot_item.addItem(curve_item0)
         # plot_item.addItem(curve_item1)
 
