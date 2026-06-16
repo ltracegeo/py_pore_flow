@@ -7,7 +7,7 @@ from py_pore_flow.equations.geometry import WATER
 from py_pore_flow.simulation.cycle_simulation import CycleSimulation
 from py_pore_flow.simulation.trap_checker import TrapChecker
 from py_pore_flow.simulation.clusters import PhaseConnectionChecker
-from py_pore_flow.network.network import initialize_pn, PoreNetwork
+from py_pore_flow.network.network import initialize_pn, NetworkManager
 from tests.unit.simulation.resources.simple_network import get_simple_network
 
 
@@ -41,7 +41,7 @@ class TestCycleSimulation(unittest.TestCase):
                 pn[f"{element_type}.water_saturation"] < 1.0
             )
 
-        network = PoreNetwork(pn)
+        network = NetworkManager(pn)
 
         
         cicle_simluation = CycleSimulation(
