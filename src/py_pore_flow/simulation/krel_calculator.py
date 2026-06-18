@@ -192,6 +192,7 @@ class KrelCalculator:
 
         x = np.atleast_1d(spsolve(A_csr, b_array))
         pressure = network_manager.get_pressure_list(x)
+        KrelCalculator._store_flow_rate(pn["pore.flow_rate"], pore_ids, pressure)
         flow_rate = network_manager.get_flow_rate(pressure)
 
         return flow_rate * factor
@@ -231,6 +232,23 @@ class KrelCalculator:
         length = element_max[flow_dimension] - element_min[flow_dimension]
 
         return cross_sectional_area, length
+
+    @staticmethod
+    @njit(cache=True)
+    def _store_flow_rate(array, indices, data):
+        index_count = 0
+        next_index = indices[index_count]
+        for i in range(len(array)):
+            if i == next_index:
+                array[i] = data[index_count]
+                index_count += 1
+                if index_count < indices.size:
+                    next_index = indices[index_count]
+                else:
+                    next_index = -1
+            else:
+                array[i] = -1
+
 
 @njit(cache=True)
 def triple_compare(
