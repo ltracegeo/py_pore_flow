@@ -15,7 +15,7 @@ from py_pore_flow.equations.geometry import (
 import py_pore_flow.consts as c
 from py_pore_flow.equations.entry_pressure import PORE_BODY_FILLING_STRATEGY, calculate_pore_body_filling_pc
 from py_pore_flow.data_structures.sparse_set import SparseSet
-from py_pore_flow.network.network import PORE, THROAT
+from py_pore_flow.network.constants import PISTON_LIKE, PORE, PORE_BODY_FILLING, SNAP_OFF, THROAT
 from py_pore_flow.simulation.cycle_simulation import CycleSimulation
 from py_pore_flow.simulation.saturation_calculator import SaturationCalculator
 from py_pore_flow import log
@@ -50,6 +50,7 @@ class SubsequentCycleSimulation(CycleSimulation):
         element_shape,
         element_snap_off_viability,
         entry_pressure,
+        invasion_method,
         element_snap_off_pc,
         element_trapped_evacuation,
         element_trapped,
@@ -64,6 +65,7 @@ class SubsequentCycleSimulation(CycleSimulation):
                 and not element_trapped[element_id]
             ):
                 entry_pressure[element_id] = element_snap_off_pc[element_id]
+                invasion_method[element_id] = SNAP_OFF
                 snap_off_elements[snap_off_elements_count] = element_id
                 snap_off_elements_count += 1
                 element_imminent_snap_off[element_id] = True
@@ -84,6 +86,7 @@ class SubsequentCycleSimulation(CycleSimulation):
             self.network.pn_core.throat.shape,
             self.network.pn_core.throat.snap_off_viability,
             self.network.pn_core.throat.entry_pressure,
+            self.network.pn_core.throat.invasion_method,
             self.network.pn_core.throat.snap_off_pressure,
             self.network.pn_core.throat.trapped_evacuation,
             self.network.pn_core.throat.trapped,
@@ -101,6 +104,7 @@ class SubsequentCycleSimulation(CycleSimulation):
             self.network.pn_core.pore.shape,
             self.network.pn_core.pore.snap_off_viability,
             self.network.pn_core.pore.entry_pressure,
+            self.network.pn_core.pore.invasion_method,
             self.network.pn_core.pore.snap_off_pressure,
             self.network.pn_core.pore.trapped_evacuation,
             self.network.pn_core.pore.trapped,
@@ -185,6 +189,7 @@ class SubsequentCycleSimulation(CycleSimulation):
             self.use_pore_body_filling,
             self.pore_body_filling_strategy,
             self.phase,
+            self.network.pn_core.pore.invasion_method,
             self.network.pn_core.pore.piston_like_pressure,
             self.network.pn_core.pore.radius,
             self.network.pn_core.pore.shape_factor,
@@ -209,6 +214,7 @@ class SubsequentCycleSimulation(CycleSimulation):
         use_pore_body_filling,
         pore_body_filling_strategy,
         phase,
+        pore_invasion_method,
         pore_piston_like_pressure,
         pore_radius,
         pore_shape_factor,
@@ -227,6 +233,7 @@ class SubsequentCycleSimulation(CycleSimulation):
             if not use_pore_body_filling or pc <= 0:
                 element_pc = pore_piston_like_pressure[pore_id]
                 pore_entry_pressure[pore_id] = element_pc
+                pore_invasion_method[pore_id] = PISTON_LIKE
                 if verbose:
                     print("  Pore ", pore_id, " PC calculation: Piston-like = ", element_pc)
                 continue
@@ -241,6 +248,7 @@ class SubsequentCycleSimulation(CycleSimulation):
             if number_of_filled_neighbors <= 1:
                 element_pc = pore_piston_like_pressure[pore_id]
                 pore_entry_pressure[pore_id] = element_pc
+                pore_invasion_method[pore_id] = PISTON_LIKE
                 if verbose:
                     print("  Pore ", pore_id, " PC calculation: Piston-like = ", element_pc, " (Filled neighbors <= 1)")
             else:
@@ -261,26 +269,31 @@ class SubsequentCycleSimulation(CycleSimulation):
                 if phase == WATER and pore_body_filling_pressure > piston_like_pressure:
                     element_pc = piston_like_pressure
                     pore_entry_pressure[pore_id] = piston_like_pressure
+                    pore_invasion_method[pore_id] = PISTON_LIKE
                 elif phase == OIL and pore_body_filling_pressure < piston_like_pressure:
                     element_pc = piston_like_pressure
                     pore_entry_pressure[pore_id] = piston_like_pressure
+                    pore_invasion_method[pore_id] = PISTON_LIKE
                 else:
                     if pore_imminent_snap_off[pore_id]:
                         if phase == WATER:
                             if pore_body_filling_pressure > pore_entry_pressure[pore_id]:
                                 element_pc = pore_body_filling_pressure
                                 pore_entry_pressure[pore_id] = pore_body_filling_pressure
+                                pore_invasion_method[pore_id] = PORE_BODY_FILLING
                             else:
                                 element_pc = pore_entry_pressure[pore_id]
                         else:
                             if pore_body_filling_pressure < pore_entry_pressure[pore_id]:
                                 element_pc = pore_body_filling_pressure
                                 pore_entry_pressure[pore_id] = pore_body_filling_pressure
+                                pore_invasion_method[pore_id] = PORE_BODY_FILLING
                             else:
                                 element_pc = pore_entry_pressure[pore_id]
                     else:
                         element_pc = pore_body_filling_pressure
                         pore_entry_pressure[pore_id] = pore_body_filling_pressure
+                        pore_invasion_method[pore_id] = PORE_BODY_FILLING
 
                 if verbose:
                     print("  Pore ", pore_id, " PC calculation: Piston-like = ", piston_like_pressure, ", Body-filling = ", pore_body_filling_pressure, " -> Selected = ", element_pc)
@@ -299,6 +312,7 @@ class SubsequentCycleSimulation(CycleSimulation):
         self._njit_update_throat_entry_pc(
             throat_id_list,
             self.network.pn_core.throat.entry_pressure,
+            self.network.pn_core.throat.invasion_method,
             self.network.pn_core.throat.piston_like_pressure,
             self.network.pn_core.throat.in_border,
             verbose=verbose,
@@ -309,6 +323,7 @@ class SubsequentCycleSimulation(CycleSimulation):
     def _njit_update_throat_entry_pc(
         throat_id_list,
         throat_entry_pressure,
+        throat_invasion_method,
         throat_piston_like_pressure,
         throat_in_border,
         verbose=False,
@@ -317,6 +332,7 @@ class SubsequentCycleSimulation(CycleSimulation):
             if throat_in_border[throat_id]:
                 pressure = throat_piston_like_pressure[throat_id]
                 throat_entry_pressure[throat_id] = pressure
+                throat_invasion_method[throat_id] = PISTON_LIKE
                 if verbose:
                     print("  Throat ", throat_id, " PC calculation: Piston-like = ", pressure)
 

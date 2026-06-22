@@ -45,6 +45,7 @@ class ThroatsNetwork(ElementNetwork):
         self.n_corners = pn["throat.n_corners"]
         self.snap_off_viability = pn["throat.snap_off_viability"]
         self.entry_pressure = pn["throat.entry_pressure"]
+        self.invasion_method = pn["throat.invasion_method"]
         self.snap_off_pressure = pn["throat.snap_off_pressure"]
         self.piston_like_pressure = pn["throat.piston_like_pressure"]
         self.oil_layer_collapse_pressure = pn["throat.oil_layer_collapse_pressure"]

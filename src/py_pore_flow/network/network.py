@@ -143,6 +143,7 @@ def initialize_pn(pn: PoreNetwork) -> None:
         pn[f"{element_type}.n_corners"] = int(0)
         pn[f"{element_type}.snap_off_viability"] = True
         pn[f"{element_type}.entry_pressure"] = 0.0
+        pn[f"{element_type}.invasion_method"] = int(-1)
         pn[f"{element_type}.snap_off_pressure"] = 0.0
         pn[f"{element_type}.piston_like_pressure"] = 0.0
         pn[f"{element_type}.oil_layer_collapse_pressure"] = np.empty(

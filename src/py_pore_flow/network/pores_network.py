@@ -41,6 +41,7 @@ class PoresNetwork(ElementNetwork):
         self.n_corners = pn["pore.n_corners"]
         self.snap_off_viability = pn["pore.snap_off_viability"]
         self.entry_pressure = pn["pore.entry_pressure"]
+        self.invasion_method = pn["pore.invasion_method"]
         self.snap_off_pressure = pn["pore.snap_off_pressure"]
         self.piston_like_pressure = pn["pore.piston_like_pressure"]
         self.oil_layer_collapse_pressure = pn["pore.oil_layer_collapse_pressure"]
