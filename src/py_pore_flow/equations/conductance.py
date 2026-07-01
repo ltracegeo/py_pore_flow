@@ -4,7 +4,7 @@ from math import cos, log, pi, sin
 from numba import njit
 import numpy as np
 
-import py_pore_flow.constants as c
+import py_pore_flow.consts as c
 from py_pore_flow.equations.geometry import CIRCLE, TRIANGLE, WATER, calculate_dimensionless_layer_area
 
 

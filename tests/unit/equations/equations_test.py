@@ -28,10 +28,9 @@ from py_pore_flow.equations.conductance import (
     calculate_conductance,
 )
 from py_pore_flow import global_random
-from py_pore_flow.network.network import initialize_pn, Network
 from py_pore_flow.parameters.parameter_manager import ParameterManager
 from py_pore_flow.simulation.simulation import calculate_initial_values
-from py_pore_flow import constants as c
+from py_pore_flow import consts as c
 
 
 class TestEquations(unittest.TestCase):

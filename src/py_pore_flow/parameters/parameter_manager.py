@@ -4,7 +4,7 @@ from math import pi
 from numba import njit
 import numpy as np
 
-from py_pore_flow import constants
+from py_pore_flow import consts
 from py_pore_flow import global_random
 from py_pore_flow.global_random import random, weibull, gaussian
 
@@ -84,20 +84,20 @@ class ParameterManager:
             seed = self.parameters_dict["seed"]
         global_random.set_seed(seed)
 
-        constants.pw = self.parameters_dict["water_density"]
-        constants.po = self.parameters_dict["oil_density"]
-        constants.sigma = self.parameters_dict["interfacial_tension"]
-        constants.miw = self.parameters_dict["water_viscosity"]
-        constants.mio = self.parameters_dict["oil_viscosity"]
+        consts.pw = self.parameters_dict["water_density"]
+        consts.po = self.parameters_dict["oil_density"]
+        consts.sigma = self.parameters_dict["interfacial_tension"]
+        consts.miw = self.parameters_dict["water_viscosity"]
+        consts.mio = self.parameters_dict["oil_viscosity"]
 
-        constants.use_pore_fill = self.parameters_dict["use_pore_fill"]
-        constants.pore_fill_alg = self.parameters_dict["pore_fill_algorithm"]
-        constants.pore_fill_weights[0] = self.parameters_dict["pore_fill_weight_a1"]
-        constants.pore_fill_weights[1] = self.parameters_dict["pore_fill_weight_a2"]
-        constants.pore_fill_weights[2] = self.parameters_dict["pore_fill_weight_a3"]
-        constants.pore_fill_weights[3] = self.parameters_dict["pore_fill_weight_a4"]
-        constants.pore_fill_weights[4] = self.parameters_dict["pore_fill_weight_a5"]
-        constants.pore_fill_weights[5] = self.parameters_dict["pore_fill_weight_a6"]
+        consts.use_pore_fill = self.parameters_dict["use_pore_fill"]
+        consts.pore_fill_alg = self.parameters_dict["pore_fill_algorithm"]
+        consts.pore_fill_weights[0] = self.parameters_dict["pore_fill_weight_a1"]
+        consts.pore_fill_weights[1] = self.parameters_dict["pore_fill_weight_a2"]
+        consts.pore_fill_weights[2] = self.parameters_dict["pore_fill_weight_a3"]
+        consts.pore_fill_weights[3] = self.parameters_dict["pore_fill_weight_a4"]
+        consts.pore_fill_weights[4] = self.parameters_dict["pore_fill_weight_a5"]
+        consts.pore_fill_weights[5] = self.parameters_dict["pore_fill_weight_a6"]
 
     @property
     def pc_initial(self):

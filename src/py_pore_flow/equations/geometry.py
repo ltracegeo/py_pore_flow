@@ -3,7 +3,7 @@ from math import acos, asin, atan, cos, pi, sin, sqrt, tan
 from numba import njit
 import numpy as np
 
-import py_pore_flow.constants as c
+import py_pore_flow.consts as c
 
 TRIANGLE = 0
 SQUARE = 1

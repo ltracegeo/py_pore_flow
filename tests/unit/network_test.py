@@ -4,7 +4,7 @@ from numpy.testing import assert_almost_equal, assert_equal
 import openpnm as op
 
 from py_pore_flow import global_random
-from py_pore_flow.network.network import initialize_pn, Network
+from py_pore_flow.network.network import initialize_pn, PoreNetwork
 from py_pore_flow.parameters.parameter_manager import ParameterManager
 from py_pore_flow.simulation.simulation import calculate_initial_values
 
@@ -19,7 +19,7 @@ class TestNetwork(unittest.TestCase):
         global_random.set_seed(0)
         cls.pn = op.io.network_from_statoil("tests/resources/a", "a")
         initialize_pn(cls.pn)
-        cls.network = Network(cls.pn)
+        cls.network = PoreNetwork(cls.pn)
         parameter_manager = ParameterManager()
         parameter_manager.update_initial_cas(cls.network)
         calculate_initial_values(cls.network)

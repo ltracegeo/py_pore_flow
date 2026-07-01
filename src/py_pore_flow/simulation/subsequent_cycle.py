@@ -12,7 +12,7 @@ from py_pore_flow.equations.geometry import (
     calculate_r,
     check_water_layer_network,
 )
-import py_pore_flow.constants as c
+import py_pore_flow.consts as c
 from py_pore_flow.equations.entry_pressure import PORE_BODY_FILLING_STRATEGY, calculate_pore_body_filling_pc
 from py_pore_flow.data_structures.sparse_set import SparseSet
 from py_pore_flow.network.network import PORE, THROAT

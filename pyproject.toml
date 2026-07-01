@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "py_pore_flow"
 version = "1.2.0"
@@ -9,7 +13,7 @@ dependencies = [
     "PySide2 @ https://github.com/ltracegeo/pyside-setup/releases/download/v5.15.12.1/pyside2-5.15.12.1-5.15.2-cp312-cp312-linux_x86_64.whl ; platform_system == \"Linux\"",
     "PySide2 @ https://github.com/ltracegeo/pyside-setup/releases/download/v5.15.12.1/pyside2-5.15.12.1-5.15.2-cp312-cp312-win_amd64.whl ; platform_system == \"Windows\"",
     "pyflowsolver",
-    "pyqtgraph @ git+https://github.com/ltracegeo/pyqtgraph.git@pyqtgraph-0.12.4.2",
+    "pyqtgraph @ git+https://github.com/ltracegeo/pyqtgraph.git@ltrace-0.14.0",
     "pypardiso==0.4.3",
     "scipy==1.13.1",
     "shiboken2 @ https://github.com/ltracegeo/pyside-setup/releases/download/v5.15.12.1/shiboken2-5.15.12.1-5.15.2-cp312-cp312-linux_x86_64.whl ; platform_system == \"Linux\"",
