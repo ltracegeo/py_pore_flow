@@ -12,7 +12,7 @@ from py_pore_flow.equations.geometry import (
     calculate_network_hinging_contact_angle,
     calculate_network_outter_hinging_contact_angle,
 )
-import py_pore_flow.constants as c
+import py_pore_flow.consts as c
 from py_pore_flow.equations.entry_pressure import PORE_BODY_FILLING_STRATEGY
 from py_pore_flow.network.network import PORE, THROAT
 from py_pore_flow.simulation.subsequent_cycle import SubsequentCycleSimulation

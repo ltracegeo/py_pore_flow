@@ -3,7 +3,7 @@ from math import acos, cos, pi, asin, sin, sqrt, tan
 from numba import njit
 import numpy as np
 
-import py_pore_flow.constants as c
+import py_pore_flow.consts as c
 from py_pore_flow.equations.geometry import CIRCLE, calculate_corner_C, MAX_NUMBER_OF_CORNERS
 
 
