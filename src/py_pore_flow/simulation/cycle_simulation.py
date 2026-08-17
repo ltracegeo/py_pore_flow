@@ -1,6 +1,7 @@
 from abc import abstractmethod
 import numba as nb
 import numpy as np
+import py_pore_flow.consts as c
 from py_pore_flow.equations.geometry import (
     WATER,
     OIL,
@@ -818,6 +819,7 @@ class CycleSimulation:
             element_data.receding_contact_angle[id],
             element_data.advancing_contact_angle[id],
             element_data.hinging_contact_angle[id],
+            c.sigma,
             verbose=verbose,
         )
 

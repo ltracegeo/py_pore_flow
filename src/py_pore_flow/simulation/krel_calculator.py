@@ -15,6 +15,7 @@ from pyflowsolver import NetworkManager as FlowNetworkManager
 from scipy.sparse import coo_matrix, csr_matrix
 from scipy.sparse.csgraph import connected_components
 
+import py_pore_flow.consts as c
 from py_pore_flow.equations.geometry import WATER, OIL
 from py_pore_flow.equations.conductance import calculate_absolute_permeability
 from py_pore_flow.simulation.flow_rate_calculator import FlowRateCalculator
@@ -198,7 +199,7 @@ class KrelCalculator:
     def _calculate_K(self):
         A, L = self._get_network_size(self.network.pn)
         qtsp = self.singlephase_flow_rate[WATER]
-        return calculate_absolute_permeability(WATER, qtsp, A, L, 101325, 0)
+        return calculate_absolute_permeability(WATER, qtsp, A, L, 101325, 0, c.miw, c.mio)
 
     @staticmethod
     def _get_network_size(pn):

@@ -1,6 +1,7 @@
 import numba as nb
 import numpy as np
 
+import py_pore_flow.consts as c
 from py_pore_flow import log
 from py_pore_flow.equations.geometry import (
     OIL,
@@ -133,6 +134,7 @@ class DrainageSaturation(SaturationCalculator):
             pc,
             self.network.pn_core.pore.area,
             self.network.pn_core.pore.oil_filled,
+            c.sigma,
             verbose=verbose,
         )
 
@@ -143,6 +145,7 @@ class DrainageSaturation(SaturationCalculator):
             pc,
             self.network.pn_core.throat.cross_sectional_area,
             self.network.pn_core.throat.oil_filled,
+            c.sigma,
             verbose=verbose,
         )
 
@@ -160,5 +163,6 @@ class DrainageSaturation(SaturationCalculator):
             pc,
             area,
             element_data.oil_filled[id],
+            c.sigma,
             verbose=verbose,
         )
