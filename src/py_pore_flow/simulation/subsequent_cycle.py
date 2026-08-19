@@ -195,6 +195,8 @@ class SubsequentCycleSimulation(CycleSimulation):
             pore_limiting_contact_angle,
             self.network.pn_core.throat.radius,
             throat_receding_phase_filled,
+            c.sigma,
+            c.pore_fill_weights,
             verbose=verbose,
         )
 
@@ -217,6 +219,8 @@ class SubsequentCycleSimulation(CycleSimulation):
         pore_limiting_contact_angle,
         throat_radius,
         throat_receding_phase_filled,
+        c_sigma,
+        c_pore_fill_weights,
         verbose=False,
     ):
         for pore_id in pore_id_list:
@@ -249,8 +253,8 @@ class SubsequentCycleSimulation(CycleSimulation):
                     number_of_filled_neighbors,
                     throats_radii,
                     pore_shape_factor[pore_id],
-                    c.sigma,
-                    c.pore_fill_weights,
+                    c_sigma,
+                    c_pore_fill_weights,
                 )
                 piston_like_pressure = pore_piston_like_pressure[pore_id]
 
