@@ -53,25 +53,25 @@ class TestEquations(unittest.TestCase):
         C_r = 2.4947709827738445
         A = 3.261628660660103e-10
         oil_filled = True
-        Sw, So = calculate_drainage_element_saturation(TRIANGLE, C_r, Pc, A, oil_filled)
+        Sw, So = calculate_drainage_element_saturation(TRIANGLE, C_r, Pc, A, oil_filled, c.sigma)
         self.assertEqual(Sw, 0.27535861596728156)
 
         C_r = 0.8584073464102069
         A = 4.2160675784154405e-10
         oil_filled = True
-        Sw, So = calculate_drainage_element_saturation(SQUARE, C_r, Pc, A, oil_filled)
+        Sw, So = calculate_drainage_element_saturation(SQUARE, C_r, Pc, A, oil_filled, c.sigma)
         self.assertEqual(Sw, 0.07329736512995329)
 
         C_r = 0.0
         A = 1.321051480799487e-10
         oil_filled = True
-        Sw, So = calculate_drainage_element_saturation(CIRCLE, C_r, Pc, A, oil_filled)
+        Sw, So = calculate_drainage_element_saturation(CIRCLE, C_r, Pc, A, oil_filled, c.sigma)
         self.assertEqual(Sw, 0.0)
 
         C_r = 0.0
         A = 1.321051480799487e-10
         oil_filled = False
-        Sw, So = calculate_drainage_element_saturation(CIRCLE, C_r, Pc, A, oil_filled)
+        Sw, So = calculate_drainage_element_saturation(CIRCLE, C_r, Pc, A, oil_filled, c.sigma)
         self.assertEqual(Sw, 1.0)
 
     def test_drainage_entry_pc(self):
@@ -80,7 +80,7 @@ class TestEquations(unittest.TestCase):
         receding_contact_angle = 0.014092640613489886
         shape = 0
         beta = np.array([0.35483625, 0.52387179, 0.69208829])
-        pc = calculate_drainage_pc(shape_factor, radius, receding_contact_angle, shape, beta, len(beta))
+        pc = calculate_drainage_pc(shape_factor, radius, receding_contact_angle, shape, beta, len(beta), c.sigma)
         self.assertEqual(pc, 6887.581229783431)
 
         shape_factor = 0.0490196078431372
@@ -88,7 +88,7 @@ class TestEquations(unittest.TestCase):
         receding_contact_angle = 0.013387853642248211
         shape = 1
         beta = np.array([0.35483625, 0.52387179, 0.69208829, 0.4])
-        pc = calculate_drainage_pc(shape_factor, radius, receding_contact_angle, shape, beta, len(beta))
+        pc = calculate_drainage_pc(shape_factor, radius, receding_contact_angle, shape, beta, len(beta), c.sigma)
         self.assertEqual(pc, 5034.958069238447)
 
         shape_factor = 1.0 / (4.0 * np.pi)
@@ -96,7 +96,7 @@ class TestEquations(unittest.TestCase):
         receding_contact_angle = 0.01630421505269301
         shape = 2
         beta = np.array([0.35483625])
-        pc = calculate_drainage_pc(shape_factor, radius, receding_contact_angle, shape, beta, len(beta))
+        pc = calculate_drainage_pc(shape_factor, radius, receding_contact_angle, shape, beta, len(beta), c.sigma)
         self.assertEqual(pc, 2 * c.sigma * np.cos(receding_contact_angle) / radius)
 
     def test_imbibition_entry_pc(self):
@@ -118,6 +118,7 @@ class TestEquations(unittest.TestCase):
             beta,
             n_corners=len(beta),
             Rmin=Rmin,
+            c_sigma=c.sigma,
         )
         self.assertEqual(entry_pc, 6600.634402546918)
 
@@ -137,6 +138,7 @@ class TestEquations(unittest.TestCase):
             beta,
             n_corners=len(beta),
             Rmin=Rmin,
+            c_sigma=c.sigma,
         )
         self.assertEqual(entry_pc, 5001.326695864241)
 
@@ -156,6 +158,7 @@ class TestEquations(unittest.TestCase):
             beta,
             n_corners=len(beta),
             Rmin=Rmin,
+            c_sigma=c.sigma,
         )
         self.assertEqual(entry_pc, 7477.34261076128)
 
@@ -170,25 +173,25 @@ class TestEquations(unittest.TestCase):
         # two moving menisci
         advancing_ca = 0.3
         receding_ca = 0.3
-        snap_off_pc = calculate_snap_off_pc_element(radius, beta, advancing_ca, receding_ca, n_corners, Rmin, h)
+        snap_off_pc = calculate_snap_off_pc_element(radius, beta, advancing_ca, receding_ca, n_corners, Rmin, h, c.sigma, c.pw, c.po, c.g)
         self.assertEqual(snap_off_pc, 24657.452515046127)
 
         # single moving menisci
         advancing_ca = 0.3
         receding_ca = 0.6
-        snap_off_pc = calculate_snap_off_pc_element(radius, beta, advancing_ca, receding_ca, n_corners, Rmin, h)
+        snap_off_pc = calculate_snap_off_pc_element(radius, beta, advancing_ca, receding_ca, n_corners, Rmin, h, c.sigma, c.pw, c.po, c.g)
         self.assertEqual(snap_off_pc, 51933.37546591764)
 
         # oil-wet 1
         advancing_ca = 1.3
         receding_ca = 0.6
-        snap_off_pc = calculate_snap_off_pc_element(radius, beta, advancing_ca, receding_ca, n_corners, Rmin, h)
+        snap_off_pc = calculate_snap_off_pc_element(radius, beta, advancing_ca, receding_ca, n_corners, Rmin, h, c.sigma, c.pw, c.po, c.g)
         self.assertEqual(snap_off_pc, -726.4572419676624)
 
         # oil-wet 2
         advancing_ca = 2.9
         receding_ca = 0.3
-        snap_off_pc = calculate_snap_off_pc_element(radius, beta, advancing_ca, receding_ca, n_corners, Rmin, h)
+        snap_off_pc = calculate_snap_off_pc_element(radius, beta, advancing_ca, receding_ca, n_corners, Rmin, h, c.sigma, c.pw, c.po, c.g)
         self.assertEqual(snap_off_pc, -6303.996350456403)
 
     def test_b(self):
@@ -197,13 +200,13 @@ class TestEquations(unittest.TestCase):
         beta = np.array([0.35483625, 0.52387179, 0.69208829])
         n_corners = len(beta)
         receding_contact_angle = np.full(n_corners, 0.014092640613489886)
-        b = calculate_drainage_b(beta, receding_contact_angle, n_corners, 1000, max_pc)
+        b = calculate_drainage_b(beta, receding_contact_angle, n_corners, 1000, max_pc, c.sigma)
         assert_almost_equal(b[:n_corners], np.array([2.0134182e-06, 1.2875214e-06, 8.9420597e-07]))
 
         beta = np.array([0.78539816, 0.78539816, 0.78539816, 0.78539816])
         n_corners = len(beta)
         receding_contact_angle = np.full(n_corners, 0.013387853642248211)
-        b = calculate_drainage_b(beta, receding_contact_angle, n_corners, 1000, max_pc)
+        b = calculate_drainage_b(beta, receding_contact_angle, n_corners, 1000, max_pc, c.sigma)
         assert_almost_equal(b[:n_corners], np.array([7.398922e-07, 7.398922e-07, 7.398922e-07, 7.398922e-07]))
 
     def test_hinging_contact_angle(self):
@@ -216,7 +219,7 @@ class TestEquations(unittest.TestCase):
         advancing_contact_angle = np.full(n_corners, 0.014)
         theta_h = np.zeros(n_corners)
         calculate_hinging_contact_angle(
-            pc, beta, b, n_corners, receding_contact_angle, advancing_contact_angle, theta_h
+            pc, beta, b, n_corners, receding_contact_angle, advancing_contact_angle, theta_h, c.sigma
         )
         assert_almost_equal(theta_h, np.array([0.014, 0.014, 0.014]))
 
@@ -227,7 +230,7 @@ class TestEquations(unittest.TestCase):
         advancing_contact_angle = np.full(n_corners, 0.014)
         theta_h = np.zeros(n_corners)
         calculate_hinging_contact_angle(
-            pc, beta, b, n_corners, receding_contact_angle, advancing_contact_angle, theta_h
+            pc, beta, b, n_corners, receding_contact_angle, advancing_contact_angle, theta_h, c.sigma
         )
         assert_almost_equal(theta_h, np.array([0.014, 0.014, 0.014, 0.014]))
 
@@ -262,10 +265,10 @@ class TestEquations(unittest.TestCase):
 
         gp = np.empty(3, dtype=np.float64)
 
-        calculate_network_singlephase_conductivity(gp, A, G, shape, WATER)
+        calculate_network_singlephase_conductivity(gp, A, G, shape, c.miw, c.mio, WATER)
         assert_equal(calculate_conductance(L, gp), conductance_water_template)
 
-        calculate_network_singlephase_conductivity(gp, A, G, shape, OIL)
+        calculate_network_singlephase_conductivity(gp, A, G, shape, c.miw, c.mio, OIL)
         assert_equal(calculate_conductance(L, gp), conductance_oil_template)
 
     def test_multiphase_oil_conductance(self):
@@ -319,7 +322,7 @@ class TestEquations(unittest.TestCase):
 
         gp = np.empty(3, dtype=np.float64)
         calculate_network_multiphase_oil_conductivity(
-            gp, A, G, shape, So, b, bo, beta, theta_h, theta_a, corner_oil_layer, n_corners, has_oil_in_center
+            gp, A, G, shape, So, b, bo, beta, theta_h, theta_a, corner_oil_layer, n_corners, has_oil_in_center, c.mio
         )
         oil_conductance = calculate_conductance(L, gp)
         assert_equal(oil_conductance, 3.350602871904144e-18)
@@ -371,7 +374,7 @@ class TestEquations(unittest.TestCase):
 
         gp = np.empty(3, dtype=np.float64)
         calculate_network_multiphase_water_conductivity(
-            gp, A, G, shape, Sw, theta_h, b, beta, n_corners, has_water_in_center
+            gp, A, G, shape, Sw, theta_h, b, beta, n_corners, has_water_in_center, c.miw
         )
         water_conductance = calculate_conductance(L, gp)
         assert_almost_equal(water_conductance, 2.0648208672078985e-19)
