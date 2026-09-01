@@ -1,5 +1,6 @@
 import numpy as np
 import traceback
+import py_pore_flow.consts as c
 from py_pore_flow.equations.geometry import (
     WATER,
     OIL,
@@ -133,6 +134,8 @@ class ConductanceCalculator:
                 area,
                 pn_element.shape_factor,
                 pn_element.shape,
+                c.miw,
+                c.mio,
                 phase,
             )
             
@@ -175,6 +178,8 @@ class ConductanceCalculator:
                 pn_element.water_filled,
                 pn_element.oil_filled,
                 phase,
+                c.miw,
+                c.mio,
             )
             
             if self.log_conductivity_file:

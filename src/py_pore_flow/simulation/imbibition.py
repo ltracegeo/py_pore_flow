@@ -1,6 +1,7 @@
 import numba as nb
 import numpy as np
 
+import py_pore_flow.consts as c
 from py_pore_flow.equations.geometry import (
     CIRCLE,
     WATER,
@@ -138,6 +139,7 @@ class ImbibitionSimulation(SubsequentCycleSimulation):
             n_corners,
             self.Rmin,
             pc,
+            c.sigma,
         )
 
     def _update_element_bo(self, element_type, id, pc):
@@ -153,6 +155,7 @@ class ImbibitionSimulation(SubsequentCycleSimulation):
             element.corner_oil_layer[id],
             element.n_corners[id],
             pc,
+            c.sigma,
         )
 
     def _update_oil_layer_element(self, element_type, id, pc):
@@ -193,6 +196,7 @@ class ImbibitionSimulation(SubsequentCycleSimulation):
             element_data.receding_contact_angle[id],
             element_data.advancing_contact_angle[id],
             element_data.hinging_contact_angle[id],
+            c.sigma,
         )
 
     def _update_element_b(self, element_type, id, pc):
@@ -212,6 +216,7 @@ class ImbibitionSimulation(SubsequentCycleSimulation):
             element.n_corners[id],
             self.Rmin,
             pc,
+            c.sigma,
         )
         element.bo[id] = calculate_imbibition_element_bo(
             element.corner_half_angle[id],
@@ -220,6 +225,7 @@ class ImbibitionSimulation(SubsequentCycleSimulation):
             element.corner_oil_layer[id],
             element.n_corners[id],
             pc,
+            c.sigma,
         )
 
     def _update_b(self, pore_ids, throat_ids, pc):
@@ -236,6 +242,7 @@ class ImbibitionSimulation(SubsequentCycleSimulation):
             self.network.pn_core.pore.n_corners,
             pc,
             self.Rmin,
+            c.sigma,
         )
         calculate_imbibition_network_b(
             self.network.pn_core.throat.b,
@@ -250,6 +257,7 @@ class ImbibitionSimulation(SubsequentCycleSimulation):
             self.network.pn_core.throat.n_corners,
             pc,
             self.Rmin,
+            c.sigma,
         )
 
         calculate_imbibition_network_bo(
@@ -262,6 +270,7 @@ class ImbibitionSimulation(SubsequentCycleSimulation):
             self.network.pn_core.pore.corner_oil_layer,
             self.network.pn_core.pore.n_corners,
             pc,
+            c.sigma,
         )
         calculate_imbibition_network_bo(
             self.network.pn_core.throat.bo,
@@ -273,6 +282,7 @@ class ImbibitionSimulation(SubsequentCycleSimulation):
             self.network.pn_core.throat.corner_oil_layer,
             self.network.pn_core.throat.n_corners,
             pc,
+            c.sigma,
         )
 
     def _update_hinging_contact_angles(self, pore_ids, throat_ids, pc):
@@ -286,6 +296,7 @@ class ImbibitionSimulation(SubsequentCycleSimulation):
             self.network.pn_core.pore.advancing_contact_angle,
             self.network.pn_core.pore.hinging_contact_angle,
             self.network.pn_core.pore.trapped_evacuation,
+            c.sigma,
         )
         calculate_network_hinging_contact_angle(
             throat_ids,
@@ -297,6 +308,7 @@ class ImbibitionSimulation(SubsequentCycleSimulation):
             self.network.pn_core.throat.advancing_contact_angle,
             self.network.pn_core.throat.hinging_contact_angle,
             self.network.pn_core.throat.trapped_evacuation,
+            c.sigma,
         )
 
     def _update_oil_layers(self, pore_ids, throat_ids, pc):

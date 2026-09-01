@@ -5,6 +5,7 @@ import time
 import numpy as np
 import openpnm
 
+import py_pore_flow.consts as c
 from py_pore_flow import log
 from py_pore_flow.equations.geometry import (
     WATER,
@@ -437,6 +438,7 @@ def calculate_drainage_pinned_b(network, max_pc):
         network.pn_core.pore.n_corners,
         network.pn_core.pore.max_b,
         max_pc,
+        c.sigma,
     )
     calculate_drainage_network_b(
         network.pn_core.throat.b,
@@ -445,6 +447,7 @@ def calculate_drainage_pinned_b(network, max_pc):
         network.pn_core.throat.n_corners,
         network.pn_core.throat.max_b,
         max_pc,
+        c.sigma,
     )
 
 
@@ -514,6 +517,7 @@ def calculate_2nd_drainage_values(network, min_pc):
         network.pn_core.pore.n_corners,
         network.pn_core.pore.b,
         network.pn_core.pore.corner_half_angle,
+        c.sigma,
     )
     calculate_2nd_drainage_oil_layer_existance_network(
         network.pn_core.pore.corner_oil_layer, network.pn_core.pore.bo, network.pn_core.pore.n_corners
@@ -539,6 +543,7 @@ def calculate_2nd_drainage_values(network, min_pc):
         network.pn_core.throat.n_corners,
         network.pn_core.throat.b,
         network.pn_core.throat.corner_half_angle,
+        c.sigma,
     )
     calculate_2nd_drainage_oil_layer_existance_network(
         network.pn_core.throat.corner_oil_layer, network.pn_core.throat.bo, network.pn_core.throat.n_corners
@@ -565,7 +570,7 @@ def calculate_2nd_drainage_values(network, min_pc):
 
 
 def calculate_piston_like_values(network, max_pc):
-    Rmin = calculate_r(max_pc, 100000)
+    Rmin = calculate_r(max_pc, c.sigma, 100000)
 
     network.pn_core["throat.piston_like_pressure"] = calculate_imbibition_piston_like_displacement_pc_network(
         network.pn_core.throat.shape_factor,
@@ -576,6 +581,7 @@ def calculate_piston_like_values(network, max_pc):
         network.pn_core.throat.corner_half_angle,
         network.pn_core.throat.n_corners,
         Rmin,
+        c.sigma,
     )
 
     network.pn_core["pore.piston_like_pressure"] = calculate_imbibition_piston_like_displacement_pc_network(
@@ -587,11 +593,12 @@ def calculate_piston_like_values(network, max_pc):
         network.pn_core.pore.corner_half_angle,
         network.pn_core.pore.n_corners,
         Rmin,
+        c.sigma,
     )
 
 
 def calculate_snap_off_values(network, max_pc):
-    Rmin = calculate_r(max_pc, 100000)
+    Rmin = calculate_r(max_pc, c.sigma, 100000)
 
     network.pn_core["throat.snap_off_pressure"] = calculate_snap_off_pc_network(
         network.pn_core.throat.radius,
@@ -601,6 +608,10 @@ def calculate_snap_off_values(network, max_pc):
         network.pn_core.throat.n_corners,
         Rmin,
         np.zeros(len(network.pn_core.throat.radius)),
+        c.sigma,
+        c.pw,
+        c.po,
+        c.g,
     )
 
     network.pn_core["pore.snap_off_pressure"] = calculate_snap_off_pc_network(
@@ -611,11 +622,15 @@ def calculate_snap_off_values(network, max_pc):
         network.pn_core.pore.n_corners,
         Rmin,
         np.zeros(len(network.pn_core.pore.radius)),
+        c.sigma,
+        c.pw,
+        c.po,
+        c.g,
     )
 
 
 def calculate_oil_layer_collapse_values(network, max_pc):
-    Rmin = calculate_r(max_pc, 100000)
+    Rmin = calculate_r(max_pc, c.sigma, 100000)
 
     calculate_oil_layer_collapse_pc_network(
         network.pn_core.throat.oil_layer_collapse_pressure,
@@ -624,6 +639,7 @@ def calculate_oil_layer_collapse_values(network, max_pc):
         network.pn_core.throat.receding_contact_angle,
         network.pn_core.throat.n_corners,
         Rmin,
+        c.sigma,
     )
 
     calculate_oil_layer_collapse_pc_network(
@@ -633,11 +649,12 @@ def calculate_oil_layer_collapse_values(network, max_pc):
         network.pn_core.pore.receding_contact_angle,
         network.pn_core.pore.n_corners,
         Rmin,
+        c.sigma,
     )
 
 
 def calculate_2nd_drainage_piston_like_values(network, min_pc):
-    Rmax = calculate_r(min_pc, 100000)
+    Rmax = calculate_r(min_pc, c.sigma, 100000)
     network.pn_core["throat.piston_like_pressure"] = calculate_2nd_drainage_piston_like_displacement_pc_network(
         network.pn_core.throat.shape_factor,
         network.pn_core.throat.radius,
@@ -649,6 +666,7 @@ def calculate_2nd_drainage_piston_like_values(network, min_pc):
         network.pn_core.throat.shape,
         network.pn_core.throat.corner_half_angle,
         Rmax,
+        c.sigma,
     )
 
     network.pn_core["pore.piston_like_pressure"] = calculate_2nd_drainage_piston_like_displacement_pc_network(
@@ -662,12 +680,13 @@ def calculate_2nd_drainage_piston_like_values(network, min_pc):
         network.pn_core.pore.shape,
         network.pn_core.pore.corner_half_angle,
         Rmax,
+        c.sigma,
     )
     # print(network.pn_core.pore.piston_like_pressure)
 
 
 def calculate_2nd_drainage_snap_off_values(network, min_pc):
-    Rmax = calculate_r(min_pc, 100000)
+    Rmax = calculate_r(min_pc, c.sigma, 100000)
 
     network.pn_core["throat.snap_off_pressure"] = calculate_2nd_drainage_snap_off_pc_network(
         network.pn_core.throat.radius,
@@ -677,6 +696,7 @@ def calculate_2nd_drainage_snap_off_values(network, min_pc):
         network.pn_core.throat.n_corners,
         Rmax,
         np.zeros(len(network.pn_core.throat.radius)),
+        c.sigma,
     )
 
     network.pn_core["pore.snap_off_pressure"] = calculate_2nd_drainage_snap_off_pc_network(
@@ -687,6 +707,7 @@ def calculate_2nd_drainage_snap_off_values(network, min_pc):
         network.pn_core.pore.n_corners,
         Rmax,
         np.zeros(len(network.pn_core.pore.radius)),
+        c.sigma,
     )
 
 
@@ -716,6 +737,7 @@ def calculate_element_drainage_values(element, element_id, max_pc):
             element.get_n_corners(element_id),
             element.get_max_b(element_id),
             max_pc,
+            c.sigma,
         ),
     )
     element.set_C_r(
@@ -749,6 +771,7 @@ def calculate_element_drainage_values(element, element_id, max_pc):
             element.get_shape(element_id),
             element.get_beta(element_id),
             element.get_n_corners(element_id),
+            c.sigma,
         ),
     )
 

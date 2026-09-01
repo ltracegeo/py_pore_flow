@@ -26,7 +26,7 @@ class SubsequentCycleSimulation(CycleSimulation):
         super().__init__(network, phase, calculate_full_conductance, batch_invasions=batch_invasions)
         self.saturation_calculator = SubsequentSaturation(network, self.phase)
 
-        self.Rmin = calculate_r(pc_max, 100000)
+        self.Rmin = calculate_r(pc_max, c.sigma, 100000)
 
         self.use_pore_body_filling = c.use_pore_fill
         self.pore_body_filling_strategy = PORE_BODY_FILLING_STRATEGY[c.pore_fill_alg]
@@ -195,6 +195,8 @@ class SubsequentCycleSimulation(CycleSimulation):
             pore_limiting_contact_angle,
             self.network.pn_core.throat.radius,
             throat_receding_phase_filled,
+            c.sigma,
+            c.pore_fill_weights,
             verbose=verbose,
         )
 
@@ -217,6 +219,8 @@ class SubsequentCycleSimulation(CycleSimulation):
         pore_limiting_contact_angle,
         throat_radius,
         throat_receding_phase_filled,
+        c_sigma,
+        c_pore_fill_weights,
         verbose=False,
     ):
         for pore_id in pore_id_list:
@@ -249,6 +253,8 @@ class SubsequentCycleSimulation(CycleSimulation):
                     number_of_filled_neighbors,
                     throats_radii,
                     pore_shape_factor[pore_id],
+                    c_sigma,
+                    c_pore_fill_weights,
                 )
                 piston_like_pressure = pore_piston_like_pressure[pore_id]
 

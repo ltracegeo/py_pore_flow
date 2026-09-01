@@ -4,7 +4,6 @@ from math import cos, log, pi, sin
 from numba import njit
 import numpy as np
 
-import py_pore_flow.consts as c
 from py_pore_flow.equations.geometry import CIRCLE, TRIANGLE, WATER, calculate_dimensionless_layer_area
 
 
@@ -21,16 +20,16 @@ def calculate_element_singlephase_conductivity(A, G, shape, mi):
 
 
 @njit(cache=True)
-def calculate_element_multiphase_oil_conductivity(bi, bo, beta, theta_i, theta_o, corner_oil_layer, n_corners):
+def calculate_element_multiphase_oil_conductivity(bi, bo, beta, theta_i, theta_o, corner_oil_layer, n_corners, c_mio):
     go = 0.0
     for i in range(n_corners):
         if corner_oil_layer[i]:
-            go += calculate_dimensionless_layer_conductivity(bi[i], bo[i], beta[i], theta_i[i], theta_o[i])
+            go += calculate_dimensionless_layer_conductivity(bi[i], bo[i], beta[i], theta_i[i], theta_o[i], c_mio)
     return go
 
 
 @njit(cache=True)
-def calculate_dimensionless_layer_conductivity(bi, bo, beta, theta_i, theta_o):
+def calculate_dimensionless_layer_conductivity(bi, bo, beta, theta_i, theta_o, c_mio):
     if bo == 0:
         return 0
 
@@ -47,7 +46,7 @@ def calculate_dimensionless_layer_conductivity(bi, bo, beta, theta_i, theta_o):
 
     gl = math.e ** (a1 * log(Al**3 * Gl) ** 2 + a2 * log(Al**3 * Gl) + a3)
 
-    gpl = bo**4 * gl / c.mio
+    gpl = bo**4 * gl / c_mio
 
     return gpl
 
@@ -72,7 +71,7 @@ def get_tabulated_conductance_constants(beta):
 
 
 @njit(cache=True)
-def calculate_element_multiphase_water_conductivity(theta_h, b, beta, n_corners):
+def calculate_element_multiphase_water_conductivity(theta_h, b, beta, n_corners, c_miw):
     gw = 0
     for i in range(int(n_corners)):
         if b[i] == 0.0:
@@ -88,7 +87,7 @@ def calculate_element_multiphase_water_conductivity(theta_h, b, beta, n_corners)
         )
         G2 = sin(beta[i]) * cos(beta[i]) / (4 * (1 + sin(beta[i])) ** 2)
         Cw = 0.364 + 0.28 * (G2 / Gc)
-        gw += Cw * (Ac**2 * Gc / c.miw)
+        gw += Cw * (Ac**2 * Gc / c_miw)
     return gw
 
 
@@ -106,20 +105,20 @@ def calculate_conductance(L, gp):
 
 
 @njit(cache=True)
-def calculate_absolute_permeability(phase, qts, A, L, fi_inlet, fi_outlet):
+def calculate_absolute_permeability(phase, qts, A, L, fi_inlet, fi_outlet, c_miw, c_mio):
     if phase == WATER:
-        mi = c.miw
+        mi = c_miw
     else:
-        mi = c.mio
+        mi = c_mio
     K = (mi * qts * L) / (A * (fi_inlet - fi_outlet))
     return K
 
 
 @njit(cache=True)
-def calculate_network_singlephase_conductivity(gp, A, G, shape, phase=WATER):
+def calculate_network_singlephase_conductivity(gp, A, G, shape, c_miw, c_mio, phase=WATER):
     number_of_elements = len(gp)
 
-    mi = c.miw if phase == WATER else c.mio
+    mi = c_miw if phase == WATER else c_mio
     for n in range(number_of_elements):
         gp[n] = calculate_element_singlephase_conductivity(A[n], G[n], shape[n], mi)
 
@@ -142,20 +141,22 @@ def calculate_network_multiphase_conductivity(
     has_water_in_center,
     has_oil_in_center,
     phase,
+    c_miw,
+    c_mio,
 ):
     if phase == WATER:
         calculate_network_multiphase_water_conductivity(
-            gp, A, G, shape, Sw, theta_h, b, beta, n_corners, has_water_in_center
+            gp, A, G, shape, Sw, theta_h, b, beta, n_corners, has_water_in_center, c_miw
         )
     else:
         calculate_network_multiphase_oil_conductivity(
-            gp, A, G, shape, So, b, bo, beta, theta_h, theta_a, corner_oil_layer, n_corners, has_oil_in_center
+            gp, A, G, shape, So, b, bo, beta, theta_h, theta_a, corner_oil_layer, n_corners, has_oil_in_center, c_mio
         )
 
 
 @njit(cache=True)
 def calculate_network_multiphase_water_conductivity(
-    gp, A, G, shape, Sw, theta_h, b, beta, n_corners, has_water_in_center
+    gp, A, G, shape, Sw, theta_h, b, beta, n_corners, has_water_in_center, c_miw
 ):
     number_of_elements = len(gp)
 
@@ -165,14 +166,14 @@ def calculate_network_multiphase_water_conductivity(
             continue
 
         if has_water_in_center[n]:
-            gp[n] = Sw[n] * calculate_element_singlephase_conductivity(A[n], G[n], shape[n], c.miw)
+            gp[n] = Sw[n] * calculate_element_singlephase_conductivity(A[n], G[n], shape[n], c_miw)
         else:
-            gp[n] = calculate_element_multiphase_water_conductivity(theta_h[n], b[n], beta[n], n_corners[n])
+            gp[n] = calculate_element_multiphase_water_conductivity(theta_h[n], b[n], beta[n], n_corners[n], c_miw)
 
 
 @njit(cache=True)
 def calculate_network_multiphase_oil_conductivity(
-    gp, A, G, shape, So, b, bo, beta, theta_h, theta_a, corner_oil_layer, n_corners, has_oil_in_center
+    gp, A, G, shape, So, b, bo, beta, theta_h, theta_a, corner_oil_layer, n_corners, has_oil_in_center, c_mio
 ):
     number_of_elements = len(gp)
 
@@ -182,10 +183,10 @@ def calculate_network_multiphase_oil_conductivity(
             continue
 
         if has_oil_in_center[n]:
-            gp[n] = So[n] * calculate_element_singlephase_conductivity(A[n], G[n], shape[n], c.mio)
+            gp[n] = So[n] * calculate_element_singlephase_conductivity(A[n], G[n], shape[n], c_mio)
         else:
             gp[n] = calculate_element_multiphase_oil_conductivity(
-                b[n], bo[n], beta[n], theta_h[n], theta_a[n], corner_oil_layer[n], n_corners[n]
+                b[n], bo[n], beta[n], theta_h[n], theta_a[n], corner_oil_layer[n], n_corners[n], c_mio
             )
 
 

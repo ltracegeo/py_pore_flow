@@ -30,6 +30,14 @@ DEFAULT_PARAMETERS = {
     "initial_ca_model": 3,
     "initial_ca_distribution": "weibull",
     "initial_ca_separation": 25.2,
+    "initial_2nd_ca_center": 140,
+    "initial_2nd_ca_range": 15,
+    "initial_2nd_ca_gamma": -1,
+    "initial_2nd_ca_delta": -1,
+    "initial_2nd_ca_sigma": 5,
+    "initial_2nd_ca_correlation": UNCORRELATED,
+    "initial_2nd_ca_distribution": "weibull",
+    "initial_2nd_ca_fraction": 0.0,
     "equilibrium_ca_center": 30,
     "equilibrium_ca_range": 15,
     "equilibrium_ca_gamma": -1,
@@ -39,14 +47,14 @@ DEFAULT_PARAMETERS = {
     "equilibrium_ca_model": 3,
     "equilibrium_ca_distribution": "weibull",
     "equilibrium_ca_separation": 25.2,
-    "second_ca_center": 140,
-    "second_ca_range": 15,
-    "second_ca_gamma": -1,
-    "second_ca_delta": -1,
-    "second_ca_sigma": 5,
-    "second_ca_correlation": UNCORRELATED,
-    "second_ca_distribution": "weibull",
-    "second_ca_fraction": 0.5,
+    "equilibrium_2nd_ca_center": 140,
+    "equilibrium_2nd_ca_range": 15,
+    "equilibrium_2nd_ca_gamma": -1,
+    "equilibrium_2nd_ca_delta": -1,
+    "equilibrium_2nd_ca_sigma": 5,
+    "equilibrium_2nd_ca_correlation": UNCORRELATED,
+    "equilibrium_2nd_ca_distribution": "weibull",
+    "equilibrium_2nd_ca_fraction": 0.5,
     "pc_initial": 0,
     "pc_maximum": 40000,
     "pc_minimum": -40000,
@@ -218,25 +226,22 @@ class ParameterManager:
         return advancing_ca_array, receding_ca_array
 
     def _generate_intrinsic_cas(self, prefix, size, radius_array):
-        if prefix == "equilibrium":
-            fraction = self.parameters_dict[f"second_ca_fraction"]
-            if fraction == 0:
-                intrisic_ca_array = self._generate_fraction_cas("equilibrium", size, radius_array)
-            else:
-                fraction_size = round(size * fraction)
-                indexes = list(range(size))
-                random.shuffle(indexes)
-                first_dist_indexes = indexes[fraction_size:]
-                second_dist_indexes = indexes[0:fraction_size]
-                intrisic_ca_array = np.empty(size, dtype=np.float64)
-                intrisic_ca_array[first_dist_indexes] = self._generate_fraction_cas(
-                    "equilibrium", len(first_dist_indexes), radius_array[first_dist_indexes]
-                )
-                intrisic_ca_array[second_dist_indexes] = self._generate_fraction_cas(
-                    "second", len(second_dist_indexes), radius_array[second_dist_indexes]
-                )
-        else:
+        fraction = self.parameters_dict[f"{prefix}_2nd_ca_fraction"]
+        if fraction == 0:
             intrisic_ca_array = self._generate_fraction_cas(prefix, size, radius_array)
+        else:
+            fraction_size = round(size * fraction)
+            indexes = list(range(size))
+            random.shuffle(indexes)
+            first_dist_indexes = indexes[fraction_size:]
+            second_dist_indexes = indexes[0:fraction_size]
+            intrisic_ca_array = np.empty(size, dtype=np.float64)
+            intrisic_ca_array[first_dist_indexes] = self._generate_fraction_cas(
+                prefix, len(first_dist_indexes), radius_array[first_dist_indexes]
+            )
+            intrisic_ca_array[second_dist_indexes] = self._generate_fraction_cas(
+                f"{prefix}_2nd", len(second_dist_indexes), radius_array[second_dist_indexes]
+            )
         return intrisic_ca_array
 
     def _generate_fraction_cas(self, prefix, size, radius_array):
