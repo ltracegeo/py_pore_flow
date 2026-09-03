@@ -1,15 +1,9 @@
-import os
-
 import numpy as np
 import vtk
 from vtk.util.numpy_support import numpy_to_vtk, vtk_to_numpy
 from PySide2 import QtCore, QtWidgets
 
-os.environ.setdefault("QT_API", "pyside2")
-try:
-    from vtk.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
-except ImportError:
-    from vtkmodules.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
+from py_pore_flow.graphic.diagnostics.vtk_opengl_widget import VTKOpenGLWidget
 
 # name of the point-data array vtkGlyph3D adds when GeneratePointIds is on: it maps each
 # glyph-output point back to the input point (= pore id) that generated it
@@ -84,7 +78,7 @@ class DiagnosticsNetworkWidget(QtWidgets.QWidget):
         self._renderer.AddActor(self._pore_highlight)
         self._renderer.AddActor(self._throat_highlight)
 
-        self._vtk_widget = QVTKRenderWindowInteractor(network_widget)
+        self._vtk_widget = VTKOpenGLWidget(network_widget)
         self._vtk_widget.GetRenderWindow().AddRenderer(self._renderer)
         network_layout.addWidget(self._vtk_widget)
 
@@ -258,7 +252,7 @@ class DiagnosticsNetworkWidget(QtWidgets.QWidget):
             self._pore_mapper.ScalarVisibilityOff()
             if self._throat_mapper is not None:
                 self._throat_mapper.ScalarVisibilityOff()
-        self._vtk_widget.GetRenderWindow().Render()
+        self._vtk_widget.Render()
 
     def _apply_element_colors(self, color_func):
         network = self._diagnostics.network
@@ -356,7 +350,7 @@ class DiagnosticsNetworkWidget(QtWidgets.QWidget):
         self._pore_highlight_source.SetRadius(self._highlight_radius(pore_id))
         self._throat_highlight.VisibilityOff()
         self._pore_highlight.VisibilityOn()
-        self._vtk_widget.GetRenderWindow().Render()
+        self._vtk_widget.Render()
 
     def highlight_throat(self, throat_id):
         if not (0 <= throat_id < len(self._throat_conns)):
@@ -367,7 +361,7 @@ class DiagnosticsNetworkWidget(QtWidgets.QWidget):
         self._throat_highlight_points.Modified()
         self._pore_highlight.VisibilityOff()
         self._throat_highlight.VisibilityOn()
-        self._vtk_widget.GetRenderWindow().Render()
+        self._vtk_widget.Render()
 
     def _highlight_radius(self, pore_id):
         r = float(self._pore_radii[pore_id]) if pore_id < self._pore_radii.size else 0.0
