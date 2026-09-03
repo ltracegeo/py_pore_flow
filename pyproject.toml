@@ -7,7 +7,7 @@ name = "py_pore_flow"
 version = "1.2.0"
 requires-python = ">=3.12"
 dependencies = [
-    "numba==0.60.0",
+    "numba==0.67.0",
     "numpy==1.26.4",
     "openpnm==3.4.0",
     "PySide2 @ https://github.com/ltracegeo/pyside-setup/releases/download/v5.15.12.1/pyside2-5.15.12.1-5.15.2-cp312-cp312-linux_x86_64.whl ; platform_system == \"Linux\"",
