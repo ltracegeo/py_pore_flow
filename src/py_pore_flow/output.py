@@ -27,8 +27,8 @@ def pn_to_vtu(pn, pc, sw, cycle):
     writer = vtk.vtkXMLUnstructuredGridWriter()
     writer.SetFileName(file_name)
     writer.SetInputData(unstructured_grid)
-    writer.SetCompressorTypeToNone()
-    writer.SetDataModeToAscii()
+    writer.SetCompressorTypeToZLib()
+    writer.SetDataModeToBinary()
     writer.Write()
 
     line = f"<!-- Animation data used by GeoSlicer. Deleting this comment will break compatibility. # Sw: {sw} Cycle: {cycle} -->"
