@@ -56,11 +56,7 @@ def pn_to_vtk(pn, pc, sw, cycle):
     vtk_points.SetNumberOfPoints(n_pores)
     vtk_points.SetData(numpy_to_vtk(pn["pore.coords"]))
 
-    np_cells = np.empty([n_throats, 2], dtype=np.int32)
-    for i, throat_id in enumerate(throat_id_list):
-        neighbors_id_list = pn.find_connected_pores(throat_id)[0]
-        np_cells[i][0] = neighbors_id_list[0]
-        np_cells[i][1] = neighbors_id_list[1]
+    np_cells = np.asarray(pn.find_connected_pores(throat_id_list, flatten=False), dtype=np.int32)
 
     vtk_cell_array = vtk.vtkCellArray()
     for cell in np_cells:
