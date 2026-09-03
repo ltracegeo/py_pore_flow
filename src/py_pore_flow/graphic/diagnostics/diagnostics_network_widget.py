@@ -72,30 +72,27 @@ class DiagnosticsNetworkWidget(QtWidgets.QWidget):
         self._throat_tube_radius = self._compute_tube_radius(throat_radii, self._pore_radii)
 
         self._points = self._build_points(self._coords)
+        self._pore_actor = self._build_pores(self._points, self._pore_radii)
+        self._throat_actor = self._build_throats(self._points, self._throat_conns)
+        self._pore_highlight = self._make_pore_highlight_actor()
+        self._throat_highlight = self._make_throat_highlight_actor()
 
-        self._vtk_widget = QVTKRenderWindowInteractor(network_widget)
-        network_layout.addWidget(self._vtk_widget)
         self._renderer = vtk.vtkRenderer()
         self._renderer.SetBackground(1.0, 1.0, 1.0)
-        self._vtk_widget.GetRenderWindow().AddRenderer(self._renderer)
-        self._interactor = self._vtk_widget.GetRenderWindow().GetInteractor()
-
-        self._pore_actor = self._build_pores(self._points, self._pore_radii)
         self._renderer.AddActor(self._pore_actor)
-
-        self._throat_actor = self._build_throats(self._points, self._throat_conns)
-        if self._throat_actor is not None:
-            self._renderer.AddActor(self._throat_actor)
-
-        self._pore_highlight = self._make_pore_highlight_actor()
+        self._renderer.AddActor(self._throat_actor)
         self._renderer.AddActor(self._pore_highlight)
-        self._throat_highlight = self._make_throat_highlight_actor()
         self._renderer.AddActor(self._throat_highlight)
+
+        self._vtk_widget = QVTKRenderWindowInteractor(network_widget)
+        self._vtk_widget.GetRenderWindow().AddRenderer(self._renderer)
+        network_layout.addWidget(self._vtk_widget)
 
         self._picker = vtk.vtkCellPicker()
         self._picker.SetTolerance(0.001)
 
         self._style = vtk.vtkInteractorStyleTrackballCamera()
+        self._interactor = self._vtk_widget.GetRenderWindow().GetInteractor()
         self._interactor.SetInteractorStyle(self._style)
         self._interactor.SetPicker(self._picker)
         self._interactor.AddObserver("LeftButtonPressEvent", self._on_left_button_press)
