@@ -3,7 +3,7 @@ import os
 import numpy as np
 import vtk
 from vtk.util.numpy_support import numpy_to_vtk, vtk_to_numpy
-from PySide2 import QtCore, QtWidgets
+from PySide2 import QtCore, QtGui, QtWidgets
 
 os.environ.setdefault("QT_API", "pyside2")
 try:
@@ -84,9 +84,13 @@ class DiagnosticsNetworkWidget(QtWidgets.QWidget):
         self._renderer.AddActor(self._pore_highlight)
         self._renderer.AddActor(self._throat_highlight)
 
-        self._vtk_widget = QVTKRenderWindowInteractor(network_widget)
+        self._vtk_widget = QVTKRenderWindowInteractor()
         self._vtk_widget.GetRenderWindow().AddRenderer(self._renderer)
-        network_layout.addWidget(self._vtk_widget)
+        self._vtk_widget.show()
+        self._network_window = QtGui.QWindow.fromWinId(self._vtk_widget.winId())
+        self._network_container = QtWidgets.QWidget.createWindowContainer(self._network_window, network_widget)
+        self._network_container.setAttribute(QtCore.Qt.WA_DontCreateNativeAncestors)
+        network_layout.addWidget(self._network_container)
 
         self._picker = vtk.vtkCellPicker()
         self._picker.SetTolerance(0.001)
