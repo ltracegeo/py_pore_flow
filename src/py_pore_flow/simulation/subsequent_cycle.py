@@ -22,8 +22,24 @@ from py_pore_flow import log
 
 
 class SubsequentCycleSimulation(CycleSimulation):
-    def __init__(self, network, pc_max, phase, calculate_full_conductance=False, batch_invasions=False):
-        super().__init__(network, phase, calculate_full_conductance, batch_invasions=batch_invasions)
+    def __init__(
+        self,
+        network,
+        pc_max,
+        phase,
+        calculate_full_conductance=False,
+        batch_invasions=False,
+        calculate_krel=True,
+        calculate_trapping=True,
+    ):
+        super().__init__(
+            network,
+            phase,
+            calculate_full_conductance,
+            batch_invasions=batch_invasions,
+            calculate_krel=calculate_krel,
+            calculate_trapping=calculate_trapping,
+        )
         self.saturation_calculator = SubsequentSaturation(network, self.phase)
 
         self.Rmin = calculate_r(pc_max, c.sigma, 100000)

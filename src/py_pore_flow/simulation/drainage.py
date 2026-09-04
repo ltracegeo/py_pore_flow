@@ -16,8 +16,22 @@ from py_pore_flow.simulation.saturation_calculator import SaturationCalculator
 
 
 class DrainageSimulation(CycleSimulation):
-    def __init__(self, network, calculate_full_conductance=False, batch_invasions=False):
-        super().__init__(network, OIL, calculate_full_conductance, batch_invasions=batch_invasions)
+    def __init__(
+        self,
+        network,
+        calculate_full_conductance=False,
+        batch_invasions=False,
+        calculate_krel=True,
+        calculate_trapping=True,
+    ):
+        super().__init__(
+            network,
+            OIL,
+            calculate_full_conductance,
+            batch_invasions=batch_invasions,
+            calculate_krel=calculate_krel,
+            calculate_trapping=calculate_trapping,
+        )
         self.saturation_calculator = DrainageSaturation(network)
 
     def _update_multiphase_mask(self, pc, pc_old):

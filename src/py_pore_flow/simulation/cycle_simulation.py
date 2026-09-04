@@ -15,12 +15,20 @@ from py_pore_flow.simulation.border_elements import BorderElements
 
 
 class CycleSimulation:
-    def __init__(self, network, phase, calculate_full_conductance=False, batch_invasions="none"):
+    def __init__(
+        self,
+        network,
+        phase,
+        calculate_full_conductance=False,
+        batch_invasions="none",
+        calculate_krel=True,
+        calculate_trapping=True,
+    ):
         self.network = network
         self.phase = phase
         self.batch_invasions = batch_invasions
 
-        self.krel_calculator = KrelCalculator(self.network, calculate_full_conductance)
+        self.krel_calculator = KrelCalculator(self.network, calculate_full_conductance, enabled=calculate_krel)
 
         self.phase_connection_checker = PhaseConnectionChecker(network, self.phase)
         self.phase_connection_checker.reset_phase_connections()
@@ -33,7 +41,7 @@ class CycleSimulation:
         self.old_border_pores_array = np.empty(n_pores, np.int64)
         self.old_border_throats_array = np.empty(n_throats, np.int64)
 
-        self.trap_checker = TrapChecker(network, self.phase)
+        self.trap_checker = TrapChecker(network, self.phase, enabled=calculate_trapping)
 
         self.border_elements = BorderElements(
             n_throats=n_throats,

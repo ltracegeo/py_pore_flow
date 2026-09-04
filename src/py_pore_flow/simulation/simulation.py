@@ -66,6 +66,8 @@ def run_two_phase_simulation(
     second_drainage_snapshot_pc=None,
     config=None,
     progress_callback=None,
+    calculate_krel=True,
+    calculate_trapping=True,
 ):
     previous_limit = sys.getrecursionlimit()
 
@@ -92,6 +94,8 @@ def run_two_phase_simulation(
         second_drainage_snapshot_pc,
         config,
         progress_callback,
+        calculate_krel,
+        calculate_trapping,
     )
 
     skip_drainage = config is not None and config["skip_drainage"]
@@ -137,6 +141,8 @@ class Simulation:
         second_drainage_snapshot_pc=None,
         config=None,
         progress_callback=None,
+        calculate_krel=True,
+        calculate_trapping=True,
     ):
         self.pn = pn
         self.drainage_snapshot_pc = drainage_snapshot_pc
@@ -156,6 +162,8 @@ class Simulation:
             generate_cas=generate_cas,
             calculate_full_conductance=generate_vtu,
             set_initial_values=set_initial_values,
+            calculate_krel=calculate_krel,
+            calculate_trapping=calculate_trapping,
         )
         self.parameter_manager = self.step_simulation.get_parameter_manager()
 
@@ -824,11 +832,15 @@ class StepSimulation:
         generate_cas=True,
         calculate_full_conductance=False,
         set_initial_values=True,
+        calculate_krel=True,
+        calculate_trapping=True,
     ):
         self.simulation = None
         self.max_pc = config["max_pc"] if config else None
         self.min_pc = 0
         self.calculate_full_conductance = calculate_full_conductance
+        self.calculate_krel = calculate_krel
+        self.calculate_trapping = calculate_trapping
         self.is_first_step = True
         self.current_pc = 0
         self.cycle = "drainage"
@@ -856,7 +868,13 @@ class StepSimulation:
         if cycle == "drainage":
             self.parameter_manager.update_initial_cas(self.network)
             calculate_drainage_values(self.network, self.max_pc)
-            self.simulation = DrainageSimulation(self.network, self.calculate_full_conductance, batch_invasions=batch)
+            self.simulation = DrainageSimulation(
+                self.network,
+                self.calculate_full_conductance,
+                batch_invasions=batch,
+                calculate_krel=self.calculate_krel,
+                calculate_trapping=self.calculate_trapping,
+            )
             self.max_pc = 0
         elif cycle == "imbibition":
             calculate_drainage_pinned_b(
@@ -865,12 +883,26 @@ class StepSimulation:
             update_wettability_property(self.network)
             self.parameter_manager.update_equilibrium_cas(self.network)
             calculate_imbibition_values(self.network, self.max_pc)
-            self.simulation = ImbibitionSimulation(self.network, self.max_pc, self.calculate_full_conductance, batch_invasions=batch)
+            self.simulation = ImbibitionSimulation(
+                self.network,
+                self.max_pc,
+                self.calculate_full_conductance,
+                batch_invasions=batch,
+                calculate_krel=self.calculate_krel,
+                calculate_trapping=self.calculate_trapping,
+            )
             self.min_pc = self.max_pc
         elif cycle == "2nd_drainage":
             self.parameter_manager.update_2nd_drainage_ca(self.network)
             calculate_2nd_drainage_values(self.network, self.min_pc)
-            self.simulation = SecondDrainageSimulation(self.network, self.max_pc, self.calculate_full_conductance, batch_invasions=batch)
+            self.simulation = SecondDrainageSimulation(
+                self.network,
+                self.max_pc,
+                self.calculate_full_conductance,
+                batch_invasions=batch,
+                calculate_krel=self.calculate_krel,
+                calculate_trapping=self.calculate_trapping,
+            )
 
     def update(self, pc, skip_invasions=False, verbose=False):
         if skip_invasions:
@@ -952,8 +984,19 @@ class MultiStepSimulation(StepSimulation):
         generate_cas=True,
         calculate_full_conductance=False,
         set_initial_values=True,
+        calculate_krel=True,
+        calculate_trapping=True,
     ):
-        super().__init__(pn, parameters_dict, config, generate_cas, calculate_full_conductance, set_initial_values)
+        super().__init__(
+            pn,
+            parameters_dict,
+            config,
+            generate_cas,
+            calculate_full_conductance,
+            set_initial_values,
+            calculate_krel=calculate_krel,
+            calculate_trapping=calculate_trapping,
+        )
         self.pc_incrementer = None
         self.sw_step = None
         self.no_invasion_left = False

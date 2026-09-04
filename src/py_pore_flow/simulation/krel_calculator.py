@@ -22,9 +22,15 @@ from py_pore_flow.simulation.flow_rate_calculator import FlowRateCalculator
 
 
 class KrelCalculator:
-    def __init__(self, network, calculate_full_conductance: bool = False):
+    def __init__(self, network, calculate_full_conductance: bool = False, enabled: bool = True):
         self.network = network
         self.calculate_full_conductance = calculate_full_conductance
+        self.enabled = enabled
+
+        if not self.enabled:
+            self.singlephase_flow_rate = [0.0] * 2
+            self.absolute_permeability = None
+            return
 
         flow_rate_calculator = FlowRateCalculator(self.network)
 
@@ -36,9 +42,13 @@ class KrelCalculator:
     # ── Public API ────────────────────────────────────────────────────────────
 
     def calculate_kro(self) -> float:
+        if not self.enabled:
+            return 0.0
         return self._calculate_kr(OIL)
 
     def calculate_krw(self) -> float:
+        if not self.enabled:
+            return 0.0
         return self._calculate_kr(WATER)
 
     def get_absolute_permeability(self) -> float:

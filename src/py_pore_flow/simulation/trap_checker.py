@@ -6,9 +6,10 @@ ENABLE_TRAPPING_FROM_INLET = True
 
 
 class TrapChecker:
-    def __init__(self, network, phase):
+    def __init__(self, network, phase, enabled=True):
         self.network = network
         self.phase = phase
+        self.enabled = enabled
         self.network.pn_core.pore.trapped[:] = False
         self.network.pn_core.throat.trapped[:] = False
         self.network.pn_core.pore.trapped_evacuation[:] = False
@@ -17,8 +18,12 @@ class TrapChecker:
         self.throat_new_trapped = np.empty(len(self.network.pn_core.throat.trapped), np.int64)
         self.pore_new_untrapped = np.empty(len(self.network.pn_core.pore.trapped), np.int64)
         self.throat_new_untrapped = np.empty(len(self.network.pn_core.throat.trapped), np.int64)
+        self._empty = np.empty(0, np.int64)
 
     def update_trapped_pores(self):
+        if not self.enabled:
+            return self._empty, self._empty, self._empty, self._empty
+
         if self.phase == WATER:
             evading_filled_pore = self.network.pn_core.pore.oil_filled
             evading_connected_to_outlet_pore = self.network.pn_core.pore.oil_connected_to_outlet
