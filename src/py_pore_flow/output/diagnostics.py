@@ -28,24 +28,24 @@ class DiagnosticsWriter:
         self.info_storer.save_number_of_elements(n_throats, n_pores)
         self.storer_throats = DiagnosticsStorer("throats", n_throats, 5, np.float64, path)
         self.storer_throats_bools = DiagnosticsStorer("throats_bools", n_throats, 2, np.bool_, path)
-        self.storer_throats_geometry = DiagnosticsStorer(
-            "throats_geometry", n_throats, 2, np.bool_, path, item_shape=CORNER_SHAPE
+        self.storer_throats_corners_bool = DiagnosticsStorer(
+            "throats_corners_bool", n_throats, 2, np.bool_, path, item_shape=CORNER_SHAPE
         )
         self.storer_throats_corners_float = DiagnosticsStorer(
             "throats_corners_float", n_throats, 4, np.float64, path, item_shape=CORNER_SHAPE
         )
-        self.storer_throats_entry_pressure = DiagnosticsStorer("throats_entry_pressure", n_throats, 3, np.float64, path)
-        self.storer_throats_invasion_method = DiagnosticsStorer("throats_invasion_method", n_throats, 1, np.int8, path)
+        self.storer_throats_cycle_floats = DiagnosticsStorer("throats_cycle_floats", n_throats, 3, np.float64, path)
+        self.storer_throats_cycle_ints = DiagnosticsStorer("throats_cycle_ints", n_throats, 1, np.int8, path)
         self.storer_pores = DiagnosticsStorer("pores", n_pores, 4, np.float64, path)
         self.storer_pores_bools = DiagnosticsStorer("pores_bools", n_pores, 2, np.bool_, path)
-        self.storer_pores_geometry = DiagnosticsStorer(
-            "pores_geometry", n_pores, 2, np.bool_, path, item_shape=CORNER_SHAPE
+        self.storer_pores_corners_bool = DiagnosticsStorer(
+            "pores_corners_bool", n_pores, 2, np.bool_, path, item_shape=CORNER_SHAPE
         )
         self.storer_pores_corners_float = DiagnosticsStorer(
             "pores_corners_float", n_pores, 4, np.float64, path, item_shape=CORNER_SHAPE
         )
-        self.storer_pores_entry_pressure = DiagnosticsStorer("pores_entry_pressure", n_pores, 3, np.float64, path)
-        self.storer_pores_invasion_method = DiagnosticsStorer("pores_invasion_method", n_pores, 1, np.int8, path)
+        self.storer_pores_cycle_floats = DiagnosticsStorer("pores_cycle_floats", n_pores, 3, np.float64, path)
+        self.storer_pores_cycle_ints = DiagnosticsStorer("pores_cycle_ints", n_pores, 1, np.int8, path)
 
         self._export_pn_to_json(network.pn, path + "/" + NETWORK_JSON_NAME)
 
@@ -66,7 +66,7 @@ class DiagnosticsWriter:
             ]
         )
         self.storer_throats_bools.save_state([throat.water_filled, throat.trapped])
-        self.storer_throats_geometry.save_state([throat.corner_water_layer, throat.corner_oil_layer])
+        self.storer_throats_corners_bool.save_state([throat.corner_water_layer, throat.corner_oil_layer])
         self.storer_throats_corners_float.save_state(
             [throat.b, throat.bo, throat.hinging_contact_angle, throat.hinging_contact_angle_o]
         )
@@ -79,7 +79,7 @@ class DiagnosticsWriter:
             ]
         )
         self.storer_pores_bools.save_state([pore.water_filled, pore.trapped])
-        self.storer_pores_geometry.save_state([pore.corner_water_layer, pore.corner_oil_layer])
+        self.storer_pores_corners_bool.save_state([pore.corner_water_layer, pore.corner_oil_layer])
         self.storer_pores_corners_float.save_state(
             [pore.b, pore.bo, pore.hinging_contact_angle, pore.hinging_contact_angle_o]
         )
@@ -93,28 +93,28 @@ class DiagnosticsWriter:
         throat = self.pn.throat
         pore = self.pn.pore
 
-        self.storer_throats_entry_pressure.save_state(
+        self.storer_throats_cycle_floats.save_state(
             [throat.entry_pressure, throat.advancing_contact_angle, throat.receding_contact_angle]
         )
-        self.storer_throats_invasion_method.save_state([throat.invasion_method])
-        self.storer_pores_entry_pressure.save_state(
+        self.storer_throats_cycle_ints.save_state([throat.invasion_method])
+        self.storer_pores_cycle_floats.save_state(
             [pore.entry_pressure, pore.advancing_contact_angle, pore.receding_contact_angle]
         )
-        self.storer_pores_invasion_method.save_state([pore.invasion_method])
+        self.storer_pores_cycle_ints.save_state([pore.invasion_method])
 
     def close(self):
         self.storer_throats.close()
         self.storer_throats_bools.close()
-        self.storer_throats_geometry.close()
+        self.storer_throats_corners_bool.close()
         self.storer_throats_corners_float.close()
-        self.storer_throats_entry_pressure.close()
-        self.storer_throats_invasion_method.close()
+        self.storer_throats_cycle_floats.close()
+        self.storer_throats_cycle_ints.close()
         self.storer_pores.close()
         self.storer_pores_bools.close()
-        self.storer_pores_geometry.close()
+        self.storer_pores_corners_bool.close()
         self.storer_pores_corners_float.close()
-        self.storer_pores_entry_pressure.close()
-        self.storer_pores_invasion_method.close()
+        self.storer_pores_cycle_floats.close()
+        self.storer_pores_cycle_ints.close()
 
     @staticmethod
     def _export_pn_to_json(pn, path):
@@ -261,7 +261,7 @@ class DiagnosticsThroatsStep(DiagnosticsStateLoader):
         self.water_multiphase_conductance = self.data_view(data, 4)
 
         n_data = 2
-        geo = self.load_state("throats_geometry", n_data, np.bool_, CORNER_SHAPE)
+        geo = self.load_state("throats_corners_bool", n_data, np.bool_, CORNER_SHAPE)
         self.corner_water_layer = self.data_view(geo, 0, CORNER_SHAPE)
         self.corner_oil_layer = self.data_view(geo, 1, CORNER_SHAPE)
 
@@ -293,7 +293,7 @@ class DiagnosticsPoresStep(DiagnosticsStateLoader):
         self.flow_rate = self.data_view(data, 3)
 
         n_data = 2
-        geo = self.load_state("pores_geometry", n_data, np.bool_, CORNER_SHAPE)
+        geo = self.load_state("pores_corners_bool", n_data, np.bool_, CORNER_SHAPE)
         self.corner_water_layer = self.data_view(geo, 0, CORNER_SHAPE)
         self.corner_oil_layer = self.data_view(geo, 1, CORNER_SHAPE)
 
@@ -318,13 +318,13 @@ class DiagnosticsThroatCycle(DiagnosticsStateLoader):
         super().__init__(path, cycle, n_throats)
 
         n_data = 3
-        data = self.load_state("throats_entry_pressure", n_data, np.float64)
+        data = self.load_state("throats_cycle_floats", n_data, np.float64)
         self.entry_pressure = self.data_view(data, 0)
         self.advancing_contact_angle = self.data_view(data, 1)
         self.receding_contact_angle = self.data_view(data, 2)
 
         n_data = 1
-        data = self.load_state("throats_invasion_method", n_data, np.int8)
+        data = self.load_state("throats_cycle_ints", n_data, np.int8)
         self.invasion_method = self.data_view(data, 0)
 
     def __str__(self):
@@ -336,13 +336,13 @@ class DiagnosticsPoreCycle(DiagnosticsStateLoader):
         super().__init__(path, cycle, n_pores)
 
         n_data = 3
-        data = self.load_state("pores_entry_pressure", n_data, np.float64)
+        data = self.load_state("pores_cycle_floats", n_data, np.float64)
         self.entry_pressure = self.data_view(data, 0)
         self.advancing_contact_angle = self.data_view(data, 1)
         self.receding_contact_angle = self.data_view(data, 2)
 
         n_data = 1
-        data = self.load_state("pores_invasion_method", n_data, np.int8)
+        data = self.load_state("pores_cycle_ints", n_data, np.int8)
         self.invasion_method = self.data_view(data, 0)
 
     def __str__(self):
