@@ -110,6 +110,7 @@ def initialize_pn(pn: PoreNetwork) -> None:
     for element_type in ["pore", "throat"]:
         number_of_elements = len(pn[f"{element_type}.all"])
 
+        set_default(pn, f"{element_type}.filled", False)
         set_default(pn, f"{element_type}.oil_filled", False)
         set_default(pn, f"{element_type}.water_filled", True)
         set_default(pn, f"{element_type}.oil_saturation", 0.0)
@@ -143,7 +144,7 @@ def initialize_pn(pn: PoreNetwork) -> None:
         pn[f"{element_type}.n_corners"] = int(0)
         pn[f"{element_type}.snap_off_viability"] = True
         pn[f"{element_type}.entry_pressure"] = 0.0
-        pn[f"{element_type}.invasion_method"] = int(-1)
+        pn[f"{element_type}.invasion_method"] = int(0)
         pn[f"{element_type}.snap_off_pressure"] = 0.0
         pn[f"{element_type}.piston_like_pressure"] = 0.0
         pn[f"{element_type}.oil_layer_collapse_pressure"] = np.empty(

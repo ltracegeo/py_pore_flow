@@ -27,7 +27,7 @@ class DiagnosticsWriter:
         self.info_storer = DiagnosticsInfoStorer(path)
         self.info_storer.save_number_of_elements(n_throats, n_pores)
         self.storer_throats = DiagnosticsStorer("throats", n_throats, 5, np.float64, path)
-        self.storer_throats_bools = DiagnosticsStorer("throats_bools", n_throats, 2, np.bool_, path)
+        self.storer_throats_bools = DiagnosticsStorer("throats_bools", n_throats, 3, np.bool_, path)
         self.storer_throats_corners_bool = DiagnosticsStorer(
             "throats_corners_bool", n_throats, 2, np.bool_, path, item_shape=CORNER_SHAPE
         )
@@ -37,7 +37,7 @@ class DiagnosticsWriter:
         self.storer_throats_cycle_floats = DiagnosticsStorer("throats_cycle_floats", n_throats, 3, np.float64, path)
         self.storer_throats_cycle_ints = DiagnosticsStorer("throats_cycle_ints", n_throats, 1, np.int8, path)
         self.storer_pores = DiagnosticsStorer("pores", n_pores, 4, np.float64, path)
-        self.storer_pores_bools = DiagnosticsStorer("pores_bools", n_pores, 2, np.bool_, path)
+        self.storer_pores_bools = DiagnosticsStorer("pores_bools", n_pores, 3, np.bool_, path)
         self.storer_pores_corners_bool = DiagnosticsStorer(
             "pores_corners_bool", n_pores, 2, np.bool_, path, item_shape=CORNER_SHAPE
         )
@@ -65,7 +65,7 @@ class DiagnosticsWriter:
                 throat.water_multiphase_conductance,
             ]
         )
-        self.storer_throats_bools.save_state([throat.water_filled, throat.trapped])
+        self.storer_throats_bools.save_state([throat.water_filled, throat.trapped, throat.filled])
         self.storer_throats_corners_bool.save_state([throat.corner_water_layer, throat.corner_oil_layer])
         self.storer_throats_corners_float.save_state(
             [throat.b, throat.bo, throat.hinging_contact_angle, throat.hinging_contact_angle_o]
@@ -78,7 +78,7 @@ class DiagnosticsWriter:
                 pore.flow_rate,
             ]
         )
-        self.storer_pores_bools.save_state([pore.water_filled, pore.trapped])
+        self.storer_pores_bools.save_state([pore.water_filled, pore.trapped, pore.filled])
         self.storer_pores_corners_bool.save_state([pore.corner_water_layer, pore.corner_oil_layer])
         self.storer_pores_corners_float.save_state(
             [pore.b, pore.bo, pore.hinging_contact_angle, pore.hinging_contact_angle_o]
@@ -265,10 +265,11 @@ class DiagnosticsThroatsStep(DiagnosticsStateLoader):
         self.corner_water_layer = self.data_view(geo, 0, CORNER_SHAPE)
         self.corner_oil_layer = self.data_view(geo, 1, CORNER_SHAPE)
 
-        n_data = 2
+        n_data = 3
         bools = self.load_state("throats_bools", n_data, np.bool_)
         self.water_filled = self.data_view(bools, 0)
         self.trapped = self.data_view(bools, 1)
+        self.filled = self.data_view(bools, 2)
 
         n_data = 4
         corners = self.load_state("throats_corners_float", n_data, np.float64, CORNER_SHAPE)
@@ -297,10 +298,11 @@ class DiagnosticsPoresStep(DiagnosticsStateLoader):
         self.corner_water_layer = self.data_view(geo, 0, CORNER_SHAPE)
         self.corner_oil_layer = self.data_view(geo, 1, CORNER_SHAPE)
 
-        n_data = 2
+        n_data = 3
         bools = self.load_state("pores_bools", n_data, np.bool_)
         self.water_filled = self.data_view(bools, 0)
         self.trapped = self.data_view(bools, 1)
+        self.filled = self.data_view(bools, 2)
 
         n_data = 4
         corners = self.load_state("pores_corners_float", n_data, np.float64, CORNER_SHAPE)

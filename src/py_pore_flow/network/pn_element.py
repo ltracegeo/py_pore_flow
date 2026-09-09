@@ -184,6 +184,7 @@ class PnElement(ABC):
             self.set_water_filled(id, filled)
         else:
             self.set_oil_filled(id, filled)
+        self.element.filled[id] = filled
 
     def is_filled(self, id, phase):
         if phase == WATER:

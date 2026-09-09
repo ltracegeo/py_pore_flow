@@ -11,6 +11,8 @@ try:
 except ImportError:
     from vtkmodules.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
 
+from py_pore_flow.network.constants import PISTON_LIKE, PORE_BODY_FILLING, SNAP_OFF
+
 # name of the point-data array vtkGlyph3D adds when GeneratePointIds is on: it maps each
 # glyph-output point back to the input point (= pore id) that generated it
 INPUT_POINT_IDS = "InputPointIds"
@@ -26,11 +28,13 @@ COLOR_MODE_NONE = "None"
 COLOR_MODE_FILLING = "Filling"
 COLOR_MODE_WATER_CONDUCTIVITY = "Water Conductivity"
 COLOR_MODE_OIL_CONDUCTIVITY = "Oil Conductivity"
+COLOR_MODE_INVASION_METHOD = "Invasion Method"
 COLOR_MODES = [
     COLOR_MODE_NONE,
     COLOR_MODE_FILLING,
     COLOR_MODE_WATER_CONDUCTIVITY,
     COLOR_MODE_OIL_CONDUCTIVITY,
+    COLOR_MODE_INVASION_METHOD,
 ]
 
 RED_CHANNEL = 0
@@ -262,6 +266,8 @@ class DiagnosticsNetworkWidget(QtWidgets.QWidget):
             self._apply_element_colors(self._water_conductivity_colors)
         elif mode == COLOR_MODE_OIL_CONDUCTIVITY:
             self._apply_element_colors(self._oil_conductivity_colors)
+        elif mode == COLOR_MODE_INVASION_METHOD:
+            self._apply_element_colors(self._invasion_method)
         else:
             self._pore_mapper.ScalarVisibilityOff()
             if self._throat_mapper is not None:
@@ -296,6 +302,21 @@ class DiagnosticsNetworkWidget(QtWidgets.QWidget):
     @classmethod
     def _oil_conductivity_colors(cls, network, element_type):
         return cls._conductivity_ratio_colors(network, element_type, "oil", RED_CHANNEL)
+
+    @classmethod
+    def _invasion_method(cls, network, element_type):
+        filled = np.asarray(network[f"{element_type}.filled"], dtype=bool).ravel()
+        invasion_method = np.asarray(network[f"{element_type}.invasion_method"], dtype=int).ravel()
+        colors = np.zeros((invasion_method.size, 3), dtype=np.uint8)
+
+        piston_like_invaded = filled & (invasion_method == PISTON_LIKE)
+        pore_body_filling_invaded = filled & (invasion_method == PORE_BODY_FILLING)
+        snap_off_invaded = filled & (invasion_method == SNAP_OFF)
+
+        colors[piston_like_invaded, 0] = 200
+        colors[pore_body_filling_invaded, 1] = 200
+        colors[snap_off_invaded, 2] = 200
+        return colors
 
     @staticmethod
     def _conductivity_ratio_colors(network, element_type, phase, channel):
