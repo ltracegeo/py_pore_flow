@@ -85,12 +85,16 @@ class DiagnosticsNetworkWidget(QtWidgets.QWidget):
         self._renderer.AddActor(self._throat_highlight)
 
         self._vtk_widget = QVTKRenderWindowInteractor()
+        self._vtk_widget.setObjectName("network_vtk_widget")
         self._vtk_widget.GetRenderWindow().AddRenderer(self._renderer)
-        self._vtk_widget.show()
         self._network_window = QtGui.QWindow.fromWinId(self._vtk_widget.winId())
+        self._network_window.setObjectName("network_window_widget")
         self._network_container = QtWidgets.QWidget.createWindowContainer(self._network_window, network_widget)
+        self._network_container.setObjectName("network_container_widget")
+        self._network_container.setProperty("embeddedVtk", self._vtk_widget)
         self._network_container.setAttribute(QtCore.Qt.WA_DontCreateNativeAncestors)
         network_layout.addWidget(self._network_container)
+        self._vtk_widget.show()
 
         self._picker = vtk.vtkCellPicker()
         self._picker.SetTolerance(0.001)

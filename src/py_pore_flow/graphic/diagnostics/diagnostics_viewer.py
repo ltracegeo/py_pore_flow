@@ -1,10 +1,4 @@
-import numpy as np
-
-from PySide2.QtWidgets import (
-    QMainWindow,
-)
-
-from py_pore_flow.output.diagnostics import Diagnostics
+from PySide2.QtWidgets import QMainWindow
 
 
 PORE_COLUMNS = [
@@ -33,18 +27,18 @@ PORE = 0
 THROAT = 1
 
 
-class DiagnosticsViewer:
+class DiagnosticsViewer(QMainWindow):
     def __init__(self, diagnostics_path):
+        super().__init__()
         from py_pore_flow.graphic.diagnostics.diagnostics_widget import DiagnosticsWidget
 
-        diagnostics_widget = DiagnosticsWidget()
-        diagnostics_widget.set_diagnostics(diagnostics_path)
+        self.diagnostics_widget = DiagnosticsWidget()
+        self.diagnostics_widget.set_diagnostics(diagnostics_path)
 
-        self._window = QMainWindow()
-        self._window.setCentralWidget(diagnostics_widget)
+        self.setCentralWidget(self.diagnostics_widget)
 
-    def show(self):
-        self._window.show()
+    def closeEvent(self, event):
+        self.diagnostics_widget.deleteLater()
 
 
 class ElementTabManager:
