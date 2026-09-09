@@ -10,6 +10,7 @@ class PoresNetwork(ElementNetwork):
         self.radius = pn["pore.radius"]
         self.volume = pn["pore.volume"]
         self.clay_volume = pn["pore.clay_volume"]
+        self.filled = pn["pore.filled"]
         self.oil_filled = pn["pore.oil_filled"]
         self.water_filled = pn["pore.water_filled"]
         self.oil_saturation = pn["pore.oil_saturation"]

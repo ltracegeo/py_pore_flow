@@ -427,6 +427,8 @@ def calculate_drainage_values(network, max_pc):
 
     network.pn_core.pore.hinging_contact_angle[:, :] = network.pn_core.pore.receding_contact_angle[:, np.newaxis]
     network.pn_core.throat.hinging_contact_angle[:, :] = network.pn_core.throat.receding_contact_angle[:, np.newaxis]
+    network.pn_core.pore.filled[:] = False
+    network.pn_core.throat.filled[:] = False
 
     return network
 
@@ -471,6 +473,8 @@ def calculate_imbibition_values(network, max_pc):
     network.pn_core["throat.trapped_evacuation"] = False
     network.pn_core.pore.hinging_contact_angle_o[:, :] = network.pn_core.pore.advancing_contact_angle[:, np.newaxis]
     network.pn_core.throat.hinging_contact_angle_o[:, :] = network.pn_core.throat.advancing_contact_angle[:, np.newaxis]
+    network.pn_core.pore.filled[:] = False
+    network.pn_core.throat.filled[:] = False
 
     calculate_imbibion_oil_filled_multiphase(
         network.pn_core.pore.oil_filled_multiphase,
@@ -510,6 +514,8 @@ def calculate_2nd_drainage_values(network, min_pc):
     network.pn_core["throat.trapped"] = False
     network.pn_core["pore.trapped_evacuation"] = False
     network.pn_core["throat.trapped_evacuation"] = False
+    network.pn_core.pore.filled[:] = False
+    network.pn_core.throat.filled[:] = False
 
     network.pn_core.pore.b_pinned[:] = network.pn_core.pore.b
     calculate_water_corner_collapse_pc(
