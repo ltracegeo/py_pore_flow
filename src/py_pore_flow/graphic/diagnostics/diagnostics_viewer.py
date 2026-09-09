@@ -1,28 +1,5 @@
 from PySide2.QtWidgets import QMainWindow
 
-
-PORE_COLUMNS = [
-    "water_saturation",
-    "oil_multiphase_conductivity",
-    "water_multiphase_conductivity",
-    "water_filled",
-    "trapped",
-    "corner_water_layer",
-    "corner_oil_layer",
-]
-
-THROAT_COLUMNS = [
-    "water_saturation",
-    "oil_multiphase_conductivity",
-    "water_multiphase_conductivity",
-    "oil_multiphase_conductance",
-    "water_multiphase_conductance",
-    "water_filled",
-    "trapped",
-    "corner_water_layer",
-    "corner_oil_layer",
-]
-
 PORE = 0
 THROAT = 1
 

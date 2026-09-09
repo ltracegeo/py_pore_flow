@@ -1,9 +1,11 @@
-from PySide2.QtCore import Qt, QEvent, QTimer, Signal
+from typing import ClassVar
+
+from PySide2.QtCore import QEvent, Qt, QTimer, Signal
 from PySide2.QtGui import QStandardItem, QStandardItemModel
 from PySide2.QtWidgets import (
     QComboBox,
-    QHeaderView,
     QHBoxLayout,
+    QHeaderView,
     QLabel,
     QSpinBox,
     QSplitter,
@@ -17,7 +19,6 @@ from py_pore_flow.graphic.diagnostics.diagnostics_element_widget import Diagnost
 from py_pore_flow.graphic.diagnostics.diagnostics_heatmap_widget import HeatmapWidget
 from py_pore_flow.graphic.diagnostics.diagnostics_network_widget import DiagnosticsNetworkWidget
 from py_pore_flow.graphic.diagnostics.diagnostics_properties import DiagnosticsProperties
-
 
 CYCLE_NAMES = ["Drainage", "Imbibition", "2nd Drainage"]
 
@@ -131,7 +132,7 @@ class DiagnosticsTableWidget(QTableWidget):
 
 
 class DiagnosticsTab(QWidget):
-    PORE_COLUMNS = [
+    PORE_COLUMNS: ClassVar[list[str]] = [
         "water_saturation",
         "oil_multiphase_conductivity",
         "water_multiphase_conductivity",
@@ -141,7 +142,7 @@ class DiagnosticsTab(QWidget):
         "corner_oil_layer",
     ]
 
-    THROAT_COLUMNS = [
+    THROAT_COLUMNS: ClassVar[list[str]] = [
         "water_saturation",
         "oil_multiphase_conductivity",
         "water_multiphase_conductivity",

@@ -2,8 +2,8 @@ import os
 
 import numpy as np
 import vtk
-from vtk.util.numpy_support import numpy_to_vtk, vtk_to_numpy
 from PySide2 import QtCore, QtGui, QtWidgets
+from vtk.util.numpy_support import numpy_to_vtk, vtk_to_numpy
 
 os.environ.setdefault("QT_API", "pyside2")
 try:

@@ -74,7 +74,7 @@ class KrelCalculator:
         conns = pn["throat.conns"]
         # Also require both endpoint pores to be present
         throat_mask = triple_compare(
-            throat_mask, 
+            throat_mask,
             pore_mask,
             conns,
         )
@@ -252,7 +252,7 @@ class KrelCalculator:
 
 @njit(cache=True)
 def triple_compare(
-    throat_mask, 
+    throat_mask,
     pore_mask,
     conns,
     ):

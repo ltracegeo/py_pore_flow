@@ -7,9 +7,9 @@ from PySide2.QtWidgets import (
 )
 
 from py_pore_flow.graphic.diagnostics.diagnostics_tabs import (
+    CrossPlotTab,
     DiagnosticsTab,
     ElementGeometryTab,
-    CrossPlotTab,
     HeatmapTab,
 )
 from py_pore_flow.output.diagnostics import Diagnostics

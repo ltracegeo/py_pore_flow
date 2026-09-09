@@ -90,10 +90,10 @@ class CycleSimulation:
             if target_sw is not None:
                 invasion_target_sw = target_sw - total_sw_delta
             invaded_pc = invasion_pc
-            
+
             if verbose: yield f"Updating invasions at Pc: {invasion_pc:.2f}"
             sw_delta, invasion_pc, no_invasion_left = yield from self._update_invasions(invasion_pc, invasion_target_sw, verbose=verbose)
-            
+
             if verbose: yield "Updating multiphase mask"
             self._update_multiphase_mask(invaded_pc, old_pc)
             old_pc = invaded_pc
@@ -181,7 +181,7 @@ class CycleSimulation:
 
         no_invasion_left = False
         invasion_pc = pc
-        
+
         while True:
             try:
                 element_to_fill = self._get_element_to_fill(pc, self.border_elements, verbose=verbose)
@@ -204,7 +204,7 @@ class CycleSimulation:
                 element = self.network.pore
             else:
                 element = self.network.throat
-                
+
             if verbose: yield f"Filling {'pore' if element_type == PORE else 'throat'} {element_id} at Pc: {invasion_pc:.2f}"
 
             self._fill_element(element, element_id, invasion_pc)
@@ -224,12 +224,12 @@ class CycleSimulation:
                     new_untrapped_pores,
                     new_untrapped_throats,
                 ) = self.trap_checker.update_trapped_pores()
-                
+
                 if verbose: yield "Refreshing border elements"
                 new_border_pores, new_border_throats = self._refresh_border_elements(
                     reached_bubble, element, element_id, new_trapped_pores, new_trapped_throats
                 )
-                
+
                 if verbose: yield "Updating untrapped entry pressures"
                 self._update_pore_entry_pc(new_untrapped_pores, pc)
                 self._update_throat_entry_pc(new_untrapped_throats)
@@ -238,7 +238,7 @@ class CycleSimulation:
                 new_border_pores, new_border_throats = self._refresh_border_elements(
                     reached_bubble, element, element_id
                 )
-            
+
             if verbose: yield "Updating border entry pressures"
             self._update_border_pore_entry_pc(new_border_pores, pc)
             self._update_border_throat_entry_pc(new_border_throats)
