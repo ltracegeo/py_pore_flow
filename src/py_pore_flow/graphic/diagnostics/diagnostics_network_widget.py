@@ -40,6 +40,13 @@ COLOR_MODES = [
 RED_CHANNEL = 0
 BLUE_CHANNEL = 2
 
+# (invasion method id, legend label, RGB color)
+INVASION_METHOD_LEGEND = [
+    (PISTON_LIKE, "Piston-like", (200, 0, 0)),
+    (PORE_BODY_FILLING, "Pore body filling", (0, 200, 0)),
+    (SNAP_OFF, "Snap-off", (0, 0, 200)),
+]
+
 
 class DiagnosticsNetworkWidget(QtWidgets.QWidget):
     poreClicked = QtCore.Signal(int)
@@ -51,15 +58,22 @@ class DiagnosticsNetworkWidget(QtWidgets.QWidget):
 
         # Widgets
         network_widget = QtWidgets.QWidget()
+        network_widget.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         network_layout = QtWidgets.QVBoxLayout(network_widget)
 
         self.color_combo = QtWidgets.QComboBox()
         self.color_combo.addItems(COLOR_MODES)
         self.color_combo.currentTextChanged.connect(self._apply_color_mode)
 
+        self._invasion_legend = self._build_invasion_legend()
+        self._invasion_legend.setVisible(False)
+        self._invasion_legend.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed)
+
         color_bar = QtWidgets.QHBoxLayout()
         color_bar.addWidget(QtWidgets.QLabel("Color:"))
         color_bar.addWidget(self.color_combo)
+        color_bar.addSpacing(12)
+        color_bar.addWidget(self._invasion_legend)
         color_bar.addStretch()
 
         layout = QtWidgets.QVBoxLayout(self)
@@ -256,10 +270,26 @@ class DiagnosticsNetworkWidget(QtWidgets.QWidget):
         actor.VisibilityOff()
         return actor
 
+    @staticmethod
+    def _build_invasion_legend():
+        legend = QtWidgets.QWidget()
+        legend_layout = QtWidgets.QHBoxLayout(legend)
+        legend_layout.setContentsMargins(0, 0, 0, 0)
+        legend_layout.setSpacing(4)
+        for _method, label, (r, g, b) in INVASION_METHOD_LEGEND:
+            swatch = QtWidgets.QLabel()
+            swatch.setFixedSize(14, 14)
+            swatch.setStyleSheet(f"background-color: rgb({r}, {g}, {b}); border: 1px solid #555;")
+            legend_layout.addWidget(swatch)
+            legend_layout.addWidget(QtWidgets.QLabel(label))
+            legend_layout.addSpacing(10)
+        return legend
+
     def refresh_colors(self):
         self._apply_color_mode(self.color_combo.currentText())
 
     def _apply_color_mode(self, mode):
+        self._invasion_legend.setVisible(mode == COLOR_MODE_INVASION_METHOD)
         if mode == COLOR_MODE_FILLING:
             self._apply_element_colors(self._fill_colors)
         elif mode == COLOR_MODE_WATER_CONDUCTIVITY:
@@ -309,13 +339,8 @@ class DiagnosticsNetworkWidget(QtWidgets.QWidget):
         invasion_method = np.asarray(network[f"{element_type}.invasion_method"], dtype=int).ravel()
         colors = np.zeros((invasion_method.size, 3), dtype=np.uint8)
 
-        piston_like_invaded = filled & (invasion_method == PISTON_LIKE)
-        pore_body_filling_invaded = filled & (invasion_method == PORE_BODY_FILLING)
-        snap_off_invaded = filled & (invasion_method == SNAP_OFF)
-
-        colors[piston_like_invaded, 0] = 200
-        colors[pore_body_filling_invaded, 1] = 200
-        colors[snap_off_invaded, 2] = 200
+        for method, _label, rgb in INVASION_METHOD_LEGEND:
+            colors[filled & (invasion_method == method)] = rgb
         return colors
 
     @staticmethod
