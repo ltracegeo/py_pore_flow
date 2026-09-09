@@ -103,8 +103,8 @@ def run_two_phase_simulation(
     skip_2nd_drainage = simulation.parameter_manager.skip_2nd_drainage
 
     for i, cycle_skip_setting in enumerate([
-        skip_drainage, 
-        skip_imbibition, 
+        skip_drainage,
+        skip_imbibition,
         skip_2nd_drainage,
     ]):
         if not cycle_skip_setting:
@@ -184,10 +184,10 @@ class Simulation:
 
         if generate_vtu:
             pn_to_vtu(self.pn, self.pc_incrementer.get_pc(), 1, 0)
-    
+
     def skip_cycle(self):
         self.current_cycle_number += 1
-    
+
     def run_next_cycle(self, return_generator=False, verbose=False):
         if self.current_cycle_number == INITIAL:
             self.step_simulation.set_max_pc(self.parameter_manager.pc_maximum)
@@ -223,13 +223,13 @@ class Simulation:
         for i in range(len(pn['throat.all'])):
             trapped = " (Trapped)" if pn['throat.trapped'][i] else ""
             res += f"    Throat {i:3d}: Entry Pc={pn['throat.entry_pressure'][i]:8.2f}, Sw={pn['throat.water_saturation'][i]:.4f}, So={pn['throat.oil_saturation'][i]:.4f}, Filled={'Oil' if pn['throat.oil_filled'][i] else 'Water'}{trapped}\n"
-        
+
         # Add border elements information
         if hasattr(self.step_simulation.simulation, 'border_elements'):
             be = self.step_simulation.simulation.border_elements
             res += f"  Border Pores: {be.get_pores_ids().tolist()}\n"
             res += f"  Border Throats: {be.get_throats_ids().tolist()}\n"
-        
+
         return res
 
     def _get_run_cycle_generator(self, cycle_name, verbose=False):
@@ -276,7 +276,7 @@ class Simulation:
 
             while current_pc != last_pc:
                 last_pc = current_pc
-                
+
                 if verbose: yield _verbose_msg("Checking snapshots")
                 self._check_snapshot(cycle_name, current_pc)
 
@@ -306,7 +306,7 @@ class Simulation:
                     if verbose: yield _verbose_msg(f"End condition met: Swi reached ({self.Sw_array[-1]:.6f})")
                     simulation_end = True
                     break
-                
+
                 yield self.Pc_array, self.Sw_array, self.Krw_array, self.Kro_array
 
             if self.parameter_manager.control_by_pc:
@@ -424,7 +424,6 @@ def calculate_drainage_values(network, max_pc):
     network.pn_core["throat.trapped"] = False
     network.pn_core["pore.trapped_evacuation"] = False
     network.pn_core["throat.trapped_evacuation"] = False
-
     network.pn_core.pore.hinging_contact_angle[:, :] = network.pn_core.pore.receding_contact_angle[:, np.newaxis]
     network.pn_core.throat.hinging_contact_angle[:, :] = network.pn_core.throat.receding_contact_angle[:, np.newaxis]
     network.pn_core.pore.filled[:] = False
@@ -855,7 +854,7 @@ class StepSimulation:
 
         if set_initial_values:
             calculate_initial_values(self.network)
-        
+
         self.diagnostics_writer = None
 
     def set_max_pc(self, max_pc):
@@ -896,7 +895,7 @@ class StepSimulation:
 
         if verbose: yield "Calculating saturations"
         Sw = self.simulation.calculate_sw_total()
-        
+
         if verbose: yield "Calculating relative permeability"
         Krw, Kro = self.simulation.calculate_krel()
 
@@ -908,7 +907,7 @@ class StepSimulation:
 
     def get_pores_left(self):
         return self.simulation.get_pores_left()
-    
+
     def get_throats_left(self):
         return self.simulation.get_throats_left()
 
