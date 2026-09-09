@@ -3,6 +3,7 @@ from PySide2.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QTabWidget,
+    QWidget,
 )
 
 from py_pore_flow.graphic.diagnostics.diagnostics_tabs import (
@@ -33,6 +34,17 @@ class DiagnosticsWidget(QFrame):
 
         layout = QHBoxLayout(self)
         layout.addWidget(tabs)
+
+    def deleteLater(self):
+        self.__close_vtk_window()
+        super().deleteLater()
+
+    def __close_vtk_window(self):
+        network_container_widget = self.findChild(QWidget, "network_container_widget")
+        if network_container_widget is not None:
+            network_vtk_window = network_container_widget.property("embeddedVtk")
+            if network_vtk_window is not None:
+                network_vtk_window.close()
 
     def set_diagnostics(self, diagnostics_path):
         self._diagnostics = Diagnostics(diagnostics_path)
