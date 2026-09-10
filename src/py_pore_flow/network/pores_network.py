@@ -70,4 +70,5 @@ class PoresNetwork(ElementNetwork):
         self.in_border = pn["pore.in_border"]
         self.is_multiphase = pn["pore.is_multiphase"]
         self.water_corner_collapse_pressure = pn["pore.water_corner_collapse_pressure"]
-        self.flow_rate = pn["pore.flow_rate"]
+        self.oil_flow_rate = pn["pore.oil_flow_rate"]
+        self.water_flow_rate = pn["pore.water_flow_rate"]
