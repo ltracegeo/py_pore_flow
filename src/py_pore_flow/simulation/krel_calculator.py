@@ -114,6 +114,7 @@ class KrelCalculator:
             return 0.0
 
         cond_key = f"throat.{phase_name}_multiphase_conductance"
+        flowrate_key = f"pore.{phase_name}_flow_rate"
 
         total_flow_rate = 0.0
         for vlabel in valid_labels:
@@ -128,7 +129,7 @@ class KrelCalculator:
             component_throat_ids_orig = throat_indices[component_throat_mask]
 
             flow_rate = self._solve_direct(
-                pn, component_pore_ids_orig, component_throat_ids_orig, cond_key,
+                pn, component_pore_ids_orig, component_throat_ids_orig, cond_key, flowrate_key,
             )
             total_flow_rate += flow_rate
 
@@ -140,7 +141,7 @@ class KrelCalculator:
     # ── Helpers ───────────────────────────────────────────────────────────────
 
     @staticmethod
-    def _solve_direct(pn, pore_ids, throat_ids, cond_key):
+    def _solve_direct(pn, pore_ids, throat_ids, cond_key, flowrate_key):
         """Solve flow on a connected component directly from arrays.
 
         No OpenPNM Network objects are created — builds the sparse linear
@@ -192,7 +193,7 @@ class KrelCalculator:
 
         x = np.atleast_1d(spsolve(A_csr, b_array))
         pressure = network_manager.get_pressure_list(x)
-        KrelCalculator._store_flow_rate(pn["pore.flow_rate"], pore_ids, pressure)
+        KrelCalculator._store_flow_rate(pn[flowrate_key], pore_ids, pressure)
         flow_rate = network_manager.get_flow_rate(pressure)
 
         return flow_rate * factor

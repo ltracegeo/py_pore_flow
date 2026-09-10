@@ -187,7 +187,8 @@ def initialize_pn(pn: PoreNetwork) -> None:
     pn["throat.water_multiphase_conductance"] = 0.0
     pn["throat.hydraulic_conductance"] = 0.0
 
-    pn["pore.flow_rate"] = -1.0
+    pn["pore.oil_flow_rate"] = -1.0
+    pn["pore.water_flow_rate"] = -1.0
 
     # Initialize connection properties
     pn["throat.n_conns"] = np.int64(2)

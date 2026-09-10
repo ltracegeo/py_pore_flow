@@ -36,7 +36,7 @@ class DiagnosticsWriter:
         )
         self.storer_throats_cycle_floats = DiagnosticsStorer("throats_cycle_floats", n_throats, 3, np.float64, path)
         self.storer_throats_cycle_ints = DiagnosticsStorer("throats_cycle_ints", n_throats, 1, np.int8, path)
-        self.storer_pores = DiagnosticsStorer("pores", n_pores, 4, np.float64, path)
+        self.storer_pores = DiagnosticsStorer("pores", n_pores, 5, np.float64, path)
         self.storer_pores_bools = DiagnosticsStorer("pores_bools", n_pores, 3, np.bool_, path)
         self.storer_pores_corners_bool = DiagnosticsStorer(
             "pores_corners_bool", n_pores, 2, np.bool_, path, item_shape=CORNER_SHAPE
@@ -75,7 +75,8 @@ class DiagnosticsWriter:
                 pore.water_saturation,
                 pore.oil_multiphase_conductivity,
                 pore.water_multiphase_conductivity,
-                pore.flow_rate,
+                pore.oil_flow_rate,
+                pore.water_flow_rate,
             ]
         )
         self.storer_pores_bools.save_state([pore.water_filled, pore.trapped, pore.filled])
@@ -286,12 +287,13 @@ class DiagnosticsPoresStep(DiagnosticsStateLoader):
     def __init__(self, path, step, n_pores):
         super().__init__(path, step, n_pores)
 
-        n_data = 4
+        n_data = 5
         data = self.load_state("pores", n_data, np.float64)
         self.water_saturation = self.data_view(data, 0)
         self.oil_multiphase_conductivity = self.data_view(data, 1)
         self.water_multiphase_conductivity = self.data_view(data, 2)
-        self.flow_rate = self.data_view(data, 3)
+        self.oil_flow_rate = self.data_view(data, 3)
+        self.water_flow_rate = self.data_view(data, 4)
 
         n_data = 2
         geo = self.load_state("pores_corners_bool", n_data, np.bool_, CORNER_SHAPE)
