@@ -13,25 +13,25 @@ NETWORK_JSON_NAME = "network.json"
 # trailing per-element shape of the corner layer arrays (one value per corner)
 CORNER_SHAPE = (MAX_NUMBER_OF_CORNERS,)
 
-THROATS_FLOATS_NAME = "throats"
+THROATS_FLOATS_NAME = "throats_floats"
 THROATS_FLOATS_NDATA = 5
 THROATS_BOOLS_NAME = "throats_bools"
 THROATS_BOOLS_NDATA = 3
-THROATS_CORNERS_BOOL_NAME = "throats_corners_bool"
+THROATS_CORNERS_BOOL_NAME = "throats_corners_bools"
 THROATS_CORNERS_BOOL_NDATA = 2
-THROATS_CORNERS_FLOAT_NAME = "throats_corners_float"
+THROATS_CORNERS_FLOAT_NAME = "throats_corners_floats"
 THROATS_CORNERS_FLOAT_NDATA = 4
 THROATS_CYCLE_FLOATS_NAME = "throats_cycle_floats"
 THROATS_CYCLE_FLOATS_NDATA = 3
 THROATS_CYCLE_INTS_NAME = "throats_cycle_ints"
 THROATS_CYCLE_INTS_NDATA = 1
-PORES_FLOATS_NAME = "pores"
+PORES_FLOATS_NAME = "pores_floats"
 PORES_FLOATS_NDATA = 5
 PORES_BOOLS_NAME = "pores_bools"
 PORES_BOOLS_NDATA = 3
-PORES_CORNERS_BOOL_NAME = "pores_corners_bool"
+PORES_CORNERS_BOOL_NAME = "pores_corners_bools"
 PORES_CORNERS_BOOL_NDATA = 2
-PORES_CORNERS_FLOAT_NAME = "pores_corners_float"
+PORES_CORNERS_FLOAT_NAME = "pores_corners_floats"
 PORES_CORNERS_FLOAT_NDATA = 4
 PORES_CYCLE_FLOATS_NAME = "pores_cycle_floats"
 PORES_CYCLE_FLOATS_NDATA = 3
@@ -51,7 +51,7 @@ class DiagnosticsWriter:
 
         self.info_storer = DiagnosticsInfoStorer(path)
         self.info_storer.save_number_of_elements(n_throats, n_pores)
-        self.storer_throats = DiagnosticsStorer(THROATS_FLOATS_NAME, n_throats, THROATS_FLOATS_NDATA, np.float64, path)
+        self.storer_throats_floats = DiagnosticsStorer(THROATS_FLOATS_NAME, n_throats, THROATS_FLOATS_NDATA, np.float64, path)
         self.storer_throats_bools = DiagnosticsStorer(
             THROATS_BOOLS_NAME, n_throats, THROATS_BOOLS_NDATA, np.bool_, path
         )
@@ -96,7 +96,7 @@ class DiagnosticsWriter:
         throat = self.pn.throat
         pore = self.pn.pore
 
-        self.storer_throats.save_state(
+        self.storer_throats_floats.save_state(
             [
                 throat.water_saturation,
                 throat.oil_multiphase_conductivity,
@@ -144,7 +144,7 @@ class DiagnosticsWriter:
         self.storer_pores_cycle_ints.save_state([pore.invasion_method])
 
     def close(self):
-        self.storer_throats.close()
+        self.storer_throats_floats.close()
         self.storer_throats_bools.close()
         self.storer_throats_corners_bool.close()
         self.storer_throats_corners_float.close()
