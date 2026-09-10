@@ -13,6 +13,31 @@ NETWORK_JSON_NAME = "network.json"
 # trailing per-element shape of the corner layer arrays (one value per corner)
 CORNER_SHAPE = (MAX_NUMBER_OF_CORNERS,)
 
+THROATS_FLOATS_NAME = "throats"
+THROATS_FLOATS_NDATA = 5
+THROATS_BOOLS_NAME = "throats_bools"
+THROATS_BOOLS_NDATA = 3
+THROATS_CORNERS_BOOL_NAME = "throats_corners_bool"
+THROATS_CORNERS_BOOL_NDATA = 2
+THROATS_CORNERS_FLOAT_NAME = "throats_corners_float"
+THROATS_CORNERS_FLOAT_NDATA = 4
+THROATS_CYCLE_FLOATS_NAME = "throats_cycle_floats"
+THROATS_CYCLE_FLOATS_NDATA = 3
+THROATS_CYCLE_INTS_NAME = "throats_cycle_ints"
+THROATS_CYCLE_INTS_NDATA = 1
+PORES_FLOATS_NAME = "pores"
+PORES_FLOATS_NDATA = 5
+PORES_BOOLS_NAME = "pores_bools"
+PORES_BOOLS_NDATA = 3
+PORES_CORNERS_BOOL_NAME = "pores_corners_bool"
+PORES_CORNERS_BOOL_NDATA = 2
+PORES_CORNERS_FLOAT_NAME = "pores_corners_float"
+PORES_CORNERS_FLOAT_NDATA = 4
+PORES_CYCLE_FLOATS_NAME = "pores_cycle_floats"
+PORES_CYCLE_FLOATS_NDATA = 3
+PORES_CYCLE_INTS_NAME = "pores_cycle_ints"
+PORES_CYCLE_INTS_NDATA = 1
+
 
 class DiagnosticsWriter:
     def __init__(self, network, path="."):
@@ -26,26 +51,41 @@ class DiagnosticsWriter:
 
         self.info_storer = DiagnosticsInfoStorer(path)
         self.info_storer.save_number_of_elements(n_throats, n_pores)
-        self.storer_throats = DiagnosticsStorer("throats", n_throats, 5, np.float64, path)
-        self.storer_throats_bools = DiagnosticsStorer("throats_bools", n_throats, 3, np.bool_, path)
+        self.storer_throats = DiagnosticsStorer(THROATS_FLOATS_NAME, n_throats, THROATS_FLOATS_NDATA, np.float64, path)
+        self.storer_throats_bools = DiagnosticsStorer(
+            THROATS_BOOLS_NAME, n_throats, THROATS_BOOLS_NDATA, np.bool_, path
+        )
         self.storer_throats_corners_bool = DiagnosticsStorer(
-            "throats_corners_bool", n_throats, 2, np.bool_, path, item_shape=CORNER_SHAPE
+            THROATS_CORNERS_BOOL_NAME, n_throats, THROATS_CORNERS_BOOL_NDATA, np.bool_, path, item_shape=CORNER_SHAPE
         )
         self.storer_throats_corners_float = DiagnosticsStorer(
-            "throats_corners_float", n_throats, 4, np.float64, path, item_shape=CORNER_SHAPE
+            THROATS_CORNERS_FLOAT_NAME,
+            n_throats,
+            THROATS_CORNERS_FLOAT_NDATA,
+            np.float64,
+            path,
+            item_shape=CORNER_SHAPE,
         )
-        self.storer_throats_cycle_floats = DiagnosticsStorer("throats_cycle_floats", n_throats, 3, np.float64, path)
-        self.storer_throats_cycle_ints = DiagnosticsStorer("throats_cycle_ints", n_throats, 1, np.int8, path)
-        self.storer_pores = DiagnosticsStorer("pores", n_pores, 5, np.float64, path)
-        self.storer_pores_bools = DiagnosticsStorer("pores_bools", n_pores, 3, np.bool_, path)
+        self.storer_throats_cycle_floats = DiagnosticsStorer(
+            THROATS_CYCLE_FLOATS_NAME, n_throats, THROATS_CYCLE_FLOATS_NDATA, np.float64, path
+        )
+        self.storer_throats_cycle_ints = DiagnosticsStorer(
+            THROATS_CYCLE_INTS_NAME, n_throats, THROATS_CYCLE_INTS_NDATA, np.int8, path
+        )
+        self.storer_pores = DiagnosticsStorer(PORES_FLOATS_NAME, n_pores, PORES_FLOATS_NDATA, np.float64, path)
+        self.storer_pores_bools = DiagnosticsStorer(PORES_BOOLS_NAME, n_pores, PORES_BOOLS_NDATA, np.bool_, path)
         self.storer_pores_corners_bool = DiagnosticsStorer(
-            "pores_corners_bool", n_pores, 2, np.bool_, path, item_shape=CORNER_SHAPE
+            PORES_CORNERS_BOOL_NAME, n_pores, PORES_CORNERS_BOOL_NDATA, np.bool_, path, item_shape=CORNER_SHAPE
         )
         self.storer_pores_corners_float = DiagnosticsStorer(
-            "pores_corners_float", n_pores, 4, np.float64, path, item_shape=CORNER_SHAPE
+            PORES_CORNERS_FLOAT_NAME, n_pores, PORES_CORNERS_FLOAT_NDATA, np.float64, path, item_shape=CORNER_SHAPE
         )
-        self.storer_pores_cycle_floats = DiagnosticsStorer("pores_cycle_floats", n_pores, 3, np.float64, path)
-        self.storer_pores_cycle_ints = DiagnosticsStorer("pores_cycle_ints", n_pores, 1, np.int8, path)
+        self.storer_pores_cycle_floats = DiagnosticsStorer(
+            PORES_CYCLE_FLOATS_NAME, n_pores, PORES_CYCLE_FLOATS_NDATA, np.float64, path
+        )
+        self.storer_pores_cycle_ints = DiagnosticsStorer(
+            PORES_CYCLE_INTS_NAME, n_pores, PORES_CYCLE_INTS_NDATA, np.int8, path
+        )
 
         self._export_pn_to_json(network.pn, path + "/" + NETWORK_JSON_NAME)
 
@@ -253,27 +293,23 @@ class DiagnosticsThroatsStep(DiagnosticsStateLoader):
     def __init__(self, path, step, n_throats):
         super().__init__(path, step, n_throats)
 
-        n_data = 5
-        data = self.load_state("throats", n_data, np.float64)
+        data = self.load_state(THROATS_FLOATS_NAME, THROATS_FLOATS_NDATA, np.float64)
         self.water_saturation = self.data_view(data, 0)
         self.oil_multiphase_conductivity = self.data_view(data, 1)
         self.water_multiphase_conductivity = self.data_view(data, 2)
         self.oil_multiphase_conductance = self.data_view(data, 3)
         self.water_multiphase_conductance = self.data_view(data, 4)
 
-        n_data = 2
-        geo = self.load_state("throats_corners_bool", n_data, np.bool_, CORNER_SHAPE)
+        geo = self.load_state(THROATS_CORNERS_BOOL_NAME, THROATS_CORNERS_BOOL_NDATA, np.bool_, CORNER_SHAPE)
         self.corner_water_layer = self.data_view(geo, 0, CORNER_SHAPE)
         self.corner_oil_layer = self.data_view(geo, 1, CORNER_SHAPE)
 
-        n_data = 3
-        bools = self.load_state("throats_bools", n_data, np.bool_)
+        bools = self.load_state(THROATS_BOOLS_NAME, THROATS_BOOLS_NDATA, np.bool_)
         self.water_filled = self.data_view(bools, 0)
         self.trapped = self.data_view(bools, 1)
         self.filled = self.data_view(bools, 2)
 
-        n_data = 4
-        corners = self.load_state("throats_corners_float", n_data, np.float64, CORNER_SHAPE)
+        corners = self.load_state(THROATS_CORNERS_FLOAT_NAME, THROATS_CORNERS_FLOAT_NDATA, np.float64, CORNER_SHAPE)
         self.b = self.data_view(corners, 0, CORNER_SHAPE)
         self.bo = self.data_view(corners, 1, CORNER_SHAPE)
         self.hinging_contact_angle = self.data_view(corners, 2, CORNER_SHAPE)
@@ -287,27 +323,23 @@ class DiagnosticsPoresStep(DiagnosticsStateLoader):
     def __init__(self, path, step, n_pores):
         super().__init__(path, step, n_pores)
 
-        n_data = 5
-        data = self.load_state("pores", n_data, np.float64)
+        data = self.load_state(PORES_FLOATS_NAME, PORES_FLOATS_NDATA, np.float64)
         self.water_saturation = self.data_view(data, 0)
         self.oil_multiphase_conductivity = self.data_view(data, 1)
         self.water_multiphase_conductivity = self.data_view(data, 2)
         self.oil_flow_rate = self.data_view(data, 3)
         self.water_flow_rate = self.data_view(data, 4)
 
-        n_data = 2
-        geo = self.load_state("pores_corners_bool", n_data, np.bool_, CORNER_SHAPE)
+        geo = self.load_state(PORES_CORNERS_BOOL_NAME, PORES_CORNERS_BOOL_NDATA, np.bool_, CORNER_SHAPE)
         self.corner_water_layer = self.data_view(geo, 0, CORNER_SHAPE)
         self.corner_oil_layer = self.data_view(geo, 1, CORNER_SHAPE)
 
-        n_data = 3
-        bools = self.load_state("pores_bools", n_data, np.bool_)
+        bools = self.load_state(PORES_BOOLS_NAME, PORES_BOOLS_NDATA, np.bool_)
         self.water_filled = self.data_view(bools, 0)
         self.trapped = self.data_view(bools, 1)
         self.filled = self.data_view(bools, 2)
 
-        n_data = 4
-        corners = self.load_state("pores_corners_float", n_data, np.float64, CORNER_SHAPE)
+        corners = self.load_state(PORES_CORNERS_FLOAT_NAME, PORES_CORNERS_FLOAT_NDATA, np.float64, CORNER_SHAPE)
         self.b = self.data_view(corners, 0, CORNER_SHAPE)
         self.bo = self.data_view(corners, 1, CORNER_SHAPE)
         self.hinging_contact_angle = self.data_view(corners, 2, CORNER_SHAPE)
@@ -321,14 +353,12 @@ class DiagnosticsThroatCycle(DiagnosticsStateLoader):
     def __init__(self, path, cycle, n_throats):
         super().__init__(path, cycle, n_throats)
 
-        n_data = 3
-        data = self.load_state("throats_cycle_floats", n_data, np.float64)
+        data = self.load_state(THROATS_CYCLE_FLOATS_NAME, THROATS_CYCLE_FLOATS_NDATA, np.float64)
         self.entry_pressure = self.data_view(data, 0)
         self.advancing_contact_angle = self.data_view(data, 1)
         self.receding_contact_angle = self.data_view(data, 2)
 
-        n_data = 1
-        data = self.load_state("throats_cycle_ints", n_data, np.int8)
+        data = self.load_state(THROATS_CYCLE_INTS_NAME, THROATS_CYCLE_INTS_NDATA, np.int8)
         self.invasion_method = self.data_view(data, 0)
 
     def __str__(self):
@@ -339,14 +369,12 @@ class DiagnosticsPoreCycle(DiagnosticsStateLoader):
     def __init__(self, path, cycle, n_pores):
         super().__init__(path, cycle, n_pores)
 
-        n_data = 3
-        data = self.load_state("pores_cycle_floats", n_data, np.float64)
+        data = self.load_state(PORES_CYCLE_FLOATS_NAME, PORES_CYCLE_FLOATS_NDATA, np.float64)
         self.entry_pressure = self.data_view(data, 0)
         self.advancing_contact_angle = self.data_view(data, 1)
         self.receding_contact_angle = self.data_view(data, 2)
 
-        n_data = 1
-        data = self.load_state("pores_cycle_ints", n_data, np.int8)
+        data = self.load_state(PORES_CYCLE_INTS_NAME, PORES_CYCLE_INTS_NDATA, np.int8)
         self.invasion_method = self.data_view(data, 0)
 
     def __str__(self):
