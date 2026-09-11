@@ -12,6 +12,8 @@ COLOR_COUNT = "count"
 AGG_MEAN = "mean"
 AGG_SUM = "sum"
 
+NO_BIN_VALUE = 0
+
 
 class HeatmapView(QtWidgets.QWidget):
     def __init__(self, parent=None):
@@ -36,10 +38,7 @@ class HeatmapView(QtWidgets.QWidget):
         layout.addWidget(self._graphics)
 
     def set_histogram_image(self, values, value_min, value_max, y_label, color_label):
-        self._image.setImage(values, autoLevels=False)
-        n_steps = values.shape[0]
-        self._image.setRect(QtCore.QRectF(0.0, value_min, float(n_steps), float(value_max - value_min)))
-
+        # Get min/max
         finite = values[np.isfinite(values)]
         color_min = float(finite.min()) if finite.size else 0.0
         color_max = float(finite.max()) if finite.size else 1.0
@@ -47,6 +46,16 @@ class HeatmapView(QtWidgets.QWidget):
             color_min = 0.0
         if color_max <= color_min:
             color_max = color_min + 1.0
+
+        # Replace nans with NO_BIN_VALUE
+        fill_value = float(np.clip(NO_BIN_VALUE, color_min, color_max))
+        image = np.where(np.isfinite(values), values, fill_value)
+
+        # Plot
+        self._image.setImage(image, autoLevels=False)
+        n_steps = image.shape[0]
+        self._image.setRect(QtCore.QRectF(0.0, value_min, float(n_steps), float(value_max - value_min)))
+
         self._colorbar.setLevels((color_min, color_max))
         self._colorbar.setLabel("left", color_label)
 
@@ -233,7 +242,6 @@ class HeatmapWidget(QtWidgets.QWidget):
     def _mean_matrix(y_steps, color_steps, bins, n_bins):
         """
         Per (step, bin) mean of the color property over the elements in that bin
-        (NaN where a bin has no elements).
         """
         matrix = np.full((len(y_steps), n_bins), np.nan, dtype=float)
         for step, (y, color) in enumerate(zip(y_steps, color_steps)):
@@ -250,7 +258,6 @@ class HeatmapWidget(QtWidgets.QWidget):
     def _sum_matrix(y_steps, color_steps, bins, n_bins):
         """
         Per (step, bin) sum of the color property over the elements in that bin
-        (NaN where a bin has no elements).
         """
         matrix = np.full((len(y_steps), n_bins), np.nan, dtype=float)
         for step, (y, color) in enumerate(zip(y_steps, color_steps)):
