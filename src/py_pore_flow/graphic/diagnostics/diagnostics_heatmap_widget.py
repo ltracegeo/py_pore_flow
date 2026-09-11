@@ -9,6 +9,8 @@ ELEMENT_TYPES = ["All", "Any", "Pore", "Throat"]
 COLORMAP_NAME = "viridis"
 N_BINS = 50
 COLOR_COUNT = "count"
+AGG_MEAN = "mean"
+AGG_SUM = "sum"
 
 
 class HeatmapView(QtWidgets.QWidget):
@@ -71,6 +73,8 @@ class HeatmapWidget(QtWidgets.QWidget):
         self.element_type_combo.addItems(ELEMENT_TYPES)
         self.property_combo = QtWidgets.QComboBox()
         self.color_combo = QtWidgets.QComboBox()
+        self.aggregation_combo = QtWidgets.QComboBox()
+        self.aggregation_combo.addItems([AGG_MEAN, AGG_SUM])
         self.cycle_combo = QtWidgets.QComboBox()
         self.cycle_combo.addItems(CYCLE_NAMES)
 
@@ -98,12 +102,19 @@ class HeatmapWidget(QtWidgets.QWidget):
 
         self.apply_button = QtWidgets.QPushButton("Apply")
 
-        controls = QtWidgets.QFormLayout()
-        controls.addRow("Element type", self.element_type_combo)
-        controls.addRow("Y-axis (property)", self.property_combo)
-        controls.addRow("Color", self.color_combo)
-        controls.addRow("Cycle", self.cycle_combo)
-        controls.addRow("", self.apply_button)
+        controls = QtWidgets.QGridLayout()
+        controls.addWidget(QtWidgets.QLabel("Element type"), 0, 0)
+        controls.addWidget(self.element_type_combo, 0, 1, 1, 2)
+        controls.addWidget(QtWidgets.QLabel("Y-axis (property)"), 1, 0)
+        controls.addWidget(self.property_combo, 1, 1, 1, 2)
+        controls.addWidget(QtWidgets.QLabel("Color"), 2, 0)
+        controls.addWidget(self.color_combo, 2, 1)
+        controls.addWidget(self.aggregation_combo, 2, 2)
+        controls.addWidget(QtWidgets.QLabel("Cycle"), 3, 0)
+        controls.addWidget(self.cycle_combo, 3, 1, 1, 2)
+        controls.addWidget(self.apply_button, 4, 1)
+        controls.setColumnStretch(1, 2)
+        controls.setColumnStretch(2, 1)
 
         self.view = HeatmapView()
 
@@ -121,7 +132,13 @@ class HeatmapWidget(QtWidgets.QWidget):
 
         self._populate_property_combos()
         self.element_type_combo.currentTextChanged.connect(self._populate_property_combos)
+        self.color_combo.currentTextChanged.connect(self._on_color_changed)
         self.apply_button.clicked.connect(self._apply)
+        self._on_color_changed(self.color_combo.currentText())
+
+    def _on_color_changed(self, text):
+        # aggregation (mean/sum) only applies when coloring by a property, not by count
+        self.aggregation_combo.setEnabled(text != COLOR_COUNT)
 
     def _on_auto_range_toggled(self, checked):
         self.y_min_edit.setEnabled(not checked)
@@ -192,9 +209,12 @@ class HeatmapWidget(QtWidgets.QWidget):
             if not color_steps or color_steps[0].shape[0] != y_steps[0].shape[0]:
                 matrix = self._count_matrix(y_steps, bins, n_bins)
                 color_label = COLOR_COUNT
+            elif self.aggregation_combo.currentText() == AGG_SUM:
+                matrix = self._sum_matrix(y_steps, color_steps, bins, n_bins)
+                color_label = f"{color} (sum)"
             else:
                 matrix = self._mean_matrix(y_steps, color_steps, bins, n_bins)
-                color_label = color
+                color_label = f"{color} (mean)"
 
         self.view.set_histogram_image(matrix, value_min, value_max, text, color_label)
 
@@ -221,6 +241,22 @@ class HeatmapWidget(QtWidgets.QWidget):
             count, _ = np.histogram(y[mask], bins=bins)
             with np.errstate(invalid="ignore", divide="ignore"):
                 matrix[step] = np.where(count > 0, total / count, np.nan)
+        return matrix
+
+    @staticmethod
+    def _sum_matrix(y_steps, color_steps, bins, n_bins):
+        """
+        Per (step, bin) sum of the color property over the elements in that bin
+        (NaN where a bin has no elements).
+        """
+        matrix = np.full((len(y_steps), n_bins), np.nan, dtype=float)
+        for step, (y, color) in enumerate(zip(y_steps, color_steps)):
+            mask = np.isfinite(y) & np.isfinite(color)
+            if not mask.any():
+                continue
+            total, _ = np.histogram(y[mask], bins=bins, weights=color[mask])
+            count, _ = np.histogram(y[mask], bins=bins)
+            matrix[step] = np.where(count > 0, total, np.nan)
         return matrix
 
     def _resolve_range(self, data_min, data_max):
