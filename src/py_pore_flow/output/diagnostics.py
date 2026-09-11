@@ -38,6 +38,43 @@ PORES_CYCLE_FLOATS_NDATA = 3
 PORES_CYCLE_INTS_NAME = "pores_cycle_ints"
 PORES_CYCLE_INTS_NDATA = 1
 
+STATIC_PROPERTIES = [
+    "coords",
+    "shape_factor",
+    "radius",
+    "volume",
+    "clay_volume",
+    "corner_half_angle",
+    "sides",
+    "oil_singlephase_conductivity",
+    "water_singlephase_conductivity",
+    "oil_singlephase_conductance",
+    "water_singlephase_conductance",
+    "shape",
+    "n_corners",
+    "conns",
+    "conns_values",
+    "conns_offsets",
+    "n_conns",
+    "area",
+    "inlets",
+    "outlets",
+    "initial_advancing_ca",
+    "initial_receding_ca",
+    "equilibrium_advancing_ca",
+    "equilibrium_receding_ca",
+    "second_advancing_ca",
+    "second_receding_ca",
+    "id",
+    "number_of_capilaries",
+    "cross_sectional_area",
+    "length",
+    # Not static but needed for now
+    "oil_layer_collapse_pressure",
+    "piston_like_pressure",
+    "snap_off_pressure",
+]
+
 
 class DiagnosticsWriter:
     def __init__(self, network, path="."):
@@ -164,11 +201,21 @@ class DiagnosticsWriter:
     @staticmethod
     def _export_pn_to_json(pn, path):
         data = {}
-        for key, value in pn.items():
-            try:
-                data[key] = value.tolist()  # convert numpy arrays
-            except AttributeError:
-                data[key] = value  # keep as-is if already serializable
+        for property in STATIC_PROPERTIES:
+            for prefix in ["pore", "throat"]:
+                key = f"{prefix}.{property}"
+                try:
+                    value = pn[key]
+                except KeyError:
+                    continue
+                # print("KEY", key)
+                try:
+                    data[key] = value.tolist()  # convert numpy arrays
+                except AttributeError:
+                    if key == "pore.conns":
+                        continue
+                    print("KEY", key, "VALUE", type(value))
+                    data[key] = value  # keep as-is if already serializable
 
         with open(path, "w") as f:
             json.dump(data, f)

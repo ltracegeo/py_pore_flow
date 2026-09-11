@@ -23,8 +23,8 @@ def update_network_with_step(diagnostics, cycle_id, step):
     untouched. Returns the updated ``diagnostics.network`` dict.
     """
     cycle_step = diagnostics.cycle[cycle_id][step]
-    _apply_element(diagnostics.network, "pore", cycle_step.pore)
-    _apply_element(diagnostics.network, "throat", cycle_step.throat)
+    _apply_element_step(diagnostics.network, "pore", cycle_step.pore)
+    _apply_element_step(diagnostics.network, "throat", cycle_step.throat)
     return diagnostics.network
 
 
@@ -46,6 +46,9 @@ def _apply_element(network, element_type, element_loader):
         if attr in _LOADER_ATTRS:
             continue
         network[f"{element_type}.{attr}"] = np.array(values)
+
+def _apply_element_step(network, element_type, element_loader):
+    _apply_element(network, element_type, element_loader)
     network[f"{element_type}.oil_filled"] = ~network[f"{element_type}.water_filled"]
 
 
