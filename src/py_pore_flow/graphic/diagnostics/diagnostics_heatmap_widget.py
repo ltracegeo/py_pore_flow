@@ -48,10 +48,7 @@ class HeatmapView(QtWidgets.QWidget):
         if color_max <= color_min:
             color_max = color_min + 1.0
         self._colorbar.setLevels((color_min, color_max))
-        try:
-            self._colorbar.axis.setLabel(color_label)
-        except Exception:
-            pass
+        self._colorbar.setLabel("left", color_label)
 
         self._plot.setLabel("left", y_label)
         self._plot.setTitle(f"{y_label}  (color: {color_label})")
