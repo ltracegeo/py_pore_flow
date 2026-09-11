@@ -79,9 +79,9 @@ class HeatmapWidget(QtWidgets.QWidget):
         self.bins_spinbox.setRange(2, 1000)
         self.bins_spinbox.setValue(N_BINS)
 
-        self.auto_range_check = QtWidgets.QCheckBox("Auto Y range")
-        self.auto_range_check.setChecked(True)
-        self.auto_range_check.toggled.connect(self._on_auto_range_toggled)
+        self.manual_range_check = QtWidgets.QCheckBox()
+        self.manual_range_check.setChecked(False)
+        self.manual_range_check.toggled.connect(self._on_manual_range_toggled)
 
         self.y_min_edit = QtWidgets.QLineEdit()
         self.y_max_edit = QtWidgets.QLineEdit()
@@ -92,12 +92,25 @@ class HeatmapWidget(QtWidgets.QWidget):
             edit.setEnabled(False)  # enabled only when Auto is off
 
         y_range_layout = QtWidgets.QHBoxLayout()
-        y_range_layout.addWidget(QtWidgets.QLabel("min"))
+        y_range_layout.addWidget(QtWidgets.QLabel("Bins:"))
+        y_range_layout.addWidget(self.bins_spinbox)
+        y_range_layout.addWidget(QtWidgets.QLabel("Y Range:"))
+        y_range_layout.addWidget(self.manual_range_check)
         y_range_layout.addWidget(self.y_min_edit)
-        y_range_layout.addWidget(QtWidgets.QLabel("max"))
+        y_range_layout.addWidget(QtWidgets.QLabel(":"))
         y_range_layout.addWidget(self.y_max_edit)
 
+        line_widget = QtWidgets.QFrame()
+        line_widget.setFrameShape(QtWidgets.QFrame.Shape.HLine)
+        line_widget.setFrameShadow(QtWidgets.QFrame.Shadow.Sunken)
+
         self.apply_button = QtWidgets.QPushButton("Apply")
+        self.apply_button.setMinimumWidth(250)
+
+        apply_button_layout = QtWidgets.QHBoxLayout()
+        apply_button_layout.addWidget(self.apply_button)
+        apply_button_layout.addStretch(5)
+        apply_button_layout.addLayout(y_range_layout)
 
         controls = QtWidgets.QGridLayout()
         controls.addWidget(QtWidgets.QLabel("Element type"), 0, 0)
@@ -109,23 +122,16 @@ class HeatmapWidget(QtWidgets.QWidget):
         controls.addWidget(self.aggregation_combo, 2, 2)
         controls.addWidget(QtWidgets.QLabel("Cycle"), 3, 0)
         controls.addWidget(self.cycle_combo, 3, 1, 1, 2)
-        controls.addWidget(self.apply_button, 4, 1)
+        controls.addWidget(line_widget, 4, 0, 1, 3)
+        controls.addLayout(apply_button_layout, 5, 1, 1, 2)
         controls.setColumnStretch(1, 2)
         controls.setColumnStretch(2, 1)
 
         self.view = HeatmapView()
 
-        y_controls = QtWidgets.QFormLayout()
-        y_controls.addRow("Bins", self.bins_spinbox)
-        y_controls.addRow(self.auto_range_check)
-        y_controls.addRow(y_range_layout)
-
-        layout = QtWidgets.QGridLayout(self)
-        layout.addLayout(controls, 0, 0, 1, 2)
-        layout.addLayout(y_controls, 1, 0)
-        layout.addWidget(self.view, 1, 1)
-        layout.setColumnStretch(0, 1)
-        layout.setColumnStretch(1, 10)
+        layout = QtWidgets.QVBoxLayout(self)
+        layout.addLayout(controls)
+        layout.addWidget(self.view)
 
         self._populate_property_combos()
         self.element_type_combo.currentTextChanged.connect(self._populate_property_combos)
@@ -137,9 +143,9 @@ class HeatmapWidget(QtWidgets.QWidget):
         # aggregation (mean/sum) only applies when coloring by a property, not by count
         self.aggregation_combo.setEnabled(text != COLOR_COUNT)
 
-    def _on_auto_range_toggled(self, checked):
-        self.y_min_edit.setEnabled(not checked)
-        self.y_max_edit.setEnabled(not checked)
+    def _on_manual_range_toggled(self, checked):
+        self.y_min_edit.setEnabled(checked)
+        self.y_max_edit.setEnabled(checked)
 
     def _populate_property_combos(self):
         """Fill the Y-axis and Color combos with the property names for the current element
@@ -261,7 +267,7 @@ class HeatmapWidget(QtWidgets.QWidget):
         The Y range to bin over: the data range in Auto mode (also shown in the fields),
         otherwise the (validated) values typed in the fields.
         """
-        if self.auto_range_check.isChecked():
+        if not self.manual_range_check.isChecked():
             value_min, value_max = data_min, data_max
             self.y_min_edit.setText(f"{value_min:.6g}")
             self.y_max_edit.setText(f"{value_max:.6g}")
