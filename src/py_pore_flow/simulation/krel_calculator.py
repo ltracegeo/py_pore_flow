@@ -114,7 +114,9 @@ class KrelCalculator:
             return 0.0
 
         cond_key = f"throat.{phase_name}_multiphase_conductance"
-        flowrate_key = f"pore.{phase_name}_flow_rate"
+        pore_pressure_key = f"pore.{phase_name}_pressure"
+        throat_pressure_key = f"throat.{phase_name}_pressure"
+        throat_flowrate_key = f"throat.{phase_name}_flow_rate"
 
         total_flow_rate = 0.0
         for vlabel in valid_labels:
@@ -129,7 +131,13 @@ class KrelCalculator:
             component_throat_ids_orig = throat_indices[component_throat_mask]
 
             flow_rate = self._solve_direct(
-                pn, component_pore_ids_orig, component_throat_ids_orig, cond_key, flowrate_key,
+                pn,
+                component_pore_ids_orig,
+                component_throat_ids_orig,
+                cond_key,
+                pore_pressure_key,
+                throat_pressure_key,
+                throat_flowrate_key,
             )
             total_flow_rate += flow_rate
 
@@ -141,13 +149,15 @@ class KrelCalculator:
     # ── Helpers ───────────────────────────────────────────────────────────────
 
     @staticmethod
-    def _solve_direct(pn, pore_ids, throat_ids, cond_key, flowrate_key):
+    def _solve_direct(pn, pore_ids, throat_ids, cond_key, pore_pressure_key, throat_pressure_key, throat_flowrate_key):
         """Solve flow on a connected component directly from arrays.
 
         No OpenPNM Network objects are created — builds the sparse linear
         system from raw numpy arrays and solves with pypardiso.
         """
-        if len(pore_ids) == 0 or len(throat_ids) == 0:
+        n_throats = len(throat_ids)
+        n_pores = len(pore_ids)
+        if n_pores == 0 or n_throats == 0:
             return 0.0
 
         inlets = pn["pore.inlets"][pore_ids]
@@ -158,7 +168,7 @@ class KrelCalculator:
 
         # Remap pore indices to 0..n
         old_to_new = np.full(len(pn["pore.all"]), -1, dtype=np.int64)
-        old_to_new[pore_ids] = np.arange(len(pore_ids), dtype=np.int64)
+        old_to_new[pore_ids] = np.arange(n_pores, dtype=np.int64)
 
         conn = old_to_new[pn["throat.conns"][throat_ids]].astype(np.int32)
         cond = pn[cond_key][throat_ids].astype(np.float64)
@@ -193,8 +203,16 @@ class KrelCalculator:
 
         x = np.atleast_1d(spsolve(A_csr, b_array))
         pressure = network_manager.get_pressure_list(x)
-        KrelCalculator._store_flow_rate(pn[flowrate_key], pore_ids, pressure)
-        flow_rate = network_manager.get_flow_rate(pressure)
+        throat_flow = np.zeros(n_throats, dtype=np.float64)
+        throat_pressure = np.zeros(n_throats, dtype=np.float64)
+        flow_rate = network_manager.get_flow_rate(
+            pressure,
+            throat_flow,
+            throat_pressure,
+        )
+        KrelCalculator._store_flow_rate(pn[pore_pressure_key], pore_ids, pressure)
+        KrelCalculator._store_flow_rate(pn[throat_flowrate_key], throat_ids, throat_flow)
+        KrelCalculator._store_flow_rate(pn[throat_pressure_key], throat_ids, throat_pressure)
 
         return flow_rate * factor
 
@@ -237,6 +255,9 @@ class KrelCalculator:
     @staticmethod
     @njit(cache=True)
     def _store_flow_rate(array, indices, data):
+        """ Set all unset values to 0 """
+        NO_VALUE = 0
+
         index_count = 0
         next_index = indices[index_count]
         for i in range(len(array)):
@@ -246,9 +267,9 @@ class KrelCalculator:
                 if index_count < indices.size:
                     next_index = indices[index_count]
                 else:
-                    next_index = -1
+                    next_index = NO_VALUE
             else:
-                array[i] = -1
+                array[i] = NO_VALUE
 
 
 @njit(cache=True)

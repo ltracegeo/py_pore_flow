@@ -14,7 +14,7 @@ NETWORK_JSON_NAME = "network.json"
 CORNER_SHAPE = (MAX_NUMBER_OF_CORNERS,)
 
 THROATS_FLOATS_NAME = "throats_floats"
-THROATS_FLOATS_NDATA = 5
+THROATS_FLOATS_NDATA = 9
 THROATS_BOOLS_NAME = "throats_bools"
 THROATS_BOOLS_NDATA = 3
 THROATS_CORNERS_BOOL_NAME = "throats_corners_bools"
@@ -103,6 +103,10 @@ class DiagnosticsWriter:
                 throat.water_multiphase_conductivity,
                 throat.oil_multiphase_conductance,
                 throat.water_multiphase_conductance,
+                throat.oil_pressure,
+                throat.water_pressure,
+                throat.oil_flow_rate,
+                throat.water_flow_rate,
             ]
         )
         self.storer_throats_bools.save_state([throat.water_filled, throat.trapped, throat.filled])
@@ -115,8 +119,8 @@ class DiagnosticsWriter:
                 pore.water_saturation,
                 pore.oil_multiphase_conductivity,
                 pore.water_multiphase_conductivity,
-                pore.oil_flow_rate,
-                pore.water_flow_rate,
+                pore.oil_pressure,
+                pore.water_pressure,
             ]
         )
         self.storer_pores_bools.save_state([pore.water_filled, pore.trapped, pore.filled])
@@ -299,6 +303,10 @@ class DiagnosticsThroatsStep(DiagnosticsStateLoader):
         self.water_multiphase_conductivity = self.data_view(data, 2)
         self.oil_multiphase_conductance = self.data_view(data, 3)
         self.water_multiphase_conductance = self.data_view(data, 4)
+        self.oil_pressure = self.data_view(data, 5)
+        self.water_pressure = self.data_view(data, 6)
+        self.oil_flow_rate = self.data_view(data, 7)
+        self.water_flow_rate = self.data_view(data, 8)
 
         geo = self.load_state(THROATS_CORNERS_BOOL_NAME, THROATS_CORNERS_BOOL_NDATA, np.bool_, CORNER_SHAPE)
         self.corner_water_layer = self.data_view(geo, 0, CORNER_SHAPE)
@@ -327,8 +335,8 @@ class DiagnosticsPoresStep(DiagnosticsStateLoader):
         self.water_saturation = self.data_view(data, 0)
         self.oil_multiphase_conductivity = self.data_view(data, 1)
         self.water_multiphase_conductivity = self.data_view(data, 2)
-        self.oil_flow_rate = self.data_view(data, 3)
-        self.water_flow_rate = self.data_view(data, 4)
+        self.oil_pressure = self.data_view(data, 3)
+        self.water_pressure = self.data_view(data, 4)
 
         geo = self.load_state(PORES_CORNERS_BOOL_NAME, PORES_CORNERS_BOOL_NDATA, np.bool_, CORNER_SHAPE)
         self.corner_water_layer = self.data_view(geo, 0, CORNER_SHAPE)

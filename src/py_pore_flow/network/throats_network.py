@@ -74,3 +74,7 @@ class ThroatsNetwork(ElementNetwork):
         self.in_border = pn["throat.in_border"]
         self.is_multiphase = pn["throat.is_multiphase"]
         self.water_corner_collapse_pressure = pn["throat.water_corner_collapse_pressure"]
+        self.oil_pressure = pn["throat.oil_pressure"]
+        self.water_pressure = pn["throat.water_pressure"]
+        self.oil_flow_rate = pn["throat.oil_flow_rate"]
+        self.water_flow_rate = pn["throat.water_flow_rate"]
