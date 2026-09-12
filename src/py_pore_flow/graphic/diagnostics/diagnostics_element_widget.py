@@ -16,48 +16,15 @@ _LOADER_ATTRS = {"path", "step", "n_elements"}
 CYCLE_NAMES = ["drainage", "imbibition", "2nd_drainage"]
 
 
-def update_network_with_step(diagnostics, cycle_id, step):
-    """Overwrite the per-element dynamic properties in ``diagnostics.network`` (the JSON
-    network dict) with the values stored for a single simulation step, so the network can
-    be inspected at that step. Static geometry keys (radius, shape_factor, ...) are left
-    untouched. Returns the updated ``diagnostics.network`` dict.
-    """
-    cycle_step = diagnostics.cycle[cycle_id][step]
-    _apply_element_step(diagnostics.network, "pore", cycle_step.pore)
-    _apply_element_step(diagnostics.network, "throat", cycle_step.throat)
-    return diagnostics.network
-
-
-def update_network_with_cycle(diagnostics, cycle_id):
-    """
-    Overwrite the per-element end-of-cycle properties in ``diagnostics.network`` (the JSON
-    network dict) with the values stored for a cycle (entry_pressure, invasion_method).
-    Complements :func:`update_network_with_step`, which handles the per-step properties.
-    Returns the updated ``diagnostics.network`` dict.
-    """
-    cycle = diagnostics.cycle[cycle_id]
-    _apply_element(diagnostics.network, "pore", cycle.pore)
-    _apply_element(diagnostics.network, "throat", cycle.throat)
-    return diagnostics.network
-
-
-def _apply_element(network, element_type, element_loader):
-    for attr, values in vars(element_loader).items():
-        if attr in _LOADER_ATTRS:
-            continue
-        network[f"{element_type}.{attr}"] = np.array(values)
-
-def _apply_element_step(network, element_type, element_loader):
-    _apply_element(network, element_type, element_loader)
-    network[f"{element_type}.oil_filled"] = ~network[f"{element_type}.water_filled"]
-
-
 class DiagnosticsElementWidget(QtWidgets.QFrame):
     networkChanged = QtCore.Signal()
 
-    def __init__(self, diagnostics, parent=None):
+    def __init__(self, diagnostics, diagnostics_properties, parent=None):
         super().__init__(parent)
         self._diagnostics = diagnostics
+        self._diagnostics_properties = diagnostics_properties
+        self._diagnostics_properties.set_cycle(0)
+        self._diagnostics_properties.set_step(0)
 
         network = self._diagnostics.network
         network.setdefault("pore.all", np.arange(self._diagnostics.info.n_pores))
@@ -96,7 +63,7 @@ class DiagnosticsElementWidget(QtWidgets.QFrame):
         element_selection_layout.addWidget(self.element_conn_combobox)
 
         self.element_widget = ElementWidget()
-        self.element_widget.set_pn(self._diagnostics.network)
+        self.element_widget.set_pn(self._diagnostics_properties)
 
         layout = QtWidgets.QFormLayout(self)
         layout.addRow(element_selection_layout)
@@ -191,9 +158,9 @@ class DiagnosticsElementWidget(QtWidgets.QFrame):
         n_steps = info.cycle_n_steps[cycle_id]
         step = self.step_input.value()
 
-        update_network_with_cycle(self._diagnostics, cycle_id)
+        self._diagnostics_properties.set_cycle(cycle_id)
         if n_steps > 0:
-            update_network_with_step(self._diagnostics, cycle_id, step)
+            self._diagnostics_properties.set_step(step)
 
         self.element_widget.update()
         self.status_label.setText(f"{self.cycle_combobox.currentText()} — step {step} / {max(0, n_steps - 1)}")

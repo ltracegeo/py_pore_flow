@@ -118,8 +118,8 @@ class DiagnosticsTableWidget(QTableWidget):
     def _column_values(self, name):
         cycle_id, step = self._cycle_step()
         if self._element_type == "pore":
-            return self._properties.get_pore_property_values(name, cycle_id=cycle_id, step=step)
-        return self._properties.get_throat_property_values(name, cycle_id=cycle_id, step=step)
+            return self._properties.get_pore_values_in_step(name, cycle_id=cycle_id, step=step)
+        return self._properties.get_throat_values_in_step(name, cycle_id=cycle_id, step=step)
 
     def _set_column_shown(self, name, shown):
         if shown and name not in self._shown:
@@ -240,8 +240,9 @@ class ElementGeometryTab(QWidget):
             if widget is not None:
                 widget.deleteLater()
 
-        self.element_widget = DiagnosticsElementWidget(diagnostics)
-        self.network_widget = DiagnosticsNetworkWidget(diagnostics)
+        diagnostics_properties = DiagnosticsProperties(diagnostics)
+        self.element_widget = DiagnosticsElementWidget(diagnostics, diagnostics_properties)
+        self.network_widget = DiagnosticsNetworkWidget(diagnostics_properties)
         self.network_widget.poreClicked.connect(self.element_widget.select_pore)
         self.network_widget.throatClicked.connect(self.element_widget.select_throat)
         self.element_widget.networkChanged.connect(self.network_widget.refresh_colors)

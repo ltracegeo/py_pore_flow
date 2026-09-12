@@ -165,8 +165,8 @@ class CrossPlotWidget(QtWidgets.QWidget):
         cycle_id = self.cycle_combo.currentIndex()
         step = self.step_spinbox.value()
         if self.element_type_combo.currentText() == "Pore":
-            return self._properties.get_pore_property_values(property_name, cycle_id=cycle_id, step=step)
-        return self._properties.get_throat_property_values(property_name, cycle_id=cycle_id, step=step)
+            return self._properties.get_pore_values_in_step(property_name, cycle_id=cycle_id, step=step)
+        return self._properties.get_throat_values_in_step(property_name, cycle_id=cycle_id, step=step)
 
     def _replot(self):
         x_property = self.x_combo.currentText()
