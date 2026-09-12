@@ -42,7 +42,7 @@ class ElementPlot:
         self.element_type = element_type
         self.id = element_id
 
-        if self.id >= len(self.pn[f"{self.element_type}.all"]):
+        if self.id >= len(self.pn[f"{self.element_type}.id"]):
             raise ElementNotFoundException
 
         self.n_corners = self.pn[f"{self.element_type}.n_corners"][self.id]
