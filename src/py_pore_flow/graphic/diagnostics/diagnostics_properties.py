@@ -20,6 +20,9 @@ class DiagnosticsProperties:
     CONVERSORS = {
         "oil_filled": ["water_filled", lambda x: ~x],
         "oil_saturation": ["water_saturation", lambda x: 1.0 - x],
+        "x": ["coords", lambda x: x[:, 0]],
+        "y": ["coords", lambda x: x[:, 1]],
+        "z": ["coords", lambda x: x[:, 2]],
     }
 
     def __init__(self, diagnostics):
@@ -132,7 +135,13 @@ class DiagnosticsProperties:
                     properties.append(f"{prefix}.{attr}")
 
             for prop in self.CONVERSORS.keys():
-                properties.append(f"{prefix}.{prop}")
+                property_name = f"{prefix}.{prop}"
+                try:
+                    self.get_values_in_step(property_name, 0, 0)  # Check if property exists
+                    properties.append(f"{prefix}.{prop}")
+                except KeyError:
+                    pass
+
         return sorted(properties)
 
     def _network_properties(self):
