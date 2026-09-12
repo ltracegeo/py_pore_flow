@@ -78,7 +78,7 @@ class DiagnosticsNetworkWidget(QtWidgets.QWidget):
         color_bar.addStretch()
 
         layout = QtWidgets.QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setContentsMargins(10, 10, 10, 10)
         layout.addWidget(network_widget)
         layout.addLayout(color_bar)
 
