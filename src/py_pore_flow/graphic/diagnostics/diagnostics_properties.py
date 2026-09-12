@@ -17,8 +17,24 @@ class DiagnosticsProperties:
     for properties not (yet) copied into the network dump.
     """
 
+    CONVERSORS = {
+        "oil_filled": ["water_filled", lambda x: ~x],
+        "oil_saturation": ["water_saturation", lambda x: 1.0 - x],
+    }
+
     def __init__(self, diagnostics):
         self._diagnostics = diagnostics
+        self._cycle_id = 0
+        self._step = 0
+
+    def __getitem__(self, key):
+        return self.get_values_in_step(key, self._cycle_id, self._step)
+
+    def set_cycle(self, cycle_id):
+        self._cycle_id = cycle_id
+
+    def set_step(self, step):
+        self._step = step
 
     def get_property_names(self):
         return sorted(set(self._step_scalar_properties()) | set(self._network_properties()))
@@ -34,27 +50,62 @@ class DiagnosticsProperties:
         throat_names = set(self.get_throat_property_names())
         return sorted(pore_names & throat_names)
 
-    def get_property_values(self, property_name, cycle_id=None, step=None):
-        return self._read_values(property_name, cycle_id, step)
+    def get_values_in_step(self, property_name, cycle_id, step):
+        prefix, _, prop = property_name.partition(".")
+        prop, conversor = self._get_conversor(prop)
 
-    def get_pore_property_values(self, property_name, cycle_id=None, step=None):
-        return self._read_values(PORE_PREFIX + property_name, cycle_id, step)
+        values = self._sample_step_element(prefix, prop, cycle_id, step)
+        if values is not None:
+            return conversor(values)
+        values = self._sample_cycle_element(prefix, prop, cycle_id)
+        if values is not None:
+            return conversor(values)
+        try:
+            values = self._diagnostics.network[f"{prefix}.{prop}"]
+            return conversor(values)
+        except KeyError:
+            raise KeyError(property_name)
 
-    def get_throat_property_values(self, property_name, cycle_id=None, step=None):
-        return self._read_values(THROAT_PREFIX + property_name, cycle_id, step)
+    def get_pore_values_in_step(self, property_name, cycle_id, step):
+        return self.get_values_in_step(PORE_PREFIX + property_name, cycle_id, step)
 
-    def get_element_property_values(self, property_name, cycle_id=None, step=None):
-        pore_key = PORE_PREFIX + property_name
-        throat_key = THROAT_PREFIX + property_name
+    def get_throat_values_in_step(self, property_name, cycle_id, step):
+        return self.get_values_in_step(THROAT_PREFIX + property_name, cycle_id, step)
 
-        pore_values = self._read_values(pore_key, cycle_id, step) if self._has_values(pore_key) else None
-        throat_values = self._read_values(throat_key, cycle_id, step) if self._has_values(throat_key) else None
+    def get_element_values_in_step(self, property_name, cycle_id):
+            pore_values = self.get_pore_values_in_step(property_name, cycle_id, step)
+            throat_values = self.get_throat_values_in_step(property_name, cycle_id, step)
 
-        if pore_values is not None and throat_values is not None:
+            if pore_values and throat_values:
+                return self._concatenate_element_values(pore_values, throat_values)
+            if pore_values:
+                return pore_values
+            if throat_values:
+                return throat_values
+            raise KeyError(property_name)
+
+    def get_values_of_cycle(self, property_name, cycle_id):
+        n_steps = self._diagnostics.info.cycle_n_steps[cycle_id]
+        cycle_data = []
+        for step in range(n_steps):
+            cycle_data.append(self.get_values_in_step(property_name, cycle_id, step))
+        return cycle_data
+
+    def get_pore_values_of_cycle(self, property_name, cycle_id):
+        return self.get_values_of_cycle(PORE_PREFIX + property_name, cycle_id)
+
+    def get_throat_values_of_cycle(self, property_name, cycle_id):
+        return self.get_values_of_cycle(THROAT_PREFIX + property_name, cycle_id)
+
+    def get_element_values_of_cycle(self, property_name, cycle_id):
+        pore_values = self.get_pore_values_of_cycle(property_name, cycle_id)
+        throat_values = self.get_throat_values_of_cycle(property_name, cycle_id)
+
+        if pore_values and throat_values:
             return self._concatenate_element_values(pore_values, throat_values)
-        if pore_values is not None:
+        if pore_values:
             return pore_values
-        if throat_values is not None:
+        if throat_values:
             return throat_values
         raise KeyError(property_name)
 
@@ -79,6 +130,9 @@ class DiagnosticsProperties:
                 array = np.asarray(value)
                 if array.ndim == 1 and (np.issubdtype(array.dtype, np.number) or array.dtype == bool):
                     properties.append(f"{prefix}.{attr}")
+
+            for prop in self.CONVERSORS.keys():
+                properties.append(f"{prefix}.{prop}")
         return sorted(properties)
 
     def _network_properties(self):
@@ -98,54 +152,24 @@ class DiagnosticsProperties:
                 properties.append(key)
         return properties
 
-    def _sample_element(self, prefix):
-        info = self._diagnostics.info
-        sample_cycle = next((c for c in range(info.n_cycles) if info.cycle_n_steps.get(c, 0) > 0), None)
-        if sample_cycle is None:
-            return None
-        step = self._diagnostics.cycle[sample_cycle][0]
-        return step.pore if prefix == "pore" else step.throat
-
-    def _has_values(self, full_name):
-        if full_name in self._diagnostics.network:
-            return True
-        prefix, _, prop = full_name.partition(".")
-        element = self._sample_element(prefix)
-        return element is not None and hasattr(element, prop)
-
-    def _read_values(self, full_name, cycle_id=None, step=None):
-        if cycle_id is None:
-            if full_name in self._diagnostics.network:
-                return np.asarray(self._diagnostics.network[full_name])
-            prefix, _, prop = full_name.partition(".")
-            element = self._sample_element(prefix)
-            if element is not None and hasattr(element, prop):
-                return np.asarray(getattr(element, prop))
-            raise KeyError(full_name)
-
-        step_values = self._read_cycle_step_values(full_name, cycle_id)
-        if step is not None and step_values is not None:
-            return step_values[step]
-        return step_values
-
-    def _read_cycle_step_values(self, full_name, cycle_id):
-        n_steps = self._diagnostics.info.cycle_n_steps.get(cycle_id, 0)
-        if n_steps <= 0:
+    def _sample_step_element(self, prefix, prop, cycle=0, step=0):
+        step = self._diagnostics.cycle[cycle][step]
+        element = step.pore if prefix == "pore" else step.throat
+        if hasattr(element, prop):
+            return getattr(element, prop)
+        else:
             return None
 
-        prefix, _, prop = full_name.partition(".")
-        sample = self._diagnostics.cycle[cycle_id][0]
-        sample_element = sample.pore if prefix == "pore" else sample.throat
-        if hasattr(sample_element, prop):
-            step_values = []
-            for step in range(n_steps):
-                cycle_step = self._diagnostics.cycle[cycle_id][step]
-                element = cycle_step.pore if prefix == "pore" else cycle_step.throat
-                step_values.append(np.asarray(getattr(element, prop), dtype=float).ravel())
-            return step_values
-
-        # not a per-step property: use the static value from the network dump for every step
-        if full_name not in self._diagnostics.network:
+    def _sample_cycle_element(self, prefix, prop, cycle=0):
+        step = self._diagnostics.cycle[cycle]
+        element = step.pore if prefix == "pore" else step.throat
+        if hasattr(element, prop):
+            return getattr(element, prop)
+        else:
             return None
-        values = np.asarray(self._diagnostics.network[full_name], dtype=float).ravel()
-        return [values] * n_steps
+
+    def _get_conversor(self, prop):
+        try:
+            return *self.CONVERSORS[prop],
+        except KeyError:
+            return prop, lambda x: x

@@ -181,12 +181,12 @@ class HeatmapWidget(QtWidgets.QWidget):
         element_type = self.element_type_combo.currentText()
         try:
             if element_type == "Pore":
-                return self._properties.get_pore_property_values(name, cycle_id=cycle_id)
+                return self._properties.get_pore_values_of_cycle(name, cycle_id=cycle_id)
             if element_type == "Throat":
-                return self._properties.get_throat_property_values(name, cycle_id=cycle_id)
+                return self._properties.get_throat_values_of_cycle(name, cycle_id=cycle_id)
             if element_type == "Any":
-                return self._properties.get_element_property_values(name, cycle_id=cycle_id)
-            return self._properties.get_property_values(name, cycle_id=cycle_id)  # "All"
+                return self._properties.get_element_values_of_cycle(name, cycle_id=cycle_id)
+            return self._properties.get_values_of_cycle(name, cycle_id=cycle_id)  # "All"
         except KeyError:
             return None
 

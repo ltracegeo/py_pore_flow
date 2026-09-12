@@ -11,6 +11,7 @@ try:
 except ImportError:
     from vtkmodules.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
 
+from py_pore_flow.graphic.diagnostics.diagnostics_properties import DiagnosticsProperties
 from py_pore_flow.network.constants import PISTON_LIKE, PORE_BODY_FILLING, SNAP_OFF
 
 # name of the point-data array vtkGlyph3D adds when GeneratePointIds is on: it maps each
@@ -52,9 +53,9 @@ class DiagnosticsNetworkWidget(QtWidgets.QWidget):
     poreClicked = QtCore.Signal(int)
     throatClicked = QtCore.Signal(int)
 
-    def __init__(self, diagnostics, parent=None):
+    def __init__(self, diagnostics_properties, parent=None):
         super().__init__(parent)
-        self._diagnostics = diagnostics
+        self._diagnostics_properties = diagnostics_properties
 
         # Widgets
         network_widget = QtWidgets.QWidget()
@@ -82,11 +83,11 @@ class DiagnosticsNetworkWidget(QtWidgets.QWidget):
         layout.addLayout(color_bar)
 
         # Vtk
-        network = diagnostics.network
-        self._coords = np.asarray(network["pore.coords"], dtype=float)
-        self._pore_radii = np.asarray(network["pore.radius"], dtype=float)
-        self._throat_conns = np.asarray(network["throat.conns"], dtype=int)
-        throat_radii = np.asarray(network.get("throat.radius", []), dtype=float)
+        network = self._diagnostics_properties
+        self._coords = network["pore.coords"]
+        self._pore_radii = network["pore.radius"]
+        self._throat_conns = network["throat.conns"]
+        throat_radii = network["throat.radius"]
         self._throat_tube_radius = self._compute_tube_radius(throat_radii, self._pore_radii)
 
         self._points = self._build_points(self._coords)
@@ -305,7 +306,7 @@ class DiagnosticsNetworkWidget(QtWidgets.QWidget):
         self._vtk_widget.GetRenderWindow().Render()
 
     def _apply_element_colors(self, color_func):
-        network = self._diagnostics.network
+        network = self._diagnostics_properties
 
         pore_colors = color_func(network, "pore")
         self._set_point_colors(self._pore_polydata, self._pore_mapper, pore_colors[self._pore_point_to_id])
@@ -316,8 +317,8 @@ class DiagnosticsNetworkWidget(QtWidgets.QWidget):
 
     @staticmethod
     def _fill_colors(network, element_type):
-        filled = np.asarray(network[f"{element_type}.water_filled"], dtype=bool).ravel()
-        ws = np.clip(np.asarray(network[f"{element_type}.water_saturation"], dtype=float).ravel(), 0.0, 1.0)
+        filled = network[f"{element_type}.water_filled"]
+        ws = np.clip(network[f"{element_type}.water_saturation"], 0.0, 1.0)
 
         colors = np.zeros((filled.size, 3), dtype=np.uint8)
         colors[filled, 2] = (255 * ws[filled]).astype(np.uint8)  # blue channel
@@ -345,8 +346,8 @@ class DiagnosticsNetworkWidget(QtWidgets.QWidget):
 
     @staticmethod
     def _conductivity_ratio_colors(network, element_type, phase, channel):
-        multiphase = np.asarray(network[f"{element_type}.{phase}_multiphase_conductivity"], dtype=float).ravel()
-        singlephase = np.asarray(network[f"{element_type}.{phase}_singlephase_conductivity"], dtype=float).ravel()
+        multiphase = network[f"{element_type}.{phase}_multiphase_conductivity"]
+        singlephase = network[f"{element_type}.{phase}_singlephase_conductivity"]
 
         with np.errstate(divide="ignore", invalid="ignore"):
             ratio = np.where(singlephase > 0, multiphase / singlephase, 0.0)
