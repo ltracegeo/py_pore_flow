@@ -27,8 +27,6 @@ class DiagnosticsElementWidget(QtWidgets.QFrame):
         self._diagnostics_properties.set_step(0)
 
         network = self._diagnostics.network
-        network.setdefault("pore.all", np.arange(self._diagnostics.info.n_pores))
-        network.setdefault("throat.all", np.arange(self._diagnostics.info.n_throats))
 
         pg.setConfigOption("background", "w")
         pg.setConfigOption("foreground", "k")
