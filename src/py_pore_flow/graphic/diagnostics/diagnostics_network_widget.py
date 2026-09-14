@@ -58,9 +58,12 @@ class DiagnosticsNetworkWidget(QtWidgets.QWidget):
         self._diagnostics_properties = diagnostics_properties
 
         # Widgets
-        network_widget = QtWidgets.QWidget()
-        network_widget.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
-        network_layout = QtWidgets.QVBoxLayout(network_widget)
+        self.network_widget = QtWidgets.QWidget()
+        self.network_widget.setObjectName("network_widget")
+        self.network_widget.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+        self.network_widget.setVisible(False)  # Fixes _vtk_widget glitch at first show
+        self.first_show = True
+        network_layout = QtWidgets.QVBoxLayout(self.network_widget)
 
         self.color_combo = QtWidgets.QComboBox()
         self.color_combo.addItems(COLOR_MODES)
@@ -79,7 +82,7 @@ class DiagnosticsNetworkWidget(QtWidgets.QWidget):
 
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(10, 10, 10, 10)
-        layout.addWidget(network_widget)
+        layout.addWidget(self.network_widget)
         layout.addLayout(color_bar)
 
         # Vtk
@@ -108,7 +111,7 @@ class DiagnosticsNetworkWidget(QtWidgets.QWidget):
         self._vtk_widget.GetRenderWindow().AddRenderer(self._renderer)
         self._network_window = QtGui.QWindow.fromWinId(self._vtk_widget.winId())
         self._network_window.setObjectName("network_window_widget")
-        self._network_container = QtWidgets.QWidget.createWindowContainer(self._network_window, network_widget)
+        self._network_container = QtWidgets.QWidget.createWindowContainer(self._network_window, self.network_widget)
         self._network_container.setObjectName("network_container_widget")
         self._network_container.setProperty("embeddedVtk", self._vtk_widget)
         self._network_container.setAttribute(QtCore.Qt.WA_DontCreateNativeAncestors)
@@ -126,6 +129,12 @@ class DiagnosticsNetworkWidget(QtWidgets.QWidget):
 
         self._renderer.ResetCamera()
         self._interactor.Initialize()
+
+    def showEvent(self, event: QtGui.QShowEvent):
+        if self.first_show:
+            self.network_widget.setVisible(True)  # Fixes _vtk_widget glitch at first show
+            self.first_show = False
+        super().showEvent(event)
 
     @staticmethod
     def _compute_tube_radius(throat_radii, pore_radii):
