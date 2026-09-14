@@ -125,10 +125,16 @@ class DiagnosticsNetworkWidget(QtWidgets.QWidget):
         self._interactor = self._vtk_widget.GetRenderWindow().GetInteractor()
         self._interactor.SetInteractorStyle(self._style)
         self._interactor.SetPicker(self._picker)
-        self._interactor.AddObserver("LeftButtonPressEvent", self._on_left_button_press)
+        self._vtk_widget.installEventFilter(self)  # Pick from the Qt mouse event delivered to the VTK widget
 
         self._renderer.ResetCamera()
         self._interactor.Initialize()
+
+    def eventFilter(self, obj, event):
+        if obj is self._vtk_widget and event.type() == QtCore.QEvent.MouseButtonPress:
+            if event.button() == QtCore.Qt.LeftButton:
+                self._pick_at_event(event)
+        return False
 
     def showEvent(self, event: QtGui.QShowEvent):
         if self.first_show:
@@ -384,8 +390,15 @@ class DiagnosticsNetworkWidget(QtWidgets.QWidget):
         mapper.SetColorModeToDirectScalars()
         mapper.ScalarVisibilityOn()
 
-    def _on_left_button_press(self, _obj, _event):
-        x, y = self._interactor.GetEventPosition()
+    def _pick_at_event(self, event):
+        # Convert the Qt click (widget-local, top-left origin, logical px) to VTK display space
+        # (bottom-left origin, physical px), flipping against the render window's own height.
+        render_window = self._vtk_widget.GetRenderWindow()
+        _, height = render_window.GetSize()
+        ratio = self._vtk_widget.devicePixelRatioF()
+        x = event.x() * ratio
+        y = height - event.y() * ratio - 1
+
         self._picker.Pick(x, y, 0, self._renderer)
         if self._picker.GetCellId() < 0:
             return
