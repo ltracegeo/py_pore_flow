@@ -101,6 +101,11 @@ class PoreNetwork(openpnm.network.Network):
         pore_network.update(network)
         return pore_network
 
+    @classmethod
+    def from_statoil(cls, path, prefix):
+        openpn = openpnm.io.network_from_statoil(path, prefix)
+        return cls.from_openpnm(openpn)
+
 
 def initialize_pn(pn: PoreNetwork) -> None:
     def set_default(pn, key, value):
