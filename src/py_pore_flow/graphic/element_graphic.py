@@ -100,7 +100,7 @@ class ElementPlotter:
         borders_y = np.concatenate((vertices[:, 1], [vertices[0][1]]))
         axis.plot(borders_x, borders_y, line_color, linewidth=1)  # Plot vertices in blue
 
-        # draw oil layeres
+        # draw oil layers
         for arc_x, arc_y in outter_arcs:
             if arc_x is None:
                 continue
@@ -182,31 +182,48 @@ class ElementGraphic:
         )
 
     @staticmethod
-    def draw_arc(p1, p2, angle1, angle2):
+    def draw_arc(p1, p2, starting_angle):
         """
-        Draws a curved line between two points with specified exit and arrival angles.
+        Draws a circular arc between two points, leaving the start point along a given tangent.
 
         Parameters:
         - p1: tuple, (x, y) coordinates of the starting point.
         - p2: tuple, (x, y) coordinates of the ending point.
-        - angle1: float, angle in radians of the tangent direction at the starting point.
-        - angle2: float, angle in radians of the tangent direction at the ending point.
+        - starting_angle: float, angle in radians of the tangent direction at the starting point.
         """
-        # Control points
-        p1x, p1y = p1
-        p2x, p2y = p2
+        p1 = np.asarray(p1, dtype=float)
+        p2 = np.asarray(p2, dtype=float)
+        t = np.linspace(0.0, 1.0, 100)
 
-        # Calculate the control points
-        control_dist = np.linalg.norm(np.array(p2) - np.array(p1)) / 2  # Arbitrary choice for control points distance
-        c1x = p1x + control_dist * np.cos(angle1)
-        c1y = p1y + control_dist * np.sin(angle1)
-        c2x = p2x + control_dist * np.cos(angle2 + np.pi)
-        c2y = p2y + control_dist * np.sin(angle2 + np.pi)
+        # The center lies on the line through p1 perpendicular to the start tangent: c = p1 + s*n.
+        # Requiring |c - p2| = |c - p1| = |s| gives s = -|d|^2 / (2 d·n), with d = p1 - p2.
+        normal = np.array([-np.sin(starting_angle), np.cos(starting_angle)])
+        d = p1 - p2
+        denom = 2.0 * np.dot(d, normal)
 
-        # Create the Bézier curve
-        t = np.linspace(0, 1, 100)
-        curve_x = (1 - t) ** 3 * p1x + 3 * (1 - t) ** 2 * t * c1x + 3 * (1 - t) * t**2 * c2x + t**3 * p2x
-        curve_y = (1 - t) ** 3 * p1y + 3 * (1 - t) ** 2 * t * c1y + 3 * (1 - t) * t**2 * c2y + t**3 * p2y
+        if np.isclose(denom, 0.0):
+            # p1, p2 and the tangent are colinear: the circle degenerates to a straight line.
+            curve = p1 + np.outer(t, p2 - p1)
+            return curve[:, 0], curve[:, 1]
+
+        radius_signed = -np.dot(d, d) / denom
+        center = p1 + radius_signed * normal
+        radius = abs(radius_signed)
+
+        start = np.arctan2(p1[1] - center[1], p1[0] - center[0])
+        end = np.arctan2(p2[1] - center[1], p2[0] - center[0])
+
+        # Sweep in the direction the start tangent points along the circle.
+        tangent_ccw = np.array([-np.sin(start), np.cos(start)])
+        counter_clockwise = np.dot([np.cos(starting_angle), np.sin(starting_angle)], tangent_ccw) >= 0
+
+        sweep = (end - start) % (2 * np.pi)
+        if not counter_clockwise:
+            sweep -= 2 * np.pi
+
+        phi = start + sweep * t
+        curve_x = center[0] + radius * np.cos(phi)
+        curve_y = center[1] + radius * np.sin(phi)
 
         return curve_x, curve_y
 
@@ -291,12 +308,9 @@ class ElementGraphic:
                 dx = v2[0] - v1[0]
                 dy = v2[1] - v1[1]
                 angle2 = np.arctan2(dy, dx)
-                dx = v3[0] - v1[0]
-                dy = v3[1] - v1[1]
-                angle3 = np.arctan2(dy, dx)
 
                 arc_x, arc_y = ElementGraphic.draw_arc(
-                    p1, p2, angle2 + opposite_thetas[i], np.pi + angle3 - opposite_thetas[i]
+                    p1, p2, angle2 + opposite_thetas[i],
                 )
                 arc_x = np.append(arc_x, v1[0])
                 arc_y = np.append(arc_y, v1[1])
