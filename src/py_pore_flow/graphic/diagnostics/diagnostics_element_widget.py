@@ -18,6 +18,8 @@ CYCLE_NAMES = ["drainage", "imbibition", "2nd_drainage"]
 
 class DiagnosticsElementWidget(QtWidgets.QFrame):
     networkChanged = QtCore.Signal()
+    poreSelected = QtCore.Signal(int)
+    throatSelected = QtCore.Signal(int)
 
     def __init__(self, diagnostics, diagnostics_properties, parent=None):
         super().__init__(parent)
@@ -99,11 +101,15 @@ class DiagnosticsElementWidget(QtWidgets.QFrame):
             return
 
         try:
+            element_id = int(text)
             if self.element_type_combobox.currentText() == "Throat":
-                self.set_throat(int(text))
+                self.set_throat(element_id)
+                self.element_widget.update()
+                self.throatSelected.emit(element_id)
             else:
-                self.set_pore(int(text))
-            self.element_widget.update()
+                self.set_pore(element_id)
+                self.element_widget.update()
+                self.poreSelected.emit(element_id)
         except ElementNotFoundException:
             self.element_id_input.blockSignals(True)
             self.element_id_input.setText("")

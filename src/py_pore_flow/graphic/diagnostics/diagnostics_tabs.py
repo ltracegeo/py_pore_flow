@@ -245,6 +245,8 @@ class ElementGeometryTab(QWidget):
         self.network_widget = DiagnosticsNetworkWidget(diagnostics_properties)
         self.network_widget.poreClicked.connect(self.element_widget.select_pore)
         self.network_widget.throatClicked.connect(self.element_widget.select_throat)
+        self.element_widget.poreSelected.connect(self.network_widget.highlight_pore)
+        self.element_widget.throatSelected.connect(self.network_widget.highlight_throat)
         self.element_widget.networkChanged.connect(self.network_widget.refresh_colors)
 
         splitter = QSplitter(Qt.Horizontal)
