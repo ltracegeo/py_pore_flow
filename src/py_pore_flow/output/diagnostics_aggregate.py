@@ -20,6 +20,9 @@ import os
 import numpy as np
 
 from py_pore_flow.output.diagnostics import (
+    ANGLE_NAME,
+    DIRECTION_AXES,
+    DIRECTIONAL_SPECS,
     Diagnostics,
     DiagnosticsFileCache,
     DiagnosticsInfo,
@@ -27,6 +30,9 @@ from py_pore_flow.output.diagnostics import (
     DiagnosticsStorer,
     DiagnosticsWriter,
     FILE_EXTENSION,
+    STEP_SCALAR_NAMES,
+    throat_axis_angles,
+    throat_axis_cosines,
 )
 
 LEVEL_OFF = "off"
@@ -50,6 +56,9 @@ KEY_SEPARATOR = "|"
 COUNT_KEY = "count"
 EDGES_KEY = "edges"
 SUM_KEY = "sum"
+# per step simulation scalars, kept alongside the matrices so the heatmap can put them on
+# its X axis. "x" cannot collide with an element type.
+X_AXIS_KEY = "x"
 
 # Bin spacing of the Y axis. Both are stored: linear fine bins cannot be merged into log
 # bins without collapsing the bottom of the axis into a single cell, and vice versa.
@@ -100,6 +109,15 @@ DEFAULT_PAIRS = [
     ("throat", "water_saturation", "oil_flow_rate"),
     ("throat", "water_multiphase_conductivity", None),
     ("throat", "water_multiphase_conductivity", "radius"),
+    ("throat", "angle_z", None),
+    ("throat", "angle_z", "water_flow_rate_z"),
+    ("throat", "angle_z", "oil_flow_rate_z"),
+    ("throat", "radius", "water_flow_rate_x"),
+    ("throat", "radius", "water_flow_rate_y"),
+    ("throat", "radius", "water_flow_rate_z"),
+    ("throat", "radius", "oil_flow_rate_x"),
+    ("throat", "radius", "oil_flow_rate_y"),
+    ("throat", "radius", "oil_flow_rate_z"),
     ("pore", "radius", None),
     ("pore", "radius", "water_saturation"),
     ("pore", "radius", "oil_saturation"),
@@ -137,6 +155,10 @@ def scale_edges(scale, low, high, n_bins):
 
 def cycle_key(cycle, key):
     return f"{cycle}{KEY_SEPARATOR}{key}"
+
+
+def step_axis_key(cycle, name):
+    return cycle_key(cycle, KEY_SEPARATOR.join([X_AXIS_KEY, name]))
 
 
 def read_manifest(path):
@@ -182,6 +204,7 @@ class AggregateDiagnosticsWriter:
 
         DiagnosticsWriter._export_pn(network.pn, path)
         self._static = Diagnostics._load_network(path)
+        self._setup_throat_directions()
 
         self._n_elements = {
             "pore": int(self.pn.pore.water_saturation.size),
@@ -202,14 +225,37 @@ class AggregateDiagnosticsWriter:
 
         self._cycle_id = 0
         self._n_saved_states = 0
+        self._step_scalars = []
+
+    def _setup_throat_directions(self):
+        """Publish the throat angles as static properties, so they need no spool.
+
+        Without usable geometry the directional pairs cannot be built at all, so they are
+        dropped rather than silently aggregated from the wrong numbers.
+        """
+        self._throat_cosines = throat_axis_cosines(self._static)
+        if self._throat_cosines is None:
+            self._pairs = [pair for pair in self._pairs if not self._is_directional(pair)]
+            return
+
+        for axis, axis_name in enumerate(DIRECTION_AXES):
+            self._static[f"throat.{ANGLE_NAME}_{axis_name}"] = throat_axis_angles(self._throat_cosines[:, axis])
+
+    @staticmethod
+    def _is_directional(pair):
+        element_type, y_property, color_property = pair
+        if element_type != "throat":
+            return False
+        return y_property in DIRECTIONAL_SPECS or color_property in DIRECTIONAL_SPECS
 
     # ------------------------------------------------------------------ writing
 
-    def save_state(self):
+    def save_state(self, pc=np.nan, sw=np.nan):
         self._n_saved_states += 1
+        self._step_scalars.append((pc, sw))
         for element_type, storer in self._spools.items():
             element = getattr(self.pn, element_type)
-            storer.save_state([self._live_values(element, name) for name in self._dynamic[element_type]])
+            storer.save_state([self._live_values(element_type, element, name) for name in self._dynamic[element_type]])
 
     def save_cycle_data(self):
         self._info_storer.save_number_of_steps(self._cycle_id, self._n_saved_states)
@@ -252,15 +298,42 @@ class AggregateDiagnosticsWriter:
             if pair_element_type != element_type:
                 continue
             for name in (y_property, color_property):
-                if name is not None and not self._is_static(element_type, name):
-                    names.add(name)
+                if name is None or self._is_static(element_type, name):
+                    continue
+                names.add(self._spool_source(element_type, name))
         return sorted(names)
 
     @staticmethod
-    def _live_values(element, name):
+    def _spool_source(element_type, name):
+        """The property actually spooled for `name`.
+
+        A projection onto an axis is its source times a constant cosine, so only the source
+        is spooled and all three components are derived from it.
+        """
+        spec = DIRECTIONAL_SPECS.get(name) if element_type == "throat" else None
+        if spec is None or spec[0] is None:
+            return name
+        return spec[0]
+
+    def _live_values(self, element_type, element, name):
+        spec = DIRECTIONAL_SPECS.get(name) if element_type == "throat" else None
+        if spec is not None:
+            source, axis = spec
+            if source is None:
+                return throat_axis_angles(self._throat_cosines[:, axis])
+            return np.asarray(getattr(element, source), dtype=np.float64) * self._throat_cosines[:, axis]
+
         source, convert = CONVERSORS.get(name, (name, None))
         values = getattr(element, source)
         return values if convert is None else convert(values)
+
+    def _spooled_values(self, reader, element_type, name, step):
+        """Per step values of `name`, projecting the spooled source when it is directional."""
+        spec = DIRECTIONAL_SPECS.get(name) if element_type == "throat" else None
+        if spec is None or spec[0] is None:
+            return reader.values(name, step).astype(np.float64, copy=False)
+        source, axis = spec
+        return reader.values(source, step).astype(np.float64, copy=False) * self._throat_cosines[:, axis]
 
     def _delete_spool(self):
         for file_name in os.listdir(self.path):
@@ -280,11 +353,17 @@ class AggregateDiagnosticsWriter:
 
         value_ranges, log_scales = self._scan_ranges(readers, info)
 
+        scalars = np.asarray(self._step_scalars, dtype=np.float64).reshape(-1, len(STEP_SCALAR_NAMES))
+
         arrays = {}
         aggregates = {}
         step_offset = 0
         for cycle in range(info.n_cycles):
             n_steps = info.cycle_n_steps.get(cycle, 0)
+            for index, name in enumerate(STEP_SCALAR_NAMES):
+                values = scalars[step_offset : step_offset + n_steps, index]
+                if values.size:
+                    arrays[step_axis_key(cycle, name)] = values
             for element_type in ELEMENT_TYPES:
                 n_bins = self._requested_n_bins or resolve_n_bins(self._n_elements[element_type])
                 for y_property, color_properties in self._grouped_pairs(element_type).items():
@@ -378,7 +457,7 @@ class AggregateDiagnosticsWriter:
 
         for local_step in range(n_steps):
             step = step_offset + local_step
-            y_values = None if y_static is not None else reader.values(y_property, step)
+            y_values = None if y_static is not None else self._spooled_values(reader, element_type, y_property, step)
             color_values = {color: self._color_values(reader, element_type, color, step) for color in color_properties}
 
             for data in per_scale.values():
@@ -415,7 +494,7 @@ class AggregateDiagnosticsWriter:
         static = self._static_values(element_type, name)
         if static is not None:
             return static
-        return reader.values(name, step).astype(np.float64, copy=False)
+        return self._spooled_values(reader, element_type, name, step)
 
     def _value_range(self, reader, element_type, y_property, y_static, step_offset, n_steps):
         """Exact range of the binned property, which is what the spool exists for."""
@@ -425,7 +504,7 @@ class AggregateDiagnosticsWriter:
 
         low, high = np.inf, -np.inf
         for local_step in range(n_steps):
-            values = reader.values(y_property, step_offset + local_step)
+            values = self._spooled_values(reader, element_type, y_property, step_offset + local_step)
             finite = values[np.isfinite(values)]
             if finite.size == 0:
                 continue
@@ -490,6 +569,13 @@ class DiagnosticsAggregates:
 
     def element_types(self):
         return sorted(self._aggregates)
+
+    def step_axis(self, cycle, name):
+        """Per step values of a simulation scalar over one cycle, or None when not stored."""
+        try:
+            return self._array(step_axis_key(cycle, name))
+        except KeyError:
+            return None
 
     def y_property_names(self, element_type):
         return sorted(self._aggregates.get(element_type, {}))

@@ -12,6 +12,7 @@ from numpy.testing import assert_array_equal
 from py_pore_flow.network.network import initialize_pn, NetworkManager, PoreNetwork
 from py_pore_flow.output.diagnostics import (
     CORNER_SHAPE,
+    STEP_SCALAR_NAMES,
     Diagnostics,
     DiagnosticsInfo,
     DiagnosticsStateLoader,
@@ -128,6 +129,14 @@ def set_step_state(pn, gstep, n_throats, n_pores):
             setattr(element, attr, gen_corner_float(seed, gstep, n))
 
 
+def step_pc(gstep):
+    return 10.0 ** (gstep + 1)
+
+
+def step_sw(gstep):
+    return 1.0 - 0.05 * gstep
+
+
 def set_cycle_state(pn, cycle, n_throats, n_pores):
     pn.throat.entry_pressure = gen_float(THROAT_ENTRY_PRESSURE_SEED, cycle, n_throats)
     pn.pore.entry_pressure = gen_float(PORE_ENTRY_PRESSURE_SEED, cycle, n_pores)
@@ -152,7 +161,7 @@ class DiagnosticsTests(unittest.TestCase):
             for cycle, n_steps in enumerate(cycles):
                 for _ in range(n_steps):
                     set_step_state(network.pn_core, gstep, self.n_throats, self.n_pores)
-                    writer.save_state()
+                    writer.save_state(step_pc(gstep), step_sw(gstep))
                     gstep += 1
                 set_cycle_state(network.pn_core, cycle, self.n_throats, self.n_pores)
                 writer.save_cycle_data()
@@ -389,6 +398,30 @@ class DiagnosticsTests(unittest.TestCase):
         self.assertEqual(network["throat.radius"].shape, (self.n_throats,))
         # the sparse conns accessor cannot be densified and must be skipped, not raise
         self.assertNotIn("pore.conns", network)
+
+    def test_step_scalars_are_saved_per_step(self):
+        cycles = [4, 5]
+        self._write(cycles, chunk_size=3)
+
+        diagnostics = Diagnostics(self.path)
+        self.assertEqual(diagnostics.step_scalars.shape, (sum(cycles), len(STEP_SCALAR_NAMES)))
+
+        offset = 0
+        for cycle, n_steps in enumerate(cycles):
+            expected_pc = [step_pc(offset + step) for step in range(n_steps)]
+            expected_sw = [step_sw(offset + step) for step in range(n_steps)]
+            assert_array_equal(diagnostics.step_axis(cycle, "pc"), expected_pc)
+            assert_array_equal(diagnostics.step_axis(cycle, "sw"), expected_sw)
+            offset += n_steps
+
+    def test_step_scalars_are_absent_from_diagnostics_that_predate_them(self):
+        self._write([3], chunk_size=100)
+        os.remove(os.path.join(self.path, "step_scalars" + FILE_EXTENSION))
+
+        diagnostics = Diagnostics(self.path)
+        self.assertEqual(diagnostics.step_scalars.size, 0)
+        self.assertIsNone(diagnostics.step_axis(0, "pc"))
+        self.assertIsNone(diagnostics.step_axis(0, "not_a_scalar"))
 
     def test_close_releases_the_chunk_files(self):
         # the viewer has to let the mappings go: on Windows they lock the files, and the

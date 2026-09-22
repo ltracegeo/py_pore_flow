@@ -8,6 +8,11 @@ from py_pore_flow.equations.geometry import MAX_NUMBER_OF_CORNERS
 
 FILE_EXTENSION = ".dat"
 INFO_FILE_NAME = "info"
+STEP_SCALARS_FILE_NAME = "step_scalars"
+
+# simulation wide scalars saved once per step, in the order they are written. They are what
+# lets the heatmap put something other than the step index on its X axis.
+STEP_SCALAR_NAMES = ("pc", "sw")
 NETWORK_JSON_NAME = "network.json"
 NETWORK_ARRAYS_NAME = "network.npz"
 NETWORK_EXTRAS_NAME = "network_extras.json"
@@ -39,6 +44,88 @@ PORES_CYCLE_FLOATS_NAME = "pores_cycle_floats"
 PORES_CYCLE_FLOATS_NDATA = 3
 PORES_CYCLE_INTS_NAME = "pores_cycle_ints"
 PORES_CYCLE_INTS_NDATA = 1
+
+DIRECTION_AXES = ("x", "y", "z")
+ANGLE_NAME = "angle"
+# throat quantities that can be projected onto the coordinate axes
+DIRECTIONAL_SOURCES = ("water_flow_rate", "oil_flow_rate")
+
+
+def _build_directional_specs():
+    """{property name: (source property, axis index)}; a None source is the angle itself."""
+    specs = {}
+    for axis, axis_name in enumerate(DIRECTION_AXES):
+        specs[f"{ANGLE_NAME}_{axis_name}"] = (None, axis)
+        for source in DIRECTIONAL_SOURCES:
+            specs[f"{source}_{axis_name}"] = (source, axis)
+    return specs
+
+
+DIRECTIONAL_SPECS = _build_directional_specs()
+
+
+def zero_based_conns(conns, n_pores):
+    """`throat.conns` as indices into the pore arrays, or None if it cannot be read as such.
+
+    A py_pore_flow network stores zero based pore indices, but the GeoSlicer throat table it
+    is built from carries one based pore labels, so the convention is checked against the
+    pore count rather than assumed. Guessing wrong would silently attach every throat to a
+    neighbouring pore and produce plausible but wrong directions.
+    """
+    conns = np.asarray(conns)
+    if conns.ndim != 2 or conns.shape[1] < 2 or conns.size == 0:
+        return None
+
+    conns = conns[:, :2].astype(np.int64)
+    low, high = int(conns.min()), int(conns.max())
+    if low >= 1 and high == n_pores:
+        return conns - 1
+    if low >= 0 and high < n_pores:
+        return conns
+    return None
+
+
+def throat_unit_vectors(network):
+    """Unit vector of every throat, from the coordinates of the two pores it connects.
+
+    Returns None when the dump has no usable geometry. A throat whose pores share a centre
+    has no direction and comes back as NaN.
+    """
+    try:
+        coords = np.asarray(network["pore.coords"], dtype=np.float64)
+        conns = network["throat.conns"]
+    except KeyError:
+        return None
+
+    if coords.ndim != 2 or coords.shape[1] < 3:
+        return None
+
+    conns = zero_based_conns(conns, coords.shape[0])
+    if conns is None:
+        return None
+
+    vectors = coords[conns[:, 1], :3] - coords[conns[:, 0], :3]
+    lengths = np.linalg.norm(vectors, axis=1)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        unit = vectors / lengths[:, None]
+    unit[~np.isfinite(unit)] = np.nan
+    return unit
+
+
+def throat_axis_cosines(network):
+    """Unsigned direction cosine of every throat against each axis, or None.
+
+    Unsigned because which of its two pores a throat is measured from is arbitrary, so only
+    the axis it lies along is meaningful, not the direction along it.
+    """
+    unit = throat_unit_vectors(network)
+    return None if unit is None else np.abs(unit)
+
+
+def throat_axis_angles(cosines):
+    """Angle in degrees between each throat and each axis, in [0, 90]."""
+    return np.degrees(np.arccos(np.clip(cosines, 0.0, 1.0)))
+
 
 STATIC_PROPERTIES = [
     "coords",
@@ -90,6 +177,7 @@ class DiagnosticsWriter:
 
         self.info_storer = DiagnosticsInfoStorer(path)
         self.info_storer.save_number_of_elements(n_throats, n_pores)
+        self.step_scalars_storer = DiagnosticsStepScalarsStorer(path)
         self.storer_throats_floats = DiagnosticsStorer(
             THROATS_FLOATS_NAME, n_throats, THROATS_FLOATS_NDATA, np.float64, path
         )
@@ -131,8 +219,9 @@ class DiagnosticsWriter:
         self._export_pn(network.pn, path)
 
     # stores elements properties of a single step
-    def save_state(self):
+    def save_state(self, pc=np.nan, sw=np.nan):
         self.n_saved_sates += 1
+        self.step_scalars_storer.save_state((pc, sw))
 
         throat = self.pn.throat
         pore = self.pn.pore
@@ -302,6 +391,19 @@ class DiagnosticsStorer:
         truncated_size = self._step * self._row_width * np.dtype(self._dtype).itemsize
         with open(path, "r+b") as f:
             f.truncate(truncated_size)
+
+
+class DiagnosticsStepScalarsStorer:
+    """Appends the simulation scalars of one step. Two floats a step, so no chunking."""
+
+    def __init__(self, path="."):
+        self._path = os.path.join(path, STEP_SCALARS_FILE_NAME + FILE_EXTENSION)
+        with open(self._path, "wb"):
+            pass
+
+    def save_state(self, values):
+        with open(self._path, "ab") as file:
+            np.asarray(values, dtype=np.float64).tofile(file)
 
 
 class DiagnosticsInfoStorer:
@@ -623,6 +725,38 @@ class Diagnostics:
         self._cache = DiagnosticsFileCache(path)
         self.cycle = DiagnosticsCycles(path, self.info, self._cache)
         self._network = None
+        self._step_scalars = None
+
+    @property
+    def step_scalars(self):
+        """(n_steps, len(STEP_SCALAR_NAMES)) of the simulation scalars, read on first use."""
+        if self._step_scalars is None:
+            self._step_scalars = self._load_step_scalars(self.path)
+        return self._step_scalars
+
+    def step_axis(self, cycle, name):
+        """Per step values of a simulation scalar over one cycle, or None when not saved.
+
+        Diagnostics written before the scalars were recorded simply have no file.
+        """
+        if name not in STEP_SCALAR_NAMES:
+            return None
+
+        scalars = self.step_scalars
+        if scalars.size == 0:
+            return None
+
+        offset = sum(self.info.cycle_n_steps.get(c, 0) for c in range(cycle))
+        n_steps = self.info.cycle_n_steps.get(cycle, 0)
+        values = scalars[offset : offset + n_steps, STEP_SCALAR_NAMES.index(name)]
+        return values if values.size else None
+
+    @staticmethod
+    def _load_step_scalars(path):
+        file_path = os.path.join(path, STEP_SCALARS_FILE_NAME + FILE_EXTENSION)
+        if not os.path.exists(file_path):
+            return np.empty((0, len(STEP_SCALAR_NAMES)), dtype=np.float64)
+        return np.fromfile(file_path, dtype=np.float64).reshape(-1, len(STEP_SCALAR_NAMES))
 
     @property
     def network(self):
@@ -656,6 +790,7 @@ class Diagnostics:
         self._cache.close()
         self.cycle = DiagnosticsCycles(self.path, self.info, self._cache)
         self._network = None
+        self._step_scalars = None
 
     @property
     def drainage(self):

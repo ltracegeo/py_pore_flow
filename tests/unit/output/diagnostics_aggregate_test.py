@@ -61,6 +61,14 @@ def oil_flow_rate(step, n):
     return (np.arange(n) % 16) * 0.25 + step * 2.0
 
 
+def step_pc(step):
+    return 10.0 ** (step + 1)
+
+
+def step_sw(step):
+    return 1.0 - 0.05 * step
+
+
 class DiagnosticsAggregateTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -77,7 +85,7 @@ class DiagnosticsAggregateTests(unittest.TestCase):
                 throat.water_saturation = water_saturation(step, cls.n_throats)
                 throat.water_flow_rate = water_flow_rate(step, cls.n_throats)
                 throat.oil_flow_rate = oil_flow_rate(step, cls.n_throats)
-                writer.save_state()
+                writer.save_state(step_pc(step), step_sw(step))
                 step += 1
             writer.save_cycle_data()
         writer.close()
@@ -242,6 +250,16 @@ class DiagnosticsAggregateTests(unittest.TestCase):
         low, high = self.aggregates.value_range(0, "throat", "radius", SCALE_LOG)
         assert_allclose((low, high), (self.radius.min(), self.radius.max()), rtol=1e-12)
         self.assertEqual(self.aggregates.stored_n_bins(0, "throat", "radius", SCALE_LOG), N_BINS)
+
+    def test_step_axes_are_stored_per_cycle(self):
+        offset = 0
+        for cycle, n_steps in enumerate(CYCLES):
+            assert_allclose(self.aggregates.step_axis(cycle, "pc"), [step_pc(offset + step) for step in range(n_steps)])
+            assert_allclose(self.aggregates.step_axis(cycle, "sw"), [step_sw(offset + step) for step in range(n_steps)])
+            offset += n_steps
+
+    def test_an_unknown_step_axis_is_reported_as_missing(self):
+        self.assertIsNone(self.aggregates.step_axis(0, "not_a_scalar"))
 
     def test_stored_resolution_is_reported(self):
         self.assertEqual(self.aggregates.stored_n_bins(0, "throat", "radius"), N_BINS)

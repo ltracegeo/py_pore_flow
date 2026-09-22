@@ -17,6 +17,11 @@ AGG_SUM = "sum"
 
 NO_BIN_VALUE = 0
 
+X_AXIS_STEP = "step"
+# label -> name of the per step simulation scalar the diagnostics stored
+X_AXIS_SOURCES = {"capillary pressure (Pc)": "pc", "water saturation (Sw)": "sw"}
+X_AXIS_LABELS = [X_AXIS_STEP] + list(X_AXIS_SOURCES)
+
 
 class HeatmapView(QtWidgets.QWidget):
     def __init__(self, parent=None):
@@ -40,7 +45,19 @@ class HeatmapView(QtWidgets.QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self._graphics)
 
-    def set_histogram_image(self, values, value_min, value_max, y_label, color_label, log_y=False, log_color=False):
+    def set_histogram_image(
+        self,
+        values,
+        value_min,
+        value_max,
+        y_label,
+        color_label,
+        log_y=False,
+        log_color=False,
+        x_range=None,
+        x_label=X_AXIS_STEP,
+        log_x=False,
+    ):
         # Get min/max
         finite = values[np.isfinite(values)]
         color_min = float(finite.min()) if finite.size else 0.0
@@ -60,10 +77,14 @@ class HeatmapView(QtWidgets.QWidget):
         # the ticks as powers of ten: the rows of an ImageItem are evenly spaced, so the bins
         # themselves have to be the log spaced ones.
         self._image.setImage(image, autoLevels=False)
-        n_steps = image.shape[0]
-        axis_min, axis_max = (np.log10(value_min), np.log10(value_max)) if log_y else (value_min, value_max)
-        self._image.setRect(QtCore.QRectF(0.0, float(axis_min), float(n_steps), float(axis_max - axis_min)))
+        y_min, y_max = (np.log10(value_min), np.log10(value_max)) if log_y else (value_min, value_max)
+        x_min, x_max = (0.0, float(image.shape[0])) if x_range is None else x_range
+        if log_x:
+            x_min, x_max = np.log10(x_min), np.log10(x_max)
+        self._image.setRect(QtCore.QRectF(float(x_min), float(y_min), float(x_max - x_min), float(y_max - y_min)))
         self._plot.getAxis("left").setLogMode(log_y)
+        self._plot.getAxis("bottom").setLogMode(log_x)
+        self._plot.setLabel("bottom", x_label)
 
         self._colorbar.setLevels((color_min, color_max))
         self._colorbar.setLabel("left", color_label)
@@ -75,6 +96,7 @@ class HeatmapView(QtWidgets.QWidget):
     def clear(self):
         self._image.clear()
         self._plot.getAxis("left").setLogMode(False)
+        self._plot.getAxis("bottom").setLogMode(False)
         self._plot.setLabel("left", "")
         self._plot.setTitle("")
 
@@ -85,6 +107,12 @@ class HeatmapWidget(QtWidgets.QWidget):
         self._diagnostics = diagnostics
         self._aggregates = aggregates
         self._properties = DiagnosticsProperties(diagnostics) if diagnostics is not None else None
+
+        self.x_axis_combo = QtWidgets.QComboBox()
+        self.x_axis_combo.addItems(X_AXIS_LABELS)
+        self.log_x_check = QtWidgets.QCheckBox("Log")
+        self.log_x_check.setToolTip("Space the X axis logarithmically (positive values only)")
+        self.log_x_check.setEnabled(False)
 
         self.element_type_combo = QtWidgets.QComboBox()
         self.element_type_combo.addItems(AGGREGATE_ELEMENT_TYPES if self._aggregates else ELEMENT_TYPES)
@@ -138,19 +166,22 @@ class HeatmapWidget(QtWidgets.QWidget):
         apply_button_layout.addLayout(y_range_layout)
 
         controls = QtWidgets.QGridLayout()
-        controls.addWidget(QtWidgets.QLabel("Element type"), 0, 0)
-        controls.addWidget(self.element_type_combo, 0, 1, 1, 3)
-        controls.addWidget(QtWidgets.QLabel("Y-axis (property)"), 1, 0)
-        controls.addWidget(self.property_combo, 1, 1, 1, 2)
-        controls.addWidget(self.log_y_check, 1, 3)
-        controls.addWidget(QtWidgets.QLabel("Color"), 2, 0)
-        controls.addWidget(self.color_combo, 2, 1)
-        controls.addWidget(self.aggregation_combo, 2, 2)
-        controls.addWidget(self.log_color_check, 2, 3)
-        controls.addWidget(QtWidgets.QLabel("Cycle"), 3, 0)
-        controls.addWidget(self.cycle_combo, 3, 1, 1, 3)
-        controls.addWidget(line_widget, 4, 0, 1, 4)
-        controls.addLayout(apply_button_layout, 5, 1, 1, 3)
+        controls.addWidget(QtWidgets.QLabel("X-axis"), 0, 0)
+        controls.addWidget(self.x_axis_combo, 0, 1, 1, 2)
+        controls.addWidget(self.log_x_check, 0, 3)
+        controls.addWidget(QtWidgets.QLabel("Element type"), 1, 0)
+        controls.addWidget(self.element_type_combo, 1, 1, 1, 3)
+        controls.addWidget(QtWidgets.QLabel("Y-axis (property)"), 2, 0)
+        controls.addWidget(self.property_combo, 2, 1, 1, 2)
+        controls.addWidget(self.log_y_check, 2, 3)
+        controls.addWidget(QtWidgets.QLabel("Color"), 3, 0)
+        controls.addWidget(self.color_combo, 3, 1)
+        controls.addWidget(self.aggregation_combo, 3, 2)
+        controls.addWidget(self.log_color_check, 3, 3)
+        controls.addWidget(QtWidgets.QLabel("Cycle"), 4, 0)
+        controls.addWidget(self.cycle_combo, 4, 1, 1, 3)
+        controls.addWidget(line_widget, 5, 0, 1, 4)
+        controls.addLayout(apply_button_layout, 6, 1, 1, 3)
         controls.setColumnStretch(1, 2)
         controls.setColumnStretch(2, 1)
 
@@ -165,15 +196,86 @@ class HeatmapWidget(QtWidgets.QWidget):
         if self._aggregates is not None:
             # only the pairs that were precomputed for this Y property can be coloured by
             self.property_combo.currentTextChanged.connect(self._populate_color_combo)
+        self.x_axis_combo.currentTextChanged.connect(self._update_x_axis_availability)
+        self.cycle_combo.currentIndexChanged.connect(self._update_x_axis_availability)
         self.property_combo.currentTextChanged.connect(self._update_log_availability)
         self.color_combo.currentTextChanged.connect(self._on_color_changed)
         self.apply_button.clicked.connect(self._apply)
         self._on_color_changed(self.color_combo.currentText())
         self._update_log_availability()
+        self._update_x_axis_availability()
 
     def _on_color_changed(self, text):
         # aggregation (mean/sum) only applies when coloring by a property, not by count
         self.aggregation_combo.setEnabled(text != COLOR_COUNT)
+
+    def _x_axis_values(self, cycle_id):
+        """Per step values of the selected X coordinate, or None for the step index."""
+        source = X_AXIS_SOURCES.get(self.x_axis_combo.currentText())
+        if source is None:
+            return None
+
+        reader = self._aggregates if self._aggregates is not None else self._diagnostics
+        values = reader.step_axis(cycle_id, source)
+        if values is None or not np.isfinite(values).any():
+            return None
+        return np.asarray(values, dtype=float)
+
+    def _update_x_axis_availability(self):
+        """Enable log X only for a coordinate that exists and stays positive in this cycle."""
+        values = self._x_axis_values(self.cycle_combo.currentIndex())
+        available = values is not None and np.all(values[np.isfinite(values)] > 0)
+        if not available:
+            self.log_x_check.setChecked(False)
+        self.log_x_check.setEnabled(bool(available))
+
+    def _place_on_x_axis(self, matrix, cycle_id):
+        """Resample the per step rows onto the selected X coordinate.
+
+        Returns (image, x_range, x_label, log_x). An ImageItem draws evenly spaced rows, so
+        anything other than the step index has to be resampled onto a uniform grid: steps
+        sharing a cell are averaged, and a cell no step landed in takes the nearest one,
+        which is how an irregularly sampled series is normally drawn.
+        """
+        values = self._x_axis_values(cycle_id)
+        if values is None or values.shape[0] != matrix.shape[0]:
+            return matrix, None, X_AXIS_STEP, False
+
+        finite = np.isfinite(values)
+        if not finite.any():
+            return matrix, None, X_AXIS_STEP, False
+
+        log_x = self.log_x_check.isChecked() and np.all(values[finite] > 0)
+        low, high = float(values[finite].min()), float(values[finite].max())
+        if high <= low:
+            high = low * 10.0 if log_x else low + 1.0
+
+        n_x = matrix.shape[0]
+        edges = np.logspace(np.log10(low), np.log10(high), n_x + 1) if log_x else np.linspace(low, high, n_x + 1)
+        index = np.clip(np.searchsorted(edges, values, side="right") - 1, 0, n_x - 1)
+
+        image = np.full((n_x, matrix.shape[1]), np.nan, dtype=float)
+        for target in range(n_x):
+            rows = matrix[finite & (index == target)]
+            if rows.shape[0] == 0:
+                continue
+            valid = np.isfinite(rows)
+            total = np.where(valid, rows, 0.0).sum(axis=0)
+            n_valid = valid.sum(axis=0)
+            image[target] = np.where(n_valid > 0, total / np.maximum(n_valid, 1), np.nan)
+
+        image = self._fill_empty_columns(image)
+        return image, (low, high), self.x_axis_combo.currentText(), log_x
+
+    @staticmethod
+    def _fill_empty_columns(image):
+        """Carry the nearest sampled column into the cells no step landed in."""
+        occupied = np.nonzero(np.isfinite(image).any(axis=1))[0]
+        if occupied.size == 0 or occupied.size == image.shape[0]:
+            return image
+        targets = np.arange(image.shape[0])
+        nearest = occupied[np.abs(targets[:, None] - occupied[None, :]).argmin(axis=1)]
+        return image[nearest]
 
     def _update_log_availability(self):
         """Log binning needs a strictly positive property.
@@ -287,9 +389,19 @@ class HeatmapWidget(QtWidgets.QWidget):
             cycle_id, element_type, y_property, color_property, aggregation, n_bins, requested_range, scale
         )
         color_label = COLOR_COUNT if color_property is None else f"{color} ({aggregation})"
+        matrix, x_range, x_label, log_x = self._place_on_x_axis(matrix, cycle_id)
         matrix, color_label = self._apply_color_scale(matrix, color_label)
         self.view.set_histogram_image(
-            matrix, value_min, value_max, y_property, color_label, log_y, self.log_color_check.isChecked()
+            matrix,
+            value_min,
+            value_max,
+            y_property,
+            color_label,
+            log_y,
+            self.log_color_check.isChecked(),
+            x_range,
+            x_label,
+            log_x,
         )
 
     def _apply_raw(self):
@@ -338,9 +450,19 @@ class HeatmapWidget(QtWidgets.QWidget):
                 matrix = self._mean_matrix(y_steps, color_steps, bins, n_bins)
                 color_label = f"{color} (mean)"
 
+        matrix, x_range, x_label, log_x = self._place_on_x_axis(matrix, cycle_id)
         matrix, color_label = self._apply_color_scale(matrix, color_label)
         self.view.set_histogram_image(
-            matrix, value_min, value_max, text, color_label, log_y, self.log_color_check.isChecked()
+            matrix,
+            value_min,
+            value_max,
+            text,
+            color_label,
+            log_y,
+            self.log_color_check.isChecked(),
+            x_range,
+            x_label,
+            log_x,
         )
 
     @staticmethod

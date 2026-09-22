@@ -15,7 +15,12 @@ import numpy as np
 from numpy.testing import assert_allclose
 from PySide2 import QtWidgets
 
-from py_pore_flow.graphic.diagnostics.diagnostics_heatmap_widget import AGG_SUM, COLOR_COUNT, HeatmapWidget
+from py_pore_flow.graphic.diagnostics.diagnostics_heatmap_widget import (
+    AGG_SUM,
+    COLOR_COUNT,
+    X_AXIS_STEP,
+    HeatmapWidget,
+)
 from py_pore_flow.graphic.diagnostics.diagnostics_widget import DiagnosticsWidget
 from py_pore_flow.network.network import initialize_pn, NetworkManager, PoreNetwork
 from py_pore_flow.output.diagnostics import Diagnostics, DiagnosticsWriter
@@ -50,6 +55,20 @@ def water_saturation(step, n):
     return ((np.arange(n) + step) % 64) / 64.0
 
 
+# one decade a step, so a log X grid of N_STEPS bins holds exactly one step per column
+def step_pc(step):
+    return 10.0 ** (step + 1)
+
+
+# reaches exactly zero, so Sw can never be placed on a log X axis
+def step_sw(step):
+    return 0.75 - 0.25 * step
+
+
+X_AXIS_PC = "capillary pressure (Pc)"
+X_AXIS_SW = "water saturation (Sw)"
+
+
 def run_fake_simulation(make_writer):
     """Drive a writer over a network whose properties change every step.
 
@@ -63,7 +82,7 @@ def run_fake_simulation(make_writer):
     for step in range(N_STEPS):
         network.pn_core.throat.water_flow_rate = water_flow_rate(step, n_throats)
         network.pn_core.throat.water_saturation = water_saturation(step, n_throats)
-        writer.save_state()
+        writer.save_state(step_pc(step), step_sw(step))
     writer.save_cycle_data()
     writer.close()
 
@@ -87,7 +106,7 @@ class HeatmapSourceTests(unittest.TestCase):
         shutil.rmtree(cls.basic_path, ignore_errors=True)
 
     @staticmethod
-    def _configure(widget, color, aggregation, log_y=False, log_color=False):
+    def _configure(widget, color, aggregation, log_y=False, log_color=False, x_axis=X_AXIS_STEP, log_x=False):
         widget.element_type_combo.setCurrentText("Throat")
         widget.property_combo.setCurrentText("radius")
         widget.color_combo.setCurrentText(color)
@@ -96,20 +115,22 @@ class HeatmapSourceTests(unittest.TestCase):
         widget.cycle_combo.setCurrentIndex(0)
         widget.log_y_check.setChecked(log_y)
         widget.log_color_check.setChecked(log_color)
+        widget.x_axis_combo.setCurrentText(x_axis)
+        widget.log_x_check.setChecked(log_x)
         widget._apply()
         return np.asarray(widget.view._image.image)
 
-    def _raw_image(self, color, aggregation, log_y=False, log_color=False):
+    def _raw_image(self, color, aggregation, log_y=False, log_color=False, x_axis=X_AXIS_STEP, log_x=False):
         diagnostics = Diagnostics(self.complete_path)
         try:
             widget = HeatmapWidget(diagnostics)
-            return self._configure(widget, color, aggregation, log_y, log_color)
+            return self._configure(widget, color, aggregation, log_y, log_color, x_axis, log_x)
         finally:
             diagnostics.close()
 
-    def _aggregate_image(self, color, aggregation, log_y=False, log_color=False):
+    def _aggregate_image(self, color, aggregation, log_y=False, log_color=False, x_axis=X_AXIS_STEP, log_x=False):
         widget = HeatmapWidget(None, DiagnosticsAggregates(self.basic_path))
-        return self._configure(widget, color, aggregation, log_y, log_color)
+        return self._configure(widget, color, aggregation, log_y, log_color, x_axis, log_x)
 
     def test_counts_agree_between_the_two_sources(self):
         raw = self._raw_image(COLOR_COUNT, AGG_SUM)
@@ -187,6 +208,69 @@ class HeatmapSourceTests(unittest.TestCase):
             self.assertTrue(widget.log_y_check.isEnabled())
         finally:
             diagnostics.close()
+
+    # ------------------------------------------------------------------ X axis
+
+    def test_a_log_x_axis_keeps_one_step_per_column(self):
+        # Pc rises a decade a step, so N_STEPS log spaced columns hold exactly one step each
+        # and the picture is the step indexed one, only differently spaced
+        by_step = self._aggregate_image(COLOR_COUNT, AGG_SUM)
+        by_pc = self._aggregate_image(COLOR_COUNT, AGG_SUM, x_axis=X_AXIS_PC, log_x=True)
+
+        assert_allclose(by_pc, by_step)
+
+    def test_a_linear_x_axis_groups_the_crowded_steps(self):
+        # on a linear Pc grid the first three steps share the first column and the last step
+        # takes the last one; the two columns in between are filled from their nearest
+        by_step = self._aggregate_image(COLOR_COUNT, AGG_SUM)
+        by_pc = self._aggregate_image(COLOR_COUNT, AGG_SUM, x_axis=X_AXIS_PC, log_x=False)
+
+        crowded = by_step[:3].mean(axis=0)
+        assert_allclose(by_pc[0], crowded)
+        assert_allclose(by_pc[1], crowded)
+        assert_allclose(by_pc[2], by_step[3])
+        assert_allclose(by_pc[3], by_step[3])
+
+    def test_the_x_axis_agrees_between_the_two_sources(self):
+        raw = self._raw_image("water_flow_rate", AGG_SUM, x_axis=X_AXIS_PC, log_x=True)
+        aggregated = self._aggregate_image("water_flow_rate", AGG_SUM, x_axis=X_AXIS_PC, log_x=True)
+
+        assert_allclose(aggregated, raw, rtol=1e-5)
+
+    def test_log_x_follows_the_sign_of_the_selected_coordinate(self):
+        widget = HeatmapWidget(None, DiagnosticsAggregates(self.basic_path))
+
+        widget.x_axis_combo.setCurrentText(X_AXIS_STEP)
+        self.assertFalse(widget.log_x_check.isEnabled())
+
+        widget.x_axis_combo.setCurrentText(X_AXIS_PC)
+        self.assertTrue(widget.log_x_check.isEnabled())
+
+        widget.log_x_check.setChecked(True)
+        # Sw reaches zero, so it cannot go on a log axis and the stale choice is cleared
+        widget.x_axis_combo.setCurrentText(X_AXIS_SW)
+        self.assertFalse(widget.log_x_check.isEnabled())
+        self.assertFalse(widget.log_x_check.isChecked())
+
+    def test_the_x_axis_falls_back_to_the_step_index_when_no_scalar_was_saved(self):
+        stripped = tempfile.mkdtemp(prefix="diagnostics_no_scalars_")
+        try:
+            for name in os.listdir(self.complete_path):
+                if not name.startswith("step_scalars"):
+                    shutil.copy(os.path.join(self.complete_path, name), stripped)
+
+            diagnostics = Diagnostics(stripped)
+            try:
+                widget = HeatmapWidget(diagnostics)
+                widget.x_axis_combo.setCurrentText(X_AXIS_PC)
+                self.assertFalse(widget.log_x_check.isEnabled())
+
+                image = self._configure(widget, COLOR_COUNT, AGG_SUM, x_axis=X_AXIS_PC)
+                assert_allclose(image, self._raw_image(COLOR_COUNT, AGG_SUM))
+            finally:
+                diagnostics.close()
+        finally:
+            shutil.rmtree(stripped, ignore_errors=True)
 
     def test_the_aggregate_source_only_offers_the_precomputed_pairs(self):
         widget = HeatmapWidget(None, DiagnosticsAggregates(self.basic_path))

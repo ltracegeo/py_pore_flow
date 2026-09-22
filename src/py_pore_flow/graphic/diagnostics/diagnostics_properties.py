@@ -1,5 +1,11 @@
 import numpy as np
 
+from py_pore_flow.output.diagnostics import (
+    DIRECTIONAL_SPECS,
+    throat_axis_angles,
+    throat_axis_cosines,
+)
+
 # attributes a step/cycle loader sets on itself that are not per-element property data
 _LOADER_ATTRS = {"path", "step", "n_elements", "_cache"}
 
@@ -30,6 +36,8 @@ class DiagnosticsProperties:
         self._cycle_id = 0
         self._step = 0
         self._property_names = None
+        self._axis_cosines = None
+        self._axis_cosines_loaded = False
 
     def __getitem__(self, key):
         return self.get_values_in_step(key, self._cycle_id, self._step)
@@ -43,11 +51,10 @@ class DiagnosticsProperties:
     def get_property_names(self):
         # recomputed on every element type change by both the heatmap and the cross plot
         if self._property_names is None:
-            self._property_names = sorted(
-                set(self._step_scalar_properties())
-                | set(self._cycle_scalar_properties())
-                | set(self._network_properties())
-            )
+            step_names = set(self._step_scalar_properties())
+            names = step_names | set(self._cycle_scalar_properties()) | set(self._network_properties())
+            names |= set(self._directional_property_names(step_names))
+            self._property_names = sorted(names)
         return self._property_names
 
     def get_pore_property_names(self):
@@ -63,6 +70,11 @@ class DiagnosticsProperties:
 
     def get_values_in_step(self, property_name, cycle_id, step):
         prefix, _, prop = property_name.partition(".")
+
+        directional = self._directional_values(prefix, prop, cycle_id, step)
+        if directional is not None:
+            return directional
+
         prop, conversor = self._get_conversor(prop)
 
         values = self._sample_step_element(prefix, prop, cycle_id, step)
@@ -155,6 +167,39 @@ class DiagnosticsProperties:
                 names.append(f"{prefix}.{attr}")
         return names
 
+    def _throat_axis_cosines(self):
+        """Unsigned direction cosines of every throat, read from the network dump once."""
+        if not self._axis_cosines_loaded:
+            self._axis_cosines = throat_axis_cosines(self._diagnostics.network)
+            self._axis_cosines_loaded = True
+        return self._axis_cosines
+
+    def _directional_values(self, prefix, prop, cycle_id, step):
+        """A throat flow projected onto a coordinate axis, or the throat angle itself."""
+        spec = DIRECTIONAL_SPECS.get(prop) if prefix == THROAT_PREFIX[:-1] else None
+        if spec is None:
+            return None
+
+        cosines = self._throat_axis_cosines()
+        if cosines is None:
+            return None
+
+        source, axis = spec
+        if source is None:
+            return throat_axis_angles(cosines[:, axis])
+
+        values = np.asarray(self.get_values_in_step(THROAT_PREFIX + source, cycle_id, step), dtype=float)
+        return values * cosines[:, axis]
+
+    def _directional_property_names(self, step_names):
+        if self._throat_axis_cosines() is None:
+            return []
+        return [
+            THROAT_PREFIX + name
+            for name, (source, _axis) in DIRECTIONAL_SPECS.items()
+            if source is None or THROAT_PREFIX + source in step_names
+        ]
+
     def _step_scalar_properties(self):
         sample_cycle = self._sample_cycle()
         if sample_cycle is None:
@@ -227,6 +272,6 @@ class DiagnosticsProperties:
 
     def _get_conversor(self, prop):
         try:
-            return *self.CONVERSORS[prop],
+            return (*self.CONVERSORS[prop],)
         except KeyError:
             return prop, lambda x: x
