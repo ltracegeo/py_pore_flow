@@ -41,12 +41,36 @@ COLOR_MODES = [
 RED_CHANNEL = 0
 BLUE_CHANNEL = 2
 
+# a pore glyph at 16x16 is ~242 polygons; 8x8 is ~112 and reads the same at these sizes
+PORE_SPHERE_RESOLUTION = 8
+LARGE_NETWORK_PORES = 20000
+LARGE_NETWORK_SPHERE_RESOLUTION = 5
+
 # (invasion method id, legend label, RGB color)
 INVASION_METHOD_LEGEND = [
     (PISTON_LIKE, "Piston-like", (200, 0, 0)),
     (PORE_BODY_FILLING, "Pore body filling", (0, 200, 0)),
     (SNAP_OFF, "Snap-off", (0, 0, 200)),
 ]
+
+
+class _ExpandedColors:
+    """Reusable buffer spreading per element colors over the glyph/tube geometry.
+
+    The geometry never changes between steps, so the expansion index, the expanded buffer
+    and the VTK array wrapping it can all be kept. Rebuilding them per refresh allocated an
+    (n_glyph_points, 3) array and then deep copied it into VTK on every step change.
+    """
+
+    def __init__(self, index):
+        self._index = index
+        self._buffer = np.empty((index.size, 3), dtype=np.uint8)
+        self.vtk_array = numpy_to_vtk(self._buffer, deep=False, array_type=vtk.VTK_UNSIGNED_CHAR)
+        self.vtk_array.SetName("colors")
+
+    def update(self, element_colors):
+        np.take(element_colors, self._index, axis=0, out=self._buffer)
+        self.vtk_array.Modified()
 
 
 class DiagnosticsNetworkWidget(QtWidgets.QWidget):
@@ -56,6 +80,9 @@ class DiagnosticsNetworkWidget(QtWidgets.QWidget):
     def __init__(self, diagnostics_properties, parent=None):
         super().__init__(parent)
         self._diagnostics_properties = diagnostics_properties
+        # expanded colour buffers, built on the first refresh and reused afterwards
+        self._pore_colors = None
+        self._throat_colors = None
 
         # Widgets
         self.network_widget = QtWidgets.QWidget()
@@ -152,26 +179,30 @@ class DiagnosticsNetworkWidget(QtWidgets.QWidget):
     @staticmethod
     def _build_points(coords):
         points = vtk.vtkPoints()
-        points.SetNumberOfPoints(len(coords))
-        for i, (x, y, z) in enumerate(coords):
-            points.SetPoint(i, x, y, z)
+        points.SetData(numpy_to_vtk(np.ascontiguousarray(coords, dtype=np.float64), deep=True))
         return points
 
+    @staticmethod
+    def _sphere_resolution(n_pores):
+        if n_pores >= LARGE_NETWORK_PORES:
+            return LARGE_NETWORK_SPHERE_RESOLUTION
+        return PORE_SPHERE_RESOLUTION
+
     def _build_pores(self, points, radii):
+        self._pore_colors = None
+
         polydata = vtk.vtkPolyData()
         polydata.SetPoints(points)
 
-        radius_array = vtk.vtkFloatArray()
+        radius_array = numpy_to_vtk(np.ascontiguousarray(radii, dtype=np.float32), deep=True, array_type=vtk.VTK_FLOAT)
         radius_array.SetName("radius")
-        radius_array.SetNumberOfValues(len(radii))
-        for i, r in enumerate(radii):
-            radius_array.SetValue(i, float(r))
         polydata.GetPointData().SetScalars(radius_array)
 
+        resolution = self._sphere_resolution(len(radii))
         sphere = vtk.vtkSphereSource()
         sphere.SetRadius(1.0)
-        sphere.SetThetaResolution(16)
-        sphere.SetPhiResolution(16)
+        sphere.SetThetaResolution(resolution)
+        sphere.SetPhiResolution(resolution)
 
         glyph = vtk.vtkGlyph3D()
         glyph.SetSourceConnection(sphere.GetOutputPort())
@@ -195,6 +226,7 @@ class DiagnosticsNetworkWidget(QtWidgets.QWidget):
         return actor
 
     def _build_throats(self, points, throat_conns):
+        self._throat_colors = None
         self._throat_polydata = None
         self._throat_mapper = None
         self._throat_cell_to_id = None
@@ -323,12 +355,16 @@ class DiagnosticsNetworkWidget(QtWidgets.QWidget):
     def _apply_element_colors(self, color_func):
         network = self._diagnostics_properties
 
-        pore_colors = color_func(network, "pore")
-        self._set_point_colors(self._pore_polydata, self._pore_mapper, pore_colors[self._pore_point_to_id])
+        if self._pore_colors is None:
+            self._pore_colors = _ExpandedColors(self._pore_point_to_id)
+        self._pore_colors.update(color_func(network, "pore"))
+        self._set_point_colors(self._pore_polydata, self._pore_mapper, self._pore_colors)
 
         if self._throat_mapper is not None:
-            throat_colors = color_func(network, "throat")
-            self._set_cell_colors(self._throat_polydata, self._throat_mapper, throat_colors[self._throat_cell_to_id])
+            if self._throat_colors is None:
+                self._throat_colors = _ExpandedColors(self._throat_cell_to_id)
+            self._throat_colors.update(color_func(network, "throat"))
+            self._set_cell_colors(self._throat_polydata, self._throat_mapper, self._throat_colors)
 
     @staticmethod
     def _fill_colors(network, element_type):
@@ -373,19 +409,15 @@ class DiagnosticsNetworkWidget(QtWidgets.QWidget):
         return colors
 
     @staticmethod
-    def _to_vtk_colors(colors):
-        vtk_colors = numpy_to_vtk(np.ascontiguousarray(colors), deep=True, array_type=vtk.VTK_UNSIGNED_CHAR)
-        vtk_colors.SetName("colors")
-        return vtk_colors
-
-    def _set_point_colors(self, polydata, mapper, colors):
-        polydata.GetPointData().SetScalars(self._to_vtk_colors(colors))
+    def _set_point_colors(polydata, mapper, colors):
+        polydata.GetPointData().SetScalars(colors.vtk_array)
         mapper.SetScalarModeToUsePointData()
         mapper.SetColorModeToDirectScalars()
         mapper.ScalarVisibilityOn()
 
-    def _set_cell_colors(self, polydata, mapper, colors):
-        polydata.GetCellData().SetScalars(self._to_vtk_colors(colors))
+    @staticmethod
+    def _set_cell_colors(polydata, mapper, colors):
+        polydata.GetCellData().SetScalars(colors.vtk_array)
         mapper.SetScalarModeToUseCellData()
         mapper.SetColorModeToDirectScalars()
         mapper.ScalarVisibilityOn()

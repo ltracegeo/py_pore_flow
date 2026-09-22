@@ -3,9 +3,12 @@ import pyqtgraph as pg
 from PySide2 import QtCore, QtGui, QtWidgets
 
 from py_pore_flow.graphic.diagnostics.diagnostics_properties import DiagnosticsProperties
+from py_pore_flow.output.diagnostics_aggregate import AGG_COUNT, SCALE_LINEAR, SCALE_LOG
 
 CYCLE_NAMES = ["drainage", "imbibition", "2nd_drainage"]
 ELEMENT_TYPES = ["All", "Any", "Pore", "Throat"]
+# aggregates are stored per element type, so the combined views need raw data
+AGGREGATE_ELEMENT_TYPES = ["Pore", "Throat"]
 COLORMAP_NAME = "viridis"
 N_BINS = 50
 COLOR_COUNT = "count"
@@ -37,7 +40,7 @@ class HeatmapView(QtWidgets.QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self._graphics)
 
-    def set_histogram_image(self, values, value_min, value_max, y_label, color_label):
+    def set_histogram_image(self, values, value_min, value_max, y_label, color_label, log_y=False, log_color=False):
         # Get min/max
         finite = values[np.isfinite(values)]
         color_min = float(finite.min()) if finite.size else 0.0
@@ -47,14 +50,20 @@ class HeatmapView(QtWidgets.QWidget):
         if color_max <= color_min:
             color_max = color_min + 1.0
 
-        # Replace nans with NO_BIN_VALUE
-        fill_value = float(np.clip(NO_BIN_VALUE, color_min, color_max))
+        # Replace nans with NO_BIN_VALUE. On a log color scale an empty cell is -inf, so it
+        # belongs at the bottom of the scale rather than at zero, which sits in the middle.
+        fill_source = color_min if log_color else NO_BIN_VALUE
+        fill_value = float(np.clip(fill_source, color_min, color_max))
         image = np.where(np.isfinite(values), values, fill_value)
 
-        # Plot
+        # Plot. A log Y axis places the image in log10 coordinates and lets the axis render
+        # the ticks as powers of ten: the rows of an ImageItem are evenly spaced, so the bins
+        # themselves have to be the log spaced ones.
         self._image.setImage(image, autoLevels=False)
         n_steps = image.shape[0]
-        self._image.setRect(QtCore.QRectF(0.0, value_min, float(n_steps), float(value_max - value_min)))
+        axis_min, axis_max = (np.log10(value_min), np.log10(value_max)) if log_y else (value_min, value_max)
+        self._image.setRect(QtCore.QRectF(0.0, float(axis_min), float(n_steps), float(axis_max - axis_min)))
+        self._plot.getAxis("left").setLogMode(log_y)
 
         self._colorbar.setLevels((color_min, color_max))
         self._colorbar.setLabel("left", color_label)
@@ -65,22 +74,29 @@ class HeatmapView(QtWidgets.QWidget):
 
     def clear(self):
         self._image.clear()
+        self._plot.getAxis("left").setLogMode(False)
         self._plot.setLabel("left", "")
         self._plot.setTitle("")
 
 
 class HeatmapWidget(QtWidgets.QWidget):
-    def __init__(self, diagnostics, parent=None):
+    def __init__(self, diagnostics, aggregates=None, parent=None):
         super().__init__(parent)
         self._diagnostics = diagnostics
-        self._properties = DiagnosticsProperties(diagnostics)
+        self._aggregates = aggregates
+        self._properties = DiagnosticsProperties(diagnostics) if diagnostics is not None else None
 
         self.element_type_combo = QtWidgets.QComboBox()
-        self.element_type_combo.addItems(ELEMENT_TYPES)
+        self.element_type_combo.addItems(AGGREGATE_ELEMENT_TYPES if self._aggregates else ELEMENT_TYPES)
         self.property_combo = QtWidgets.QComboBox()
         self.color_combo = QtWidgets.QComboBox()
         self.aggregation_combo = QtWidgets.QComboBox()
         self.aggregation_combo.addItems([AGG_MEAN, AGG_SUM])
+
+        self.log_y_check = QtWidgets.QCheckBox("Log")
+        self.log_y_check.setToolTip("Bin the Y axis property logarithmically (positive values only)")
+        self.log_color_check = QtWidgets.QCheckBox("Log")
+        self.log_color_check.setToolTip("Color the cells by the base 10 logarithm of the aggregated value")
         self.cycle_combo = QtWidgets.QComboBox()
         self.cycle_combo.addItems(CYCLE_NAMES)
 
@@ -123,16 +139,18 @@ class HeatmapWidget(QtWidgets.QWidget):
 
         controls = QtWidgets.QGridLayout()
         controls.addWidget(QtWidgets.QLabel("Element type"), 0, 0)
-        controls.addWidget(self.element_type_combo, 0, 1, 1, 2)
+        controls.addWidget(self.element_type_combo, 0, 1, 1, 3)
         controls.addWidget(QtWidgets.QLabel("Y-axis (property)"), 1, 0)
         controls.addWidget(self.property_combo, 1, 1, 1, 2)
+        controls.addWidget(self.log_y_check, 1, 3)
         controls.addWidget(QtWidgets.QLabel("Color"), 2, 0)
         controls.addWidget(self.color_combo, 2, 1)
         controls.addWidget(self.aggregation_combo, 2, 2)
+        controls.addWidget(self.log_color_check, 2, 3)
         controls.addWidget(QtWidgets.QLabel("Cycle"), 3, 0)
-        controls.addWidget(self.cycle_combo, 3, 1, 1, 2)
-        controls.addWidget(line_widget, 4, 0, 1, 3)
-        controls.addLayout(apply_button_layout, 5, 1, 1, 2)
+        controls.addWidget(self.cycle_combo, 3, 1, 1, 3)
+        controls.addWidget(line_widget, 4, 0, 1, 4)
+        controls.addLayout(apply_button_layout, 5, 1, 1, 3)
         controls.setColumnStretch(1, 2)
         controls.setColumnStretch(2, 1)
 
@@ -144,21 +162,65 @@ class HeatmapWidget(QtWidgets.QWidget):
 
         self._populate_property_combos()
         self.element_type_combo.currentTextChanged.connect(self._populate_property_combos)
+        if self._aggregates is not None:
+            # only the pairs that were precomputed for this Y property can be coloured by
+            self.property_combo.currentTextChanged.connect(self._populate_color_combo)
+        self.property_combo.currentTextChanged.connect(self._update_log_availability)
         self.color_combo.currentTextChanged.connect(self._on_color_changed)
         self.apply_button.clicked.connect(self._apply)
         self._on_color_changed(self.color_combo.currentText())
+        self._update_log_availability()
 
     def _on_color_changed(self, text):
         # aggregation (mean/sum) only applies when coloring by a property, not by count
         self.aggregation_combo.setEnabled(text != COLOR_COUNT)
 
+    def _update_log_availability(self):
+        """Log binning needs a strictly positive property.
+
+        The aggregates record which properties qualify; the raw source only finds out when
+        it reads the values, so there the option stays enabled.
+        """
+        if self._aggregates is None:
+            self.log_y_check.setEnabled(True)
+            return
+
+        available = self._aggregates.log_scale_available(self._element_type(), self.property_combo.currentText())
+        if not available:
+            self.log_y_check.setChecked(False)
+        self.log_y_check.setEnabled(available)
+
+    def _apply_color_scale(self, matrix, color_label):
+        """Color by log10 of the aggregated value; cells that are not positive drop out."""
+        if not self.log_color_check.isChecked():
+            return matrix, color_label
+        with np.errstate(invalid="ignore"):
+            return np.log10(np.where(matrix > 0, matrix, np.nan)), f"log10({color_label})"
+
     def _on_manual_range_toggled(self, checked):
         self.y_min_edit.setEnabled(checked)
         self.y_max_edit.setEnabled(checked)
 
+    def _element_type(self):
+        return self.element_type_combo.currentText().lower()
+
+    def _populate_color_combo(self):
+        """Colour options of the selected Y property (aggregate source only)."""
+        y_property = self.property_combo.currentText()
+        names = self._aggregates.color_property_names(self._element_type(), y_property) if y_property else []
+        self.color_combo.clear()
+        self.color_combo.addItem(COLOR_COUNT)  # default: cell = element count in bin
+        self.color_combo.addItems(sorted(names))
+
     def _populate_property_combos(self):
         """Fill the Y-axis and Color combos with the property names for the current element
         type: All -> "<type>.<property>", Any/Pore/Throat -> bare property names."""
+        if self._aggregates is not None:
+            self.property_combo.clear()
+            self.property_combo.addItems(self._aggregates.y_property_names(self._element_type()))
+            self._populate_color_combo()
+            return
+
         element_type = self.element_type_combo.currentText()
         if element_type == "Pore":
             names = self._properties.get_pore_property_names()
@@ -191,6 +253,46 @@ class HeatmapWidget(QtWidgets.QWidget):
             return None
 
     def _apply(self):
+        if self._aggregates is not None:
+            self._apply_aggregates()
+            return
+        self._apply_raw()
+
+    def _apply_aggregates(self):
+        """Read a precomputed matrix and merge its fine bins down to the requested count."""
+        y_property = self.property_combo.currentText()
+        cycle_id = self.cycle_combo.currentIndex()
+        element_type = self._element_type()
+        if not y_property or not self._aggregates.cycle_n_steps.get(cycle_id):
+            # nothing was aggregated for a cycle that was skipped or ran no steps
+            self.view.clear()
+            return
+
+        color = self.color_combo.currentText()
+        color_property = None if color == COLOR_COUNT else color
+        aggregation = AGG_COUNT if color_property is None else self.aggregation_combo.currentText()
+
+        log_y = self.log_y_check.isChecked() and self._aggregates.log_scale_available(element_type, y_property)
+        scale = SCALE_LOG if log_y else SCALE_LINEAR
+
+        stored_min, stored_max = self._aggregates.value_range(cycle_id, element_type, y_property, scale)
+        requested_range = self._resolve_range(stored_min, stored_max, log_y)
+        # the stored resolution is the finest the aggregate can be split into
+        n_bins = min(
+            self.bins_spinbox.value(),
+            self._aggregates.stored_n_bins(cycle_id, element_type, y_property, scale),
+        )
+
+        matrix, (value_min, value_max) = self._aggregates.matrix(
+            cycle_id, element_type, y_property, color_property, aggregation, n_bins, requested_range, scale
+        )
+        color_label = COLOR_COUNT if color_property is None else f"{color} ({aggregation})"
+        matrix, color_label = self._apply_color_scale(matrix, color_label)
+        self.view.set_histogram_image(
+            matrix, value_min, value_max, y_property, color_label, log_y, self.log_color_check.isChecked()
+        )
+
+    def _apply_raw(self):
         text = self.property_combo.currentText()
         cycle_id = self.cycle_combo.currentIndex()
         if not text or cycle_id >= self._diagnostics.info.n_cycles:
@@ -202,15 +304,23 @@ class HeatmapWidget(QtWidgets.QWidget):
             self.view.clear()
             return
 
+        log_y = self.log_y_check.isChecked()
         all_y = np.concatenate(y_steps)
         finite = all_y[np.isfinite(all_y)]
+        if log_y:
+            # a log axis cannot show zero or negative values, so they leave the picture
+            finite = finite[finite > 0]
         if finite.size == 0:
             self.view.clear()
             return
 
-        value_min, value_max = self._resolve_range(float(finite.min()), float(finite.max()))
+        value_min, value_max = self._resolve_range(float(finite.min()), float(finite.max()), log_y)
         n_bins = self.bins_spinbox.value()
-        bins = np.linspace(value_min, value_max, n_bins + 1)
+        bins = (
+            np.logspace(np.log10(value_min), np.log10(value_max), n_bins + 1)
+            if log_y
+            else np.linspace(value_min, value_max, n_bins + 1)
+        )
 
         color = self.color_combo.currentText()
         if color == COLOR_COUNT:
@@ -228,7 +338,10 @@ class HeatmapWidget(QtWidgets.QWidget):
                 matrix = self._mean_matrix(y_steps, color_steps, bins, n_bins)
                 color_label = f"{color} (mean)"
 
-        self.view.set_histogram_image(matrix, value_min, value_max, text, color_label)
+        matrix, color_label = self._apply_color_scale(matrix, color_label)
+        self.view.set_histogram_image(
+            matrix, value_min, value_max, text, color_label, log_y, self.log_color_check.isChecked()
+        )
 
     @staticmethod
     def _count_matrix(y_steps, bins, n_bins):
@@ -269,7 +382,7 @@ class HeatmapWidget(QtWidgets.QWidget):
             matrix[step] = np.where(count > 0, total, np.nan)
         return matrix
 
-    def _resolve_range(self, data_min, data_max):
+    def _resolve_range(self, data_min, data_max, log_scale=False):
         """
         The Y range to bin over: the data range in Auto mode (also shown in the fields),
         otherwise the (validated) values typed in the fields.
@@ -284,8 +397,11 @@ class HeatmapWidget(QtWidgets.QWidget):
             if value_max < value_min:
                 value_min, value_max = value_max, value_min
 
+        if log_scale and value_min <= 0:
+            # data_min is already the smallest positive value in log mode
+            value_min = data_min
         if value_max <= value_min:
-            value_max = value_min + 1.0
+            value_max = value_min * 10.0 if log_scale else value_min + 1.0
         return value_min, value_max
 
     @staticmethod

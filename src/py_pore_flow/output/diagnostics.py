@@ -9,6 +9,8 @@ from py_pore_flow.equations.geometry import MAX_NUMBER_OF_CORNERS
 FILE_EXTENSION = ".dat"
 INFO_FILE_NAME = "info"
 NETWORK_JSON_NAME = "network.json"
+NETWORK_ARRAYS_NAME = "network.npz"
+NETWORK_EXTRAS_NAME = "network_extras.json"
 
 # trailing per-element shape of the corner layer arrays (one value per corner)
 CORNER_SHAPE = (MAX_NUMBER_OF_CORNERS,)
@@ -88,7 +90,9 @@ class DiagnosticsWriter:
 
         self.info_storer = DiagnosticsInfoStorer(path)
         self.info_storer.save_number_of_elements(n_throats, n_pores)
-        self.storer_throats_floats = DiagnosticsStorer(THROATS_FLOATS_NAME, n_throats, THROATS_FLOATS_NDATA, np.float64, path)
+        self.storer_throats_floats = DiagnosticsStorer(
+            THROATS_FLOATS_NAME, n_throats, THROATS_FLOATS_NDATA, np.float64, path
+        )
         self.storer_throats_bools = DiagnosticsStorer(
             THROATS_BOOLS_NAME, n_throats, THROATS_BOOLS_NDATA, np.bool_, path
         )
@@ -124,7 +128,7 @@ class DiagnosticsWriter:
             PORES_CYCLE_INTS_NAME, n_pores, PORES_CYCLE_INTS_NDATA, np.int8, path
         )
 
-        self._export_pn_to_json(network.pn, path + "/" + NETWORK_JSON_NAME)
+        self._export_pn(network.pn, path)
 
     # stores elements properties of a single step
     def save_state(self):
@@ -199,8 +203,15 @@ class DiagnosticsWriter:
         self.storer_pores_cycle_ints.close()
 
     @staticmethod
-    def _export_pn_to_json(pn, path):
-        data = {}
+    def _export_pn(pn, path):
+        """Dump the static network properties as a compressed npz.
+
+        The previous JSON dump went through ndarray.tolist(), which for a 100k+ element
+        network builds hundreds of MB of Python floats on write and pays the same cost
+        again parsing them back when the viewer opens.
+        """
+        arrays = {}
+        extras = {}
         for property in STATIC_PROPERTIES:
             for prefix in ["pore", "throat"]:
                 key = f"{prefix}.{property}"
@@ -208,21 +219,33 @@ class DiagnosticsWriter:
                     value = pn[key]
                 except KeyError:
                     continue
-                # print("KEY", key)
-                try:
-                    data[key] = value.tolist()  # convert numpy arrays
-                except AttributeError:
-                    if key == "pore.conns":
+                if isinstance(value, np.ndarray):
+                    array = value
+                else:
+                    try:
+                        array = np.asarray(value)
+                    except Exception:
+                        # sparse or ragged accessors (pore.conns) refuse to densify
                         continue
-                    print("KEY", key, "VALUE", type(value))
-                    data[key] = value  # keep as-is if already serializable
+                if array.dtype == object:
+                    continue
+                if array.ndim == 0:
+                    extras[key] = array.item()
+                    continue
+                arrays[key] = array
 
-        with open(path, "w") as f:
-            json.dump(data, f)
+        np.savez_compressed(os.path.join(path, NETWORK_ARRAYS_NAME), **arrays)
+        if extras:
+            with open(os.path.join(path, NETWORK_EXTRAS_NAME), "w") as file:
+                json.dump(extras, file)
 
 
 class DiagnosticsStorer:
+    # upper bound on the number of rows of a single chunk file
     N_STEPS = 500
+    # a chunk file is preallocated in full, so it is also capped by a byte budget: bounded by
+    # a step count alone, a 134k throat network reserves several GB per storer up front.
+    TARGET_CHUNK_BYTES = 64 * 1024 * 1024
 
     def __init__(self, name, n_elements, n_data, dtype, path=".", item_shape=()):
         self._name = name
@@ -237,13 +260,20 @@ class DiagnosticsStorer:
         self._step = 0
         self._chunk = 0
         self._slices = [slice(i * self._block, (i + 1) * self._block) for i in range(n_data)]
+        self._chunk_n_steps = self._resolve_chunk_n_steps()
+
+    def _resolve_chunk_n_steps(self):
+        row_bytes = self._row_width * np.dtype(self._dtype).itemsize
+        if row_bytes <= 0:
+            return self.N_STEPS
+        return max(1, min(self.N_STEPS, self.TARGET_CHUNK_BYTES // row_bytes))
 
     def _memmap_path(self):
         return os.path.join(self.path, f"diagnostics_{self._name}_{self._chunk}" + FILE_EXTENSION)
 
     def _init_memmap(self):
         self._memmap = np.memmap(
-            self._memmap_path(), dtype=self._dtype, mode="w+", shape=(self.N_STEPS, self._row_width)
+            self._memmap_path(), dtype=self._dtype, mode="w+", shape=(self._chunk_n_steps, self._row_width)
         )
         self._step = 0
 
@@ -256,7 +286,7 @@ class DiagnosticsStorer:
             row[s] = np.ravel(arr)
         self._step += 1
 
-        if self._step == self.N_STEPS:
+        if self._step == self._chunk_n_steps:
             self._memmap.flush()
             del self._memmap
             self._memmap = None
@@ -296,16 +326,109 @@ class DiagnosticsInfo:
         self.n_cycles = len(self.cycle_n_steps)
 
 
+class ChunkedRows:
+    """Row addressable, lazy view over the ordered chunk files of a single storer.
+
+    Replaces the np.concatenate the loader used to do when a run spans more than one chunk:
+    that copied every step of every element into RAM on *each* property read, and a run
+    longer than one chunk is the normal case.
+    """
+
+    __slots__ = ("_chunks", "_starts", "shape", "dtype")
+
+    def __init__(self, chunks, n_cols, dtype):
+        self._chunks = [chunk for chunk in chunks if chunk.shape[0] > 0]
+        starts = [0]
+        for chunk in self._chunks:
+            starts.append(starts[-1] + chunk.shape[0])
+        self._starts = np.array(starts, dtype=np.int64)
+        self.shape = (int(self._starts[-1]), int(n_cols))
+        self.dtype = np.dtype(dtype)
+
+    def __len__(self):
+        return self.shape[0]
+
+    def __getitem__(self, key):
+        if isinstance(key, tuple):
+            row = self._row(key[0])
+            rest = key[1:]
+            return row[rest[0]] if len(rest) == 1 else row[rest]
+        return self._row(key)
+
+    def _row(self, step):
+        step = int(step)
+        if step < 0:
+            step += self.shape[0]
+        if not 0 <= step < self.shape[0]:
+            raise IndexError(f"step {step} is out of range for {self.shape[0]} saved steps")
+        chunk_index = int(np.searchsorted(self._starts, step, side="right")) - 1
+        return self._chunks[chunk_index][step - int(self._starts[chunk_index])]
+
+    def close(self):
+        self._chunks = []
+        self._starts = np.zeros(1, dtype=np.int64)
+        self.shape = (0, self.shape[1])
+
+
+def open_chunks(path, name, n_elements, n_data, dtype, item_shape=()):
+    """Open every chunk file of a storer as a memmap, wrapped in a ChunkedRows."""
+    chunk_regex = re.compile(rf"^diagnostics_{re.escape(name)}_(\d+){re.escape(FILE_EXTENSION)}$")
+    chunks = []
+    for file_name in os.listdir(path):
+        match = chunk_regex.match(file_name)
+        if match:
+            chunks.append((int(match.group(1)), os.path.join(path, file_name)))
+    chunk_paths = [chunk_path for _, chunk_path in sorted(chunks)]
+
+    cols = n_elements * n_data * int(np.prod(item_shape, dtype=int))
+    itemsize = np.dtype(dtype).itemsize
+
+    arrays = []
+    for chunk_path in chunk_paths:
+        n_rows = os.path.getsize(chunk_path) // (cols * itemsize)
+        if n_rows > 0:
+            arrays.append(np.memmap(chunk_path, dtype=dtype, mode="r", shape=(n_rows, cols)))
+
+    return ChunkedRows(arrays, cols, dtype)
+
+
+class DiagnosticsFileCache:
+    """Opens the chunk files of each storer once per Diagnostics instance.
+
+    Without it every property read re-listed the diagnostics directory and re-opened every
+    chunk file, 12 times per read - and the element view issues around 25 reads per step
+    change.
+    """
+
+    def __init__(self, path):
+        self.path = path
+        self._rows = {}
+
+    def rows(self, name, n_elements, n_data, dtype, item_shape=()):
+        rows = self._rows.get(name)
+        if rows is None:
+            rows = open_chunks(self.path, name, n_elements, n_data, dtype, item_shape)
+            self._rows[name] = rows
+        return rows
+
+    def close(self):
+        for rows in self._rows.values():
+            rows.close()
+        self._rows.clear()
+
+
 # read diagnossis data related to a single simulation step
 class DiagnosticsStateLoader:
-    def __init__(self, path, step, n_elements):
+    def __init__(self, path, step, n_elements, cache=None):
         self.path = path
         self.step = step
         self.n_elements = n_elements
+        # a standalone loader still works, it just gets a cache of its own
+        self._cache = cache if cache is not None else DiagnosticsFileCache(path)
 
-    # return a memory map for a "saved state" file
+    # return a lazy row view over the chunk files of a "saved state" storer
     def load_state(self, name, n_data, dtype, item_shape=()):
-        return self._load_state(self.path, name, self.n_elements, n_data, dtype, item_shape)
+        return self._cache.rows(name, self.n_elements, n_data, dtype, item_shape)
 
     # return data[index] related to a single simulation step, shaped (n_elements, *item_shape)
     def data_view(self, data, index, item_shape=()):
@@ -316,33 +439,12 @@ class DiagnosticsStateLoader:
 
     @staticmethod
     def _load_state(path, name, n_elements, n_data, dtype, item_shape=()):
-        chunk_regex = re.compile(rf"^diagnostics_{re.escape(name)}_(\d+){re.escape(FILE_EXTENSION)}$")
-        chunks = []
-        for file_name in os.listdir(path):
-            match = chunk_regex.match(file_name)
-            if match:
-                chunks.append((int(match.group(1)), os.path.join(path, file_name)))
-        chunk_paths = [chunk_path for _, chunk_path in sorted(chunks)]
-
-        cols = n_elements * n_data * int(np.prod(item_shape, dtype=int))
-        itemsize = np.dtype(dtype).itemsize
-
-        arrays = []
-        for chunk_path in chunk_paths:
-            n_rows = os.path.getsize(chunk_path) // (cols * itemsize)
-            if n_rows > 0:
-                arrays.append(np.memmap(chunk_path, dtype=dtype, mode="r", shape=(n_rows, cols)))
-
-        if not arrays:
-            return np.empty((0, cols), dtype=dtype)
-        if len(arrays) == 1:
-            return arrays[0]
-        return np.concatenate(arrays, axis=0)
+        return open_chunks(path, name, n_elements, n_data, dtype, item_shape)
 
 
 class DiagnosticsThroatsStep(DiagnosticsStateLoader):
-    def __init__(self, path, step, n_throats):
-        super().__init__(path, step, n_throats)
+    def __init__(self, path, step, n_throats, cache=None):
+        super().__init__(path, step, n_throats, cache)
 
         floats = self.load_state(THROATS_FLOATS_NAME, THROATS_FLOATS_NDATA, np.float64)
         self.water_saturation = self.data_view(floats, 0)
@@ -364,7 +466,9 @@ class DiagnosticsThroatsStep(DiagnosticsStateLoader):
         self.trapped = self.data_view(bools, 1)
         self.filled = self.data_view(bools, 2)
 
-        corners_floats = self.load_state(THROATS_CORNERS_FLOATS_NAME, THROATS_CORNERS_FLOATS_NDATA, np.float64, CORNER_SHAPE)
+        corners_floats = self.load_state(
+            THROATS_CORNERS_FLOATS_NAME, THROATS_CORNERS_FLOATS_NDATA, np.float64, CORNER_SHAPE
+        )
         self.b = self.data_view(corners_floats, 0, CORNER_SHAPE)
         self.bo = self.data_view(corners_floats, 1, CORNER_SHAPE)
         self.hinging_contact_angle = self.data_view(corners_floats, 2, CORNER_SHAPE)
@@ -375,8 +479,8 @@ class DiagnosticsThroatsStep(DiagnosticsStateLoader):
 
 
 class DiagnosticsPoresStep(DiagnosticsStateLoader):
-    def __init__(self, path, step, n_pores):
-        super().__init__(path, step, n_pores)
+    def __init__(self, path, step, n_pores, cache=None):
+        super().__init__(path, step, n_pores, cache)
 
         floats = self.load_state(PORES_FLOATS_NAME, PORES_FLOATS_NDATA, np.float64)
         self.water_saturation = self.data_view(floats, 0)
@@ -394,7 +498,9 @@ class DiagnosticsPoresStep(DiagnosticsStateLoader):
         self.trapped = self.data_view(bools, 1)
         self.filled = self.data_view(bools, 2)
 
-        corners_floats = self.load_state(PORES_CORNERS_FLOATS_NAME, PORES_CORNERS_FLOATS_NDATA, np.float64, CORNER_SHAPE)
+        corners_floats = self.load_state(
+            PORES_CORNERS_FLOATS_NAME, PORES_CORNERS_FLOATS_NDATA, np.float64, CORNER_SHAPE
+        )
         self.b = self.data_view(corners_floats, 0, CORNER_SHAPE)
         self.bo = self.data_view(corners_floats, 1, CORNER_SHAPE)
         self.hinging_contact_angle = self.data_view(corners_floats, 2, CORNER_SHAPE)
@@ -405,8 +511,8 @@ class DiagnosticsPoresStep(DiagnosticsStateLoader):
 
 
 class DiagnosticsThroatCycle(DiagnosticsStateLoader):
-    def __init__(self, path, cycle, n_throats):
-        super().__init__(path, cycle, n_throats)
+    def __init__(self, path, cycle, n_throats, cache=None):
+        super().__init__(path, cycle, n_throats, cache)
 
         data = self.load_state(THROATS_CYCLE_FLOATS_NAME, THROATS_CYCLE_FLOATS_NDATA, np.float64)
         self.entry_pressure = self.data_view(data, 0)
@@ -421,8 +527,8 @@ class DiagnosticsThroatCycle(DiagnosticsStateLoader):
 
 
 class DiagnosticsPoreCycle(DiagnosticsStateLoader):
-    def __init__(self, path, cycle, n_pores):
-        super().__init__(path, cycle, n_pores)
+    def __init__(self, path, cycle, n_pores, cache=None):
+        super().__init__(path, cycle, n_pores, cache)
 
         data = self.load_state(PORES_CYCLE_FLOATS_NAME, PORES_CYCLE_FLOATS_NDATA, np.float64)
         self.entry_pressure = self.data_view(data, 0)
@@ -437,60 +543,69 @@ class DiagnosticsPoreCycle(DiagnosticsStateLoader):
 
 
 class DiagnosticsCycleStep:
-    def __init__(self, path, step, n_throats, n_pores):
+    def __init__(self, path, step, n_throats, n_pores, cache=None):
         self.step = step
-        self.throat = DiagnosticsThroatsStep(path, step, n_throats)
-        self.pore = DiagnosticsPoresStep(path, step, n_pores)
+        self.throat = DiagnosticsThroatsStep(path, step, n_throats, cache)
+        self.pore = DiagnosticsPoresStep(path, step, n_pores, cache)
 
     def __str__(self):
         return f"DiagnosticsCycleStep (step: {self.step})"
 
 
 class DiagnosticsCycle:
-    def __init__(self, path, cycle, info: DiagnosticsInfo):
+    def __init__(self, path, cycle, info: DiagnosticsInfo, cache=None):
         self.path = path
         self.cycle = cycle
         self.info = info
-        self.throat = DiagnosticsThroatCycle(self.path, self.cycle, self.info.n_throats)
-        self.pore = DiagnosticsPoreCycle(self.path, self.cycle, self.info.n_pores)
+        self._cache = cache
+        self._steps = {}
+        self._step_offset = sum(info.cycle_n_steps.get(c, 0) for c in range(cycle))
+        self.throat = DiagnosticsThroatCycle(self.path, self.cycle, self.info.n_throats, cache)
+        self.pore = DiagnosticsPoreCycle(self.path, self.cycle, self.info.n_pores, cache)
 
     # get data for a single step
     def __getitem__(self, step):
-        step_offset = 0
-        for cycle in range(0, self.cycle):
-            step_offset += self.info.cycle_n_steps[cycle]
-        return DiagnosticsCycleStep(self.path, step_offset + step, self.info.n_throats, self.info.n_pores)
+        cycle_step = self._steps.get(step)
+        if cycle_step is None:
+            cycle_step = DiagnosticsCycleStep(
+                self.path, self._step_offset + step, self.info.n_throats, self.info.n_pores, self._cache
+            )
+            self._steps[step] = cycle_step
+        return cycle_step
 
     def __len__(self):
         return self.info.cycle_n_steps[self.cycle]
 
     def __str__(self):
-        if self.cycle == Diagnostics.DRAINAGE:
-            cycle_name = "drainage"
-        elif self.cycle == Diagnostics.IMBIBITION:
-            cycle_name = "imbibition"
-        elif self.cycle == Diagnostics.SECOND_DRAINAGE:
-            cycle_name = "2nd drainage"
+        cycle_name = {
+            Diagnostics.DRAINAGE: "drainage",
+            Diagnostics.IMBIBITION: "imbibition",
+            Diagnostics.SECOND_DRAINAGE: "2nd drainage",
+        }.get(self.cycle, str(self.cycle))
         return f"DiagnosticsCycle ({cycle_name}, steps: {self.info.cycle_n_steps[self.cycle]})"
 
 
 class DiagnosticsCycles:
-    def __init__(self, path, info: DiagnosticsInfo):
+    def __init__(self, path, info: DiagnosticsInfo, cache=None):
         self.path = path
         self.info = info
+        self._cache = cache
+        self._cycles = {}
 
     # get data for a single cycle
     def __getitem__(self, cycle):
-        return DiagnosticsCycle(self.path, cycle, self.info)
+        cycle_data = self._cycles.get(cycle)
+        if cycle_data is None:
+            cycle_data = DiagnosticsCycle(self.path, cycle, self.info, self._cache)
+            self._cycles[cycle] = cycle_data
+        return cycle_data
 
     def __len__(self):
         return self.info.n_cycles
 
     def __str__(self):
-        total_n_steps = 0
-        for _, n_steps in self.info.cycle_n_steps:
-            total_n_steps += n_steps
-        return f"DiagnosticsCycles (cycles: {self.info.n_cyles}, steps: {total_n_steps})"
+        total_n_steps = sum(self.info.cycle_n_steps.values())
+        return f"DiagnosticsCycles (cycles: {self.info.n_cycles}, steps: {total_n_steps})"
 
 
 # read diagnostics files
@@ -503,11 +618,44 @@ class Diagnostics:
     SECOND_DRAINAGE = 2
 
     def __init__(self, path):
+        self.path = path
         self.info = DiagnosticsInfo(path)
-        self.cycle = DiagnosticsCycles(path, self.info)
+        self._cache = DiagnosticsFileCache(path)
+        self.cycle = DiagnosticsCycles(path, self.info, self._cache)
+        self._network = None
 
-        with open(path + "/" + NETWORK_JSON_NAME, "r") as file:
-            self.network = json.load(file)
+    @property
+    def network(self):
+        """Static network properties, read on first use."""
+        if self._network is None:
+            self._network = self._load_network(self.path)
+        return self._network
+
+    @staticmethod
+    def _load_network(path):
+        arrays_path = os.path.join(path, NETWORK_ARRAYS_NAME)
+        if os.path.exists(arrays_path):
+            with np.load(arrays_path) as data:
+                network = {key: data[key] for key in data.files}
+            extras_path = os.path.join(path, NETWORK_EXTRAS_NAME)
+            if os.path.exists(extras_path):
+                with open(extras_path, "r") as file:
+                    network.update(json.load(file))
+            return network
+
+        # diagnostics written before the binary dump
+        with open(os.path.join(path, NETWORK_JSON_NAME), "r") as file:
+            return json.load(file)
+
+    def close(self):
+        """Release the memmapped chunk files.
+
+        Windows holds a lock on a mapped file and the diagnostics directory is moved when
+        the project is saved, so the viewer has to let the handles go when it closes.
+        """
+        self._cache.close()
+        self.cycle = DiagnosticsCycles(self.path, self.info, self._cache)
+        self._network = None
 
     @property
     def drainage(self):
@@ -522,7 +670,5 @@ class Diagnostics:
         return self.cycle[self.SECOND_DRAINAGE]
 
     def __str__(self):
-        total_n_steps = 0
-        for _, n_steps in self.info.cycle_n_steps:
-            total_n_steps += n_steps
-        return f"Diagnostics (cycles: {self.info.n_cyles}, steps: {total_n_steps})"
+        total_n_steps = sum(self.info.cycle_n_steps.values())
+        return f"Diagnostics (cycles: {self.info.n_cycles}, steps: {total_n_steps})"

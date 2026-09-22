@@ -18,6 +18,10 @@ from py_pore_flow.output.diagnostics import (
     DiagnosticsStorer,
     DiagnosticsWriter,
     FILE_EXTENSION,
+    NETWORK_ARRAYS_NAME,
+    THROATS_FLOATS_NAME,
+    THROATS_FLOATS_NDATA,
+    open_chunks,
 )
 from py_pore_flow.parameters.parameter_manager import ParameterManager
 from py_pore_flow.simulation.simulation import calculate_initial_values
@@ -306,6 +310,98 @@ class DiagnosticsTests(unittest.TestCase):
                 view = loader.data_view(data, data_index, item_shape)
                 self.assertEqual(view.shape, (n_elements,) + item_shape)
                 assert_array_equal(view, value(step, data_index))
+
+    def _chunk_paths(self, name):
+        paths = []
+        index = 0
+        while True:
+            path = os.path.join(self.path, f"diagnostics_{name}_{index}" + FILE_EXTENSION)
+            if not os.path.exists(path):
+                return paths
+            paths.append(path)
+            index += 1
+
+    def test_chunked_rows_match_a_full_concatenation(self):
+        # The loader used to np.concatenate every chunk on each read, which copied the whole
+        # run into RAM. The lazy row view must return exactly the same values, including
+        # across a chunk boundary.
+        self._write([4, 5], chunk_size=3)
+
+        chunk_paths = self._chunk_paths(THROATS_FLOATS_NAME)
+        self.assertGreater(len(chunk_paths), 1, "expected the step data to span multiple chunks")
+
+        cols = self.n_throats * THROATS_FLOATS_NDATA
+        concatenated = np.concatenate(
+            [np.fromfile(path, dtype=np.float64).reshape(-1, cols) for path in chunk_paths], axis=0
+        )
+
+        rows = open_chunks(self.path, THROATS_FLOATS_NAME, self.n_throats, THROATS_FLOATS_NDATA, np.float64)
+        self.assertEqual(rows.shape, concatenated.shape)
+        for step in range(concatenated.shape[0]):
+            assert_array_equal(rows[step], concatenated[step])
+            assert_array_equal(rows[step, 0 : self.n_throats], concatenated[step, 0 : self.n_throats])
+
+    def test_chunk_files_are_opened_once_per_storer(self):
+        # Regression guard for the read path: every property read used to rescan the whole
+        # diagnostics directory, 12 times per read.
+        self._write([4, 5], chunk_size=3)
+
+        with mock.patch("py_pore_flow.output.diagnostics.os.listdir", wraps=os.listdir) as listdir:
+            diagnostics = Diagnostics(self.path)
+            diagnostics.cycle[0][0]
+            after_first_step = listdir.call_count
+            self.assertGreater(after_first_step, 0)
+
+            for step in range(4):
+                cycle_step = diagnostics.cycle[0][step]
+                for _ in range(5):
+                    cycle_step.throat.water_saturation
+                    cycle_step.pore.oil_pressure
+            for step in range(5):
+                diagnostics.cycle[1][step].throat.oil_flow_rate
+            diagnostics.cycle[1].throat.entry_pressure
+
+            self.assertEqual(listdir.call_count, after_first_step)
+
+    def test_chunk_rows_are_capped_by_the_byte_budget(self):
+        # A chunk file is preallocated in full, so a step count alone would make a large
+        # network reserve several GB per storer before the first step is written.
+        n_elements = 200000
+        storer = DiagnosticsStorer("budget", n_elements, THROATS_FLOATS_NDATA, np.float64, self.path)
+        row_bytes = n_elements * THROATS_FLOATS_NDATA * np.dtype(np.float64).itemsize
+
+        self.assertGreaterEqual(storer._chunk_n_steps, 1)
+        self.assertLess(storer._chunk_n_steps, DiagnosticsStorer.N_STEPS)
+        self.assertLessEqual(storer._chunk_n_steps * row_bytes, DiagnosticsStorer.TARGET_CHUNK_BYTES)
+
+        # a small network stays on the step cap
+        small = DiagnosticsStorer("budget_small", 10, THROATS_FLOATS_NDATA, np.float64, self.path)
+        self.assertEqual(small._chunk_n_steps, DiagnosticsStorer.N_STEPS)
+
+    def test_network_properties_are_stored_as_arrays(self):
+        self._write([3], chunk_size=100)
+
+        self.assertTrue(os.path.exists(os.path.join(self.path, NETWORK_ARRAYS_NAME)))
+
+        network = Diagnostics(self.path).network
+        self.assertIn("throat.radius", network)
+        self.assertIsInstance(network["throat.radius"], np.ndarray)
+        self.assertEqual(network["throat.radius"].shape, (self.n_throats,))
+        # the sparse conns accessor cannot be densified and must be skipped, not raise
+        self.assertNotIn("pore.conns", network)
+
+    def test_close_releases_the_chunk_files(self):
+        # the viewer has to let the mappings go: on Windows they lock the files, and the
+        # diagnostics directory is moved when the project is saved
+        self._write([3], chunk_size=2)
+
+        diagnostics = Diagnostics(self.path)
+        diagnostics.cycle[0][0].throat.water_saturation
+        diagnostics.network
+        diagnostics.close()
+
+        shutil.rmtree(self.path)
+        self.assertFalse(os.path.exists(self.path))
 
 
 if __name__ == "__main__":

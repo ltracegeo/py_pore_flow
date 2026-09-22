@@ -1,6 +1,6 @@
 from typing import ClassVar
 
-from PySide2.QtCore import QEvent, Qt, QTimer, Signal
+from PySide2.QtCore import QAbstractTableModel, QEvent, QModelIndex, Qt, QTimer, Signal
 from PySide2.QtGui import QStandardItem, QStandardItemModel
 from PySide2.QtWidgets import (
     QComboBox,
@@ -9,7 +9,7 @@ from PySide2.QtWidgets import (
     QLabel,
     QSpinBox,
     QSplitter,
-    QTableWidget,
+    QTableView,
     QVBoxLayout,
     QWidget,
 )
@@ -63,13 +63,58 @@ class CheckableComboBox(QComboBox):
         self.itemToggled.emit(item.text(), item.checkState() == Qt.Checked)
 
 
-class DiagnosticsTableWidget(QTableWidget):
+class DiagnosticsTableModel(QAbstractTableModel):
+    """Reads cell values straight from the per-step memmap views.
+
+    The table used to be a QTableWidget, which allocates one QTableWidgetItem per cell: a
+    134k throat network with 9 columns meant 1.2 million Qt objects on every step change.
+    """
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._n_rows = 0
+        self._columns = []
+        self._values = []
+
+    def rowCount(self, parent=QModelIndex()):
+        return 0 if parent.isValid() else self._n_rows
+
+    def columnCount(self, parent=QModelIndex()):
+        return 0 if parent.isValid() else len(self._columns)
+
+    def headerData(self, section, orientation, role=Qt.DisplayRole):
+        if role != Qt.DisplayRole:
+            return None
+        if orientation == Qt.Horizontal:
+            return self._columns[section]
+        return section
+
+    def data(self, index, role=Qt.DisplayRole):
+        if role != Qt.DisplayRole or not index.isValid():
+            return None
+        values = self._values[index.column()]
+        if values is None:
+            return None
+        return str(values[index.row()])
+
+    def set_content(self, n_rows, columns, values):
+        self.beginResetModel()
+        self._n_rows = n_rows
+        self._columns = list(columns)
+        self._values = list(values)
+        self.endResetModel()
+
+
+class DiagnosticsTableWidget(QTableView):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._properties = None
         self._element_type = None
         self._cycle_step = None
+        self._n_elements = 0
         self._shown = []
+        self._model = DiagnosticsTableModel(self)
+        self.setModel(self._model)
         self.column_selector = CheckableComboBox()
         self.column_selector.itemToggled.connect(self._set_column_shown)
         self.horizontalHeader().setContextMenuPolicy(Qt.NoContextMenu)
@@ -86,27 +131,18 @@ class DiagnosticsTableWidget(QTableWidget):
             return True
         return super().eventFilter(watched, event)
 
-    def set_source(self, properties, element_type, default_columns, cycle_step_getter):
+    def set_source(self, properties, element_type, n_elements, default_columns, cycle_step_getter):
         self._properties = properties
         self._element_type = element_type
+        self._n_elements = n_elements
         self._cycle_step = cycle_step_getter
         available = self._available_columns()
         self._shown = [name for name in default_columns if name in set(available)]
         self.column_selector.set_items(available, self._shown)
 
     def refresh(self):
-        from PySide2.QtWidgets import QTableWidgetItem
-
-        self.setColumnCount(len(self._shown))
-        self.setHorizontalHeaderLabels(self._shown)
-        self.setUpdatesEnabled(False)
-        for col, name in enumerate(self._shown):
-            values = self._column_values(name)
-            if values is None:
-                continue
-            for row, value in enumerate(values):
-                self.setItem(row, col, QTableWidgetItem(str(value)))
-        self.setUpdatesEnabled(True)
+        values = [self._column_values(name) for name in self._shown]
+        self._model.set_content(self._n_elements, self._shown, values)
 
     def _available_columns(self):
         if self._properties is None:
@@ -117,9 +153,12 @@ class DiagnosticsTableWidget(QTableWidget):
 
     def _column_values(self, name):
         cycle_id, step = self._cycle_step()
-        if self._element_type == "pore":
-            return self._properties.get_pore_values_in_step(name, cycle_id=cycle_id, step=step)
-        return self._properties.get_throat_values_in_step(name, cycle_id=cycle_id, step=step)
+        try:
+            if self._element_type == "pore":
+                return self._properties.get_pore_values_in_step(name, cycle_id=cycle_id, step=step)
+            return self._properties.get_throat_values_in_step(name, cycle_id=cycle_id, step=step)
+        except (KeyError, IndexError):
+            return None
 
     def _set_column_shown(self, name, shown):
         if shown and name not in self._shown:
@@ -190,10 +229,10 @@ class DiagnosticsTab(QWidget):
         self.table.set_source(
             properties,
             element_type,
+            n_elements,
             default_columns,
             lambda: (self.cycle_combo.currentIndex(), self.step_spinbox.value()),
         )
-        self.table.setRowCount(n_elements)
 
         self.cycle_combo.currentIndexChanged.connect(self._on_cycle_changed)
         self.step_spinbox.valueChanged.connect(self._on_step_changed)
@@ -281,7 +320,7 @@ class CrossPlotTab(QWidget):
 
 
 class HeatmapTab(QWidget):
-    def __init__(self, diagnostics=None, parent=None):
+    def __init__(self, diagnostics=None, aggregates=None, parent=None):
         super().__init__(parent)
 
         self.heatmap_widget = None
@@ -290,14 +329,14 @@ class HeatmapTab(QWidget):
         self._layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(self._layout)
 
-        if diagnostics is not None:
-            self.set_diagnostics(diagnostics)
+        if diagnostics is not None or aggregates is not None:
+            self.set_diagnostics(diagnostics, aggregates)
 
-    def set_diagnostics(self, diagnostics):
+    def set_diagnostics(self, diagnostics, aggregates=None):
         while self._layout.count():
             widget = self._layout.takeAt(0).widget()
             if widget is not None:
                 widget.deleteLater()
 
-        self.heatmap_widget = HeatmapWidget(diagnostics)
+        self.heatmap_widget = HeatmapWidget(diagnostics, aggregates)
         self._layout.addWidget(self.heatmap_widget)

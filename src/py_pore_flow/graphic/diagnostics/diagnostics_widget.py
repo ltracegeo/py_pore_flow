@@ -13,31 +13,36 @@ from py_pore_flow.graphic.diagnostics.diagnostics_tabs import (
     HeatmapTab,
 )
 from py_pore_flow.output.diagnostics import Diagnostics
+from py_pore_flow.output.diagnostics_aggregate import DiagnosticsAggregates, LEVEL_BASIC, diagnostics_level
 
 
 class DiagnosticsWidget(QFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        self.pores_tab = DiagnosticsTab()
-        self.throats_tab = DiagnosticsTab()
-        self.element_tab = ElementGeometryTab()
-        self.crossplot_tab = CrossPlotTab()
-        self.heatmap_tab = HeatmapTab()
+        self._diagnostics = None
+        self._aggregates = None
 
-        tabs = QTabWidget()
-        tabs.addTab(self.pores_tab, "Pores")
-        tabs.addTab(self.throats_tab, "Throats")
-        tabs.addTab(self.element_tab, "Element")
-        tabs.addTab(self.crossplot_tab, "Cross Plot")
-        tabs.addTab(self.heatmap_tab, "Heatmap")
-
+        self.tabs = QTabWidget()
         layout = QHBoxLayout(self)
-        layout.addWidget(tabs)
+        layout.addWidget(self.tabs)
 
     def deleteLater(self):
         self.__close_vtk_window()
+        self.__close_diagnostics()
         super().deleteLater()
+
+    def __clear_tabs(self):
+        while self.tabs.count():
+            tab = self.tabs.widget(0)
+            self.tabs.removeTab(0)
+            tab.deleteLater()
+
+    def __close_diagnostics(self):
+        """Release the memmapped chunk files: the directory is moved on project save."""
+        if self._diagnostics is not None:
+            self._diagnostics.close()
+            self._diagnostics = None
 
     def __close_vtk_window(self):
         network_container_widget = self.findChild(QWidget, "network_container_widget")
@@ -47,16 +52,43 @@ class DiagnosticsWidget(QFrame):
                 network_vtk_window.close()
 
     def set_diagnostics(self, diagnostics_path):
+        """Build the views the diagnostics level of `diagnostics_path` can feed.
+
+        A basic run only stores the heatmap aggregates, so the element-level views have no
+        data to show and the embedded VTK network is never built.
+        """
+        self.__close_diagnostics()
+        self.__clear_tabs()
+
+        if diagnostics_level(diagnostics_path) == LEVEL_BASIC:
+            self._aggregates = DiagnosticsAggregates(diagnostics_path)
+            self.heatmap_tab = HeatmapTab()
+            self.heatmap_tab.set_diagnostics(None, self._aggregates)
+            self.tabs.addTab(self.heatmap_tab, "Heatmap")
+            return
+
         self._diagnostics = Diagnostics(diagnostics_path)
         self._ensure_numpy_network(self._diagnostics.network)
         self._ensure_pore_conns(self._diagnostics.network, self._diagnostics.info.n_pores)
         self._ensure_pore_aspect_ratio(self._diagnostics.network, self._diagnostics.info.n_pores)
+
+        self.pores_tab = DiagnosticsTab()
+        self.throats_tab = DiagnosticsTab()
+        self.element_tab = ElementGeometryTab()
+        self.crossplot_tab = CrossPlotTab()
+        self.heatmap_tab = HeatmapTab()
 
         self.pores_tab.set_diagnostics(self._diagnostics, "pore")
         self.throats_tab.set_diagnostics(self._diagnostics, "throat")
         self.element_tab.set_diagnostics(self._diagnostics)
         self.crossplot_tab.set_diagnostics(self._diagnostics)
         self.heatmap_tab.set_diagnostics(self._diagnostics)
+
+        self.tabs.addTab(self.pores_tab, "Pores")
+        self.tabs.addTab(self.throats_tab, "Throats")
+        self.tabs.addTab(self.element_tab, "Element")
+        self.tabs.addTab(self.crossplot_tab, "Cross Plot")
+        self.tabs.addTab(self.heatmap_tab, "Heatmap")
 
     @staticmethod
     def _ensure_numpy_network(network):

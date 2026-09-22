@@ -8,6 +8,10 @@ ELEMENT_TYPES = ["Pore", "Throat"]
 CYCLE_NAMES = ["drainage", "imbibition", "2nd_drainage"]
 NONE_LABEL = "(none)"
 COLORMAP_NAME = "viridis"
+# one brush per colour level instead of one per point
+COLOR_LEVELS = 256
+# a scatter of every element of a large network costs far more than it shows
+MAX_PLOTTED_POINTS = 200000
 
 
 class CrossPlotView(QtWidgets.QWidget):
@@ -19,6 +23,7 @@ class CrossPlotView(QtWidgets.QWidget):
 
         self._colormap = pg.colormap.get(COLORMAP_NAME)
         self._colorbar = None
+        self._level_brushes = None
 
         self._graphics = pg.GraphicsLayoutWidget()
         self._plot = self._graphics.addPlot(row=0, col=0)
@@ -41,6 +46,12 @@ class CrossPlotView(QtWidgets.QWidget):
         x, y = x[valid], y[valid]
         z = z[valid] if z is not None else None
 
+        n_valid = x.size
+        kept = self._subsample(n_valid)
+        if kept is not None:
+            x, y = x[kept], y[kept]
+            z = z[kept] if z is not None else None
+
         if z is not None and z.size:
             brush = self._z_brushes(z)
             self._show_colorbar(float(np.min(z)), float(np.max(z)), z_label)
@@ -49,8 +60,21 @@ class CrossPlotView(QtWidgets.QWidget):
             self._hide_colorbar()
 
         self._scatter.setData(x=x, y=y, brush=brush, pen=pg.mkPen(0, 0, 0, 60), size=8)
+        if kept is not None:
+            x_label = f"{x_label}  (showing {x.size} of {n_valid} elements)"
         self._plot.setLabel("bottom", x_label)
         self._plot.setLabel("left", y_label)
+
+    @staticmethod
+    def _subsample(n_points):
+        """Indices to plot, or None to plot everything.
+
+        Drawn without replacement rather than strided: element ids often follow the network
+        layout, so a stride would alias.
+        """
+        if n_points <= MAX_PLOTTED_POINTS:
+            return None
+        return np.random.default_rng(0).choice(n_points, MAX_PLOTTED_POINTS, replace=False)
 
     def clear(self):
         self._scatter.setData(x=[], y=[])
@@ -59,12 +83,24 @@ class CrossPlotView(QtWidgets.QWidget):
         self._plot.setLabel("left", "")
 
     def _z_brushes(self, z):
+        """One brush per point, taken from a fixed palette.
+
+        mapToQColor builds a QColor per point and pyqtgraph then builds a QBrush per point,
+        which dominates the replot on a large network. Quantising to COLOR_LEVELS reuses the
+        same brush objects with no visible difference.
+        """
         z_min, z_max = float(np.min(z)), float(np.max(z))
         if z_max > z_min:
             normalized = (z - z_min) / (z_max - z_min)
         else:
             normalized = np.zeros_like(z)
-        return list(self._colormap.mapToQColor(normalized))
+
+        if self._level_brushes is None:
+            table = self._colormap.getLookupTable(nPts=COLOR_LEVELS, alpha=True)
+            self._level_brushes = [pg.mkBrush(*(int(channel) for channel in color)) for color in table]
+
+        levels = np.clip((normalized * (COLOR_LEVELS - 1)).astype(int), 0, COLOR_LEVELS - 1)
+        return [self._level_brushes[level] for level in levels]
 
     def _show_colorbar(self, z_min, z_max, label):
         self._hide_colorbar()

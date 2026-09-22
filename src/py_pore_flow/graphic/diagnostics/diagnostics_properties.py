@@ -1,7 +1,7 @@
 import numpy as np
 
 # attributes a step/cycle loader sets on itself that are not per-element property data
-_LOADER_ATTRS = {"path", "step", "n_elements"}
+_LOADER_ATTRS = {"path", "step", "n_elements", "_cache"}
 
 PORE_PREFIX = "pore."
 THROAT_PREFIX = "throat."
@@ -29,6 +29,7 @@ class DiagnosticsProperties:
         self._diagnostics = diagnostics
         self._cycle_id = 0
         self._step = 0
+        self._property_names = None
 
     def __getitem__(self, key):
         return self.get_values_in_step(key, self._cycle_id, self._step)
@@ -40,7 +41,14 @@ class DiagnosticsProperties:
         self._step = step
 
     def get_property_names(self):
-        return sorted(set(self._step_scalar_properties()) | set(self._network_properties()))
+        # recomputed on every element type change by both the heatmap and the cross plot
+        if self._property_names is None:
+            self._property_names = sorted(
+                set(self._step_scalar_properties())
+                | set(self._cycle_scalar_properties())
+                | set(self._network_properties())
+            )
+        return self._property_names
 
     def get_pore_property_names(self):
         return [name[len(PORE_PREFIX) :] for name in self.get_property_names() if name.startswith(PORE_PREFIX)]
@@ -75,17 +83,23 @@ class DiagnosticsProperties:
     def get_throat_values_in_step(self, property_name, cycle_id, step):
         return self.get_values_in_step(THROAT_PREFIX + property_name, cycle_id, step)
 
-    def get_element_values_in_step(self, property_name, cycle_id):
-            pore_values = self.get_pore_values_in_step(property_name, cycle_id, step)
-            throat_values = self.get_throat_values_in_step(property_name, cycle_id, step)
+    def get_element_values_in_step(self, property_name, cycle_id, step):
+        pore_values = self._try_values_in_step(PORE_PREFIX + property_name, cycle_id, step)
+        throat_values = self._try_values_in_step(THROAT_PREFIX + property_name, cycle_id, step)
 
-            if pore_values and throat_values:
-                return self._concatenate_element_values(pore_values, throat_values)
-            if pore_values:
-                return pore_values
-            if throat_values:
-                return throat_values
-            raise KeyError(property_name)
+        if pore_values is not None and throat_values is not None:
+            return self._concatenate_element_values(pore_values, throat_values)
+        if pore_values is not None:
+            return pore_values
+        if throat_values is not None:
+            return throat_values
+        raise KeyError(property_name)
+
+    def _try_values_in_step(self, property_name, cycle_id, step):
+        try:
+            return self.get_values_in_step(property_name, cycle_id, step)
+        except KeyError:
+            return None
 
     def get_values_of_cycle(self, property_name, cycle_id):
         n_steps = self._diagnostics.info.cycle_n_steps[cycle_id]
@@ -101,8 +115,8 @@ class DiagnosticsProperties:
         return self.get_values_of_cycle(THROAT_PREFIX + property_name, cycle_id)
 
     def get_element_values_of_cycle(self, property_name, cycle_id):
-        pore_values = self.get_pore_values_of_cycle(property_name, cycle_id)
-        throat_values = self.get_throat_values_of_cycle(property_name, cycle_id)
+        pore_values = self._try_values_of_cycle(PORE_PREFIX + property_name, cycle_id)
+        throat_values = self._try_values_of_cycle(THROAT_PREFIX + property_name, cycle_id)
 
         if pore_values and throat_values:
             return self._concatenate_element_values(pore_values, throat_values)
@@ -112,36 +126,70 @@ class DiagnosticsProperties:
             return throat_values
         raise KeyError(property_name)
 
+    def _try_values_of_cycle(self, property_name, cycle_id):
+        try:
+            return self.get_values_of_cycle(property_name, cycle_id)
+        except KeyError:
+            return None
+
     @staticmethod
     def _concatenate_element_values(pore_values, throat_values):
         if isinstance(pore_values, list) and isinstance(throat_values, list):
             return [np.concatenate([pore, throat]) for pore, throat in zip(pore_values, throat_values)]
         return np.concatenate([pore_values, throat_values])
 
-    def _step_scalar_properties(self):
+    def _sample_cycle(self):
+        """First cycle that actually ran, or None when nothing was saved."""
         info = self._diagnostics.info
-        sample_cycle = next((c for c in range(info.n_cycles) if info.cycle_n_steps.get(c, 0) > 0), None)
+        return next((c for c in range(info.n_cycles) if info.cycle_n_steps.get(c, 0) > 0), None)
+
+    @staticmethod
+    def _scalar_attributes(prefix, element):
+        """The 1-D numeric/bool arrays a loader exposes, as "<prefix>.<attribute>" names."""
+        names = []
+        for attr, value in vars(element).items():
+            if attr in _LOADER_ATTRS:
+                continue
+            array = np.asarray(value)
+            if array.ndim == 1 and (np.issubdtype(array.dtype, np.number) or array.dtype == bool):
+                names.append(f"{prefix}.{attr}")
+        return names
+
+    def _step_scalar_properties(self):
+        sample_cycle = self._sample_cycle()
         if sample_cycle is None:
             return []
 
         sample_step = self._diagnostics.cycle[sample_cycle][0]
         properties = []
         for prefix, element in (("pore", sample_step.pore), ("throat", sample_step.throat)):
-            for attr, value in vars(element).items():
-                if attr in _LOADER_ATTRS:
-                    continue
-                array = np.asarray(value)
-                if array.ndim == 1 and (np.issubdtype(array.dtype, np.number) or array.dtype == bool):
-                    properties.append(f"{prefix}.{attr}")
+            properties.extend(self._scalar_attributes(prefix, element))
 
             for prop in self.CONVERSORS.keys():
                 property_name = f"{prefix}.{prop}"
                 try:
-                    self.get_values_in_step(property_name, 0, 0)  # Check if property exists
-                    properties.append(f"{prefix}.{prop}")
+                    self.get_values_in_step(property_name, sample_cycle, 0)  # Check if property exists
+                    properties.append(property_name)
                 except KeyError:
                     pass
 
+        return sorted(properties)
+
+    def _cycle_scalar_properties(self):
+        """Per-cycle properties (entry pressure, contact angles, invasion method).
+
+        get_values_in_step already resolves these through _sample_cycle_element, but they
+        live on the cycle loader rather than the step loader so nothing listed them and they
+        were unselectable in every combo.
+        """
+        sample_cycle = self._sample_cycle()
+        if sample_cycle is None:
+            return []
+
+        cycle = self._diagnostics.cycle[sample_cycle]
+        properties = []
+        for prefix, element in (("pore", cycle.pore), ("throat", cycle.throat)):
+            properties.extend(self._scalar_attributes(prefix, element))
         return sorted(properties)
 
     def _network_properties(self):
