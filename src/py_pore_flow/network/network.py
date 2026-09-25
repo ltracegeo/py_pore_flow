@@ -101,6 +101,11 @@ class PoreNetwork(openpnm.network.Network):
         pore_network.update(network)
         return pore_network
 
+    @classmethod
+    def from_statoil(cls, path, prefix):
+        openpn = openpnm.io.network_from_statoil(path, prefix)
+        return cls.from_openpnm(openpn)
+
 
 def initialize_pn(pn: PoreNetwork) -> None:
     def set_default(pn, key, value):
@@ -110,6 +115,7 @@ def initialize_pn(pn: PoreNetwork) -> None:
     for element_type in ["pore", "throat"]:
         number_of_elements = len(pn[f"{element_type}.all"])
 
+        set_default(pn, f"{element_type}.filled", False)
         set_default(pn, f"{element_type}.oil_filled", False)
         set_default(pn, f"{element_type}.water_filled", True)
         set_default(pn, f"{element_type}.oil_saturation", 0.0)
@@ -143,6 +149,7 @@ def initialize_pn(pn: PoreNetwork) -> None:
         pn[f"{element_type}.n_corners"] = int(0)
         pn[f"{element_type}.snap_off_viability"] = True
         pn[f"{element_type}.entry_pressure"] = 0.0
+        pn[f"{element_type}.invasion_method"] = int(0)
         pn[f"{element_type}.snap_off_pressure"] = 0.0
         pn[f"{element_type}.piston_like_pressure"] = 0.0
         pn[f"{element_type}.oil_layer_collapse_pressure"] = np.empty(
@@ -184,6 +191,13 @@ def initialize_pn(pn: PoreNetwork) -> None:
     pn["throat.oil_multiphase_conductance"] = 0.0
     pn["throat.water_multiphase_conductance"] = 0.0
     pn["throat.hydraulic_conductance"] = 0.0
+
+    pn["pore.oil_pressure"] = -1.0
+    pn["pore.water_pressure"] = -1.0
+    pn["throat.oil_pressure"] = -1.0
+    pn["throat.water_pressure"] = -1.0
+    pn["throat.oil_flow_rate"] = -1.0
+    pn["throat.water_flow_rate"] = -1.0
 
     # Initialize connection properties
     pn["throat.n_conns"] = np.int64(2)

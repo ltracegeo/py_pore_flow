@@ -1,3 +1,4 @@
+from pathlib import Path
 import pickle
 import sys
 import time
@@ -36,7 +37,15 @@ from py_pore_flow.equations.entry_pressure import (
     calculate_imbibition_piston_like_displacement_pc_network,
 )
 from py_pore_flow.network.network import initialize_pn, NetworkManager, PoreNetwork
-from py_pore_flow.output import pn_to_vtu
+from py_pore_flow.output.diagnostics import DiagnosticsWriter
+from py_pore_flow.output.diagnostics_aggregate import (
+    AggregateDiagnosticsWriter,
+    LEVEL_BASIC,
+    LEVEL_COMPLETE,
+    LEVEL_OFF,
+    write_manifest,
+)
+from py_pore_flow.output.vtu import pn_to_vtu
 from py_pore_flow.parameters.parameter_manager import ParameterManager
 from py_pore_flow.simulation.second_drainage import SecondDrainageSimulation
 from py_pore_flow.simulation.drainage import DrainageSimulation
@@ -66,6 +75,8 @@ def run_two_phase_simulation(
     second_drainage_snapshot_pc=None,
     config=None,
     progress_callback=None,
+    diagnostics_output_path=None,
+    diagnostics_level=LEVEL_COMPLETE,
 ):
     previous_limit = sys.getrecursionlimit()
 
@@ -92,6 +103,8 @@ def run_two_phase_simulation(
         second_drainage_snapshot_pc,
         config,
         progress_callback,
+        diagnostics_output_path,
+        diagnostics_level,
     )
 
     skip_drainage = config is not None and config["skip_drainage"]
@@ -99,8 +112,8 @@ def run_two_phase_simulation(
     skip_2nd_drainage = simulation.parameter_manager.skip_2nd_drainage
 
     for i, cycle_skip_setting in enumerate([
-        skip_drainage, 
-        skip_imbibition, 
+        skip_drainage,
+        skip_imbibition,
         skip_2nd_drainage,
     ]):
         if not cycle_skip_setting:
@@ -108,6 +121,7 @@ def run_two_phase_simulation(
             cycle[i] = [i+1] * len(Pc[i])
         else:
             simulation.skip_cycle()
+    simulation.end()
 
     sys.setrecursionlimit(previous_limit)
 
@@ -137,6 +151,8 @@ class Simulation:
         second_drainage_snapshot_pc=None,
         config=None,
         progress_callback=None,
+        diagnostics_output_path=False,
+        diagnostics_level=LEVEL_COMPLETE,
     ):
         self.pn = pn
         self.drainage_snapshot_pc = drainage_snapshot_pc
@@ -156,6 +172,8 @@ class Simulation:
             generate_cas=generate_cas,
             calculate_full_conductance=generate_vtu,
             set_initial_values=set_initial_values,
+            diagnostics_output_path=diagnostics_output_path,
+            diagnostics_level=diagnostics_level,
         )
         self.parameter_manager = self.step_simulation.get_parameter_manager()
 
@@ -178,19 +196,9 @@ class Simulation:
         if generate_vtu:
             pn_to_vtu(self.pn, self.pc_incrementer.get_pc(), 1, 0)
 
-    def run_drainage(self):
-        self.step_simulation.set_max_pc(self.parameter_manager.pc_maximum)
-        return self._run_cycle("drainage")
-
-    def run_imbibition(self):
-        return self._run_cycle("imbibition")
-
-    def run_2nd_drainage(self):
-        return self._run_cycle("2nd_drainage")
-    
     def skip_cycle(self):
         self.current_cycle_number += 1
-    
+
     def run_next_cycle(self, return_generator=False, verbose=False):
         if self.current_cycle_number == INITIAL:
             self.step_simulation.set_max_pc(self.parameter_manager.pc_maximum)
@@ -212,6 +220,9 @@ class Simulation:
         else:
             return generator
 
+    def end(self):
+        self.step_simulation.end_simulation()
+
     def _get_network_state_str(self):
         pn = self.pn
         res = "Network State:\n"
@@ -223,13 +234,13 @@ class Simulation:
         for i in range(len(pn['throat.all'])):
             trapped = " (Trapped)" if pn['throat.trapped'][i] else ""
             res += f"    Throat {i:3d}: Entry Pc={pn['throat.entry_pressure'][i]:8.2f}, Sw={pn['throat.water_saturation'][i]:.4f}, So={pn['throat.oil_saturation'][i]:.4f}, Filled={'Oil' if pn['throat.oil_filled'][i] else 'Water'}{trapped}\n"
-        
+
         # Add border elements information
         if hasattr(self.step_simulation.simulation, 'border_elements'):
             be = self.step_simulation.simulation.border_elements
             res += f"  Border Pores: {be.get_pores_ids().tolist()}\n"
             res += f"  Border Throats: {be.get_throats_ids().tolist()}\n"
-        
+
         return res
 
     def _get_run_cycle_generator(self, cycle_name, verbose=False):
@@ -276,7 +287,7 @@ class Simulation:
 
             while current_pc != last_pc:
                 last_pc = current_pc
-                
+
                 if verbose: yield _verbose_msg("Checking snapshots")
                 self._check_snapshot(cycle_name, current_pc)
 
@@ -306,13 +317,14 @@ class Simulation:
                     if verbose: yield _verbose_msg(f"End condition met: Swi reached ({self.Sw_array[-1]:.6f})")
                     simulation_end = True
                     break
-                
+
                 yield self.Pc_array, self.Sw_array, self.Krw_array, self.Kro_array
 
             if self.parameter_manager.control_by_pc:
                 if verbose: yield _verbose_msg("Updating PC incrementer")
                 self.pc_incrementer.update_pc(self.Sw_array[-1])
 
+        self.step_simulation.end_cycle()
         self._check_snapshot_final(cycle_name, current_pc)
 
         if verbose: yield f"Final Cycle State:\n{self._get_network_state_str()}"
@@ -423,9 +435,10 @@ def calculate_drainage_values(network, max_pc):
     network.pn_core["throat.trapped"] = False
     network.pn_core["pore.trapped_evacuation"] = False
     network.pn_core["throat.trapped_evacuation"] = False
-
     network.pn_core.pore.hinging_contact_angle[:, :] = network.pn_core.pore.receding_contact_angle[:, np.newaxis]
     network.pn_core.throat.hinging_contact_angle[:, :] = network.pn_core.throat.receding_contact_angle[:, np.newaxis]
+    network.pn_core.pore.filled[:] = False
+    network.pn_core.throat.filled[:] = False
 
     return network
 
@@ -470,6 +483,8 @@ def calculate_imbibition_values(network, max_pc):
     network.pn_core["throat.trapped_evacuation"] = False
     network.pn_core.pore.hinging_contact_angle_o[:, :] = network.pn_core.pore.advancing_contact_angle[:, np.newaxis]
     network.pn_core.throat.hinging_contact_angle_o[:, :] = network.pn_core.throat.advancing_contact_angle[:, np.newaxis]
+    network.pn_core.pore.filled[:] = False
+    network.pn_core.throat.filled[:] = False
 
     calculate_imbibion_oil_filled_multiphase(
         network.pn_core.pore.oil_filled_multiphase,
@@ -509,6 +524,8 @@ def calculate_2nd_drainage_values(network, min_pc):
     network.pn_core["throat.trapped"] = False
     network.pn_core["pore.trapped_evacuation"] = False
     network.pn_core["throat.trapped_evacuation"] = False
+    network.pn_core.pore.filled[:] = False
+    network.pn_core.throat.filled[:] = False
 
     network.pn_core.pore.b_pinned[:] = network.pn_core.pore.b
     calculate_water_corner_collapse_pc(
@@ -824,6 +841,8 @@ class StepSimulation:
         generate_cas=True,
         calculate_full_conductance=False,
         set_initial_values=True,
+        diagnostics_output_path=False,
+        diagnostics_level=LEVEL_COMPLETE,
     ):
         self.simulation = None
         self.max_pc = config["max_pc"] if config else None
@@ -832,6 +851,8 @@ class StepSimulation:
         self.is_first_step = True
         self.current_pc = 0
         self.cycle = "drainage"
+        self.diagnostics_output_path = diagnostics_output_path
+        self.diagnostics_level = diagnostics_level
 
         self.parameter_manager = ParameterManager(parameters_dict)
 
@@ -847,6 +868,8 @@ class StepSimulation:
         if set_initial_values:
             calculate_initial_values(self.network)
 
+        self.diagnostics_writer = None
+
     def set_max_pc(self, max_pc):
         self.max_pc = max_pc
 
@@ -856,6 +879,15 @@ class StepSimulation:
         if cycle == "drainage":
             self.parameter_manager.update_initial_cas(self.network)
             calculate_drainage_values(self.network, self.max_pc)
+            if self.diagnostics_output_path and self.diagnostics_level != LEVEL_OFF:
+                Path(self.diagnostics_output_path).mkdir(parents=True, exist_ok=True)
+                if self.diagnostics_level == LEVEL_BASIC:
+                    self.diagnostics_writer = AggregateDiagnosticsWriter(
+                        self.network, self.diagnostics_output_path
+                    )
+                else:
+                    self.diagnostics_writer = DiagnosticsWriter(self.network, self.diagnostics_output_path)
+                    write_manifest(self.diagnostics_output_path, LEVEL_COMPLETE)
             self.simulation = DrainageSimulation(self.network, self.calculate_full_conductance, batch_invasions=batch)
             self.max_pc = 0
         elif cycle == "imbibition":
@@ -882,17 +914,19 @@ class StepSimulation:
 
         if verbose: yield "Calculating saturations"
         Sw = self.simulation.calculate_sw_total()
-        
+
         if verbose: yield "Calculating relative permeability"
         Krw, Kro = self.simulation.calculate_krel()
 
         pores_filled, total_pores, percentage = self.simulation.get_oil_filled_percentage()
 
+        if self.diagnostics_writer is not None:
+            self.diagnostics_writer.save_state(self.current_pc, Sw)
         return self.current_pc, Sw, Krw, Kro, pores_filled, total_pores, percentage
 
     def get_pores_left(self):
         return self.simulation.get_pores_left()
-    
+
     def get_throats_left(self):
         return self.simulation.get_throats_left()
 
@@ -907,6 +941,14 @@ class StepSimulation:
         snapshot_dict["cycle"] = self.cycle
         snapshot_dict["network"] = self.network.pn.copy()
         return snapshot_dict
+
+    def end_cycle(self):
+        if self.diagnostics_writer is not None:
+            self.diagnostics_writer.save_cycle_data()
+
+    def end_simulation(self):
+        if self.diagnostics_writer is not None:
+            self.diagnostics_writer.close()
 
     @staticmethod
     def load_snapshot(snapshot_file: str) -> tuple:
@@ -952,8 +994,19 @@ class MultiStepSimulation(StepSimulation):
         generate_cas=True,
         calculate_full_conductance=False,
         set_initial_values=True,
+        diagnostics_output_path=False,
+        diagnostics_level=LEVEL_COMPLETE,
     ):
-        super().__init__(pn, parameters_dict, config, generate_cas, calculate_full_conductance, set_initial_values)
+        super().__init__(
+            pn,
+            parameters_dict,
+            config,
+            generate_cas,
+            calculate_full_conductance,
+            set_initial_values,
+            diagnostics_output_path,
+            diagnostics_level,
+        )
         self.pc_incrementer = None
         self.sw_step = None
         self.no_invasion_left = False

@@ -12,6 +12,7 @@ import openpnm
 
 import py_pore_flow as ppf
 from py_pore_flow.network.network import PoreNetwork
+from py_pore_flow.output.diagnostics_aggregate import LEVEL_COMPLETE, LEVELS
 from py_pore_flow.simulation.simulation import StepSimulation
 
 
@@ -60,6 +61,8 @@ def run(
     drainage_snapshot_pc,
     imbibition_snapshot_pc,
     second_drainage_snapshot_pc,
+    diagnostics_output_path,
+    diagnostics_level,
 ):
     sample_directory = Path(sample_directory).as_posix()
     if enable_profiling:
@@ -79,6 +82,8 @@ def run(
             drainage_snapshot_pc=drainage_snapshot_pc,
             imbibition_snapshot_pc=imbibition_snapshot_pc,
             second_drainage_snapshot_pc=second_drainage_snapshot_pc,
+            diagnostics_output_path=diagnostics_output_path,
+            diagnostics_level=diagnostics_level,
         )
 
 
@@ -92,6 +97,8 @@ def run_simulation(
     drainage_snapshot_pc=None,
     imbibition_snapshot_pc=None,
     second_drainage_snapshot_pc=None,
+    diagnostics_output_path=False,
+    diagnostics_level=LEVEL_COMPLETE,
 ):
     network_name = ""
     my_path = Path(directory_path)
@@ -127,6 +134,8 @@ def run_simulation(
             drainage_snapshot_pc,
             imbibition_snapshot_pc,
             second_drainage_snapshot_pc,
+            diagnostics_output_path=diagnostics_output_path,
+            diagnostics_level=diagnostics_level,
         )
 
 
@@ -152,6 +161,8 @@ def automatic_simulation(
     imbibition_snapshot_pc=None,
     second_drainage_snapshot_pc=None,
     config=None,
+    diagnostics_output_path=False,
+    diagnostics_level=LEVEL_COMPLETE,
 ):
     start = time.time()
 
@@ -167,6 +178,8 @@ def automatic_simulation(
         imbibition_snapshot_pc=imbibition_snapshot_pc,
         second_drainage_snapshot_pc=second_drainage_snapshot_pc,
         config=config,
+        diagnostics_output_path=diagnostics_output_path,
+        diagnostics_level=diagnostics_level,
     )
 
     time_elapsed = datetime.timedelta(seconds=int(time.time() - start))
@@ -195,6 +208,15 @@ if __name__ == "__main__":
     arg_parser.add_argument("--debug", action="store_true", help="Enable debug messages")
     arg_parser.add_argument("--nogui", action="store_true", help="Disable graphical window")
     arg_parser.add_argument("--snapshot", action="store_true", help="Input is a snapshot instead of a statoil")
+    arg_parser.add_argument("--diagnostics", type=str, help="Create diagnostics")
+    arg_parser.add_argument(
+        "--diagnostics_level",
+        type=str,
+        choices=LEVELS,
+        default=LEVEL_COMPLETE,
+        help="How much diagnostics data to keep: off, basic (heatmap aggregates only) or complete",
+    )
+    arg_parser.add_argument("--open_diagnostics", action="store_true", help="Open diagnostics viewer for the given diagnostics output directory")
     arg_parser.add_argument("--drainage_snapshot_pc", default=None, help="Pc to take snapshotin drainage cycle")
     arg_parser.add_argument(
         "--imbibition_snapshot_pc", type=float, default=None, help="Pc to take snapshotin imbibition cycle"
@@ -205,13 +227,18 @@ if __name__ == "__main__":
     arg_parser.add_argument("network_path", help="Path to a directory with the network statoil files")
     args = arg_parser.parse_args()
 
-    is_snapshot = args.snapshot
-    debug = args.debug
+    if args.open_diagnostics:
+        from py_pore_flow.graphic.diagnostics.diagnostics_viewer import DiagnosticsViewer
+        from PySide2 import QtWidgets
 
-    if is_snapshot:
-        snapshot_file = args.network_path
-        snapshot(snapshot_file, debug)
+        app = QtWidgets.QApplication([])
+        viewer = DiagnosticsViewer(args.network_path)
+        viewer.show()
+        app.exec_()
+    elif args.snapshot:
+        snapshot(args.network_path, args.debug)
     else:
+        debug = args.debug
         manual = args.manual
         generate_vtu = args.vtu
         show_final_plot = not args.nogui
@@ -219,6 +246,8 @@ if __name__ == "__main__":
         drainage_snapshot_pc = args.drainage_snapshot_pc
         imbibition_snapshot_pc = args.imbibition_snapshot_pc
         second_drainage_snapshot_pc = args.second_drainage_snapshot_pc
+        diagnostics_output_path = args.diagnostics
+        diagnostics_level = args.diagnostics_level
 
         if drainage_snapshot_pc is not None and drainage_snapshot_pc != "final":
             drainage_snapshot_pc = float(drainage_snapshot_pc)
@@ -234,4 +263,6 @@ if __name__ == "__main__":
             drainage_snapshot_pc,
             imbibition_snapshot_pc,
             second_drainage_snapshot_pc,
+            diagnostics_output_path,
+            diagnostics_level,
         )

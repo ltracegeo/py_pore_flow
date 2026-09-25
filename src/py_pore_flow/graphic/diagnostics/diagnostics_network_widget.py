@@ -1,0 +1,483 @@
+import os
+
+import numpy as np
+import vtk
+from PySide2 import QtCore, QtGui, QtWidgets
+from vtk.util.numpy_support import numpy_to_vtk, vtk_to_numpy
+
+os.environ.setdefault("QT_API", "pyside2")
+try:
+    from vtk.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
+except ImportError:
+    from vtkmodules.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
+
+from py_pore_flow.graphic.diagnostics.diagnostics_properties import DiagnosticsProperties
+from py_pore_flow.network.constants import PISTON_LIKE, PORE_BODY_FILLING, SNAP_OFF
+
+# name of the point-data array vtkGlyph3D adds when GeneratePointIds is on: it maps each
+# glyph-output point back to the input point (= pore id) that generated it
+INPUT_POINT_IDS = "InputPointIds"
+# cell-data array we attach to the throat lines; vtkTubeFilter copies it onto every output
+# tube cell, so a picked/colored tube cell maps back to its throat id
+THROAT_IDS = "ThroatIds"
+
+PORE_COLOR = (0.60, 0.72, 1.00)
+THROAT_COLOR = (0.55, 0.55, 0.55)
+HIGHLIGHT_COLOR = (1.00, 0.35, 0.25)
+
+COLOR_MODE_NONE = "None"
+COLOR_MODE_FILLING = "Filling"
+COLOR_MODE_WATER_CONDUCTIVITY = "Water Conductivity"
+COLOR_MODE_OIL_CONDUCTIVITY = "Oil Conductivity"
+COLOR_MODE_INVASION_METHOD = "Invasion Method"
+COLOR_MODES = [
+    COLOR_MODE_NONE,
+    COLOR_MODE_FILLING,
+    COLOR_MODE_WATER_CONDUCTIVITY,
+    COLOR_MODE_OIL_CONDUCTIVITY,
+    COLOR_MODE_INVASION_METHOD,
+]
+
+RED_CHANNEL = 0
+BLUE_CHANNEL = 2
+
+# a pore glyph at 16x16 is ~242 polygons; 8x8 is ~112 and reads the same at these sizes
+PORE_SPHERE_RESOLUTION = 8
+LARGE_NETWORK_PORES = 20000
+LARGE_NETWORK_SPHERE_RESOLUTION = 5
+
+# (invasion method id, legend label, RGB color)
+INVASION_METHOD_LEGEND = [
+    (PISTON_LIKE, "Piston-like", (200, 0, 0)),
+    (PORE_BODY_FILLING, "Pore body filling", (0, 200, 0)),
+    (SNAP_OFF, "Snap-off", (0, 0, 200)),
+]
+
+
+class _ExpandedColors:
+    """Reusable buffer spreading per element colors over the glyph/tube geometry.
+
+    The geometry never changes between steps, so the expansion index, the expanded buffer
+    and the VTK array wrapping it can all be kept. Rebuilding them per refresh allocated an
+    (n_glyph_points, 3) array and then deep copied it into VTK on every step change.
+    """
+
+    def __init__(self, index):
+        self._index = index
+        self._buffer = np.empty((index.size, 3), dtype=np.uint8)
+        self.vtk_array = numpy_to_vtk(self._buffer, deep=False, array_type=vtk.VTK_UNSIGNED_CHAR)
+        self.vtk_array.SetName("colors")
+
+    def update(self, element_colors):
+        np.take(element_colors, self._index, axis=0, out=self._buffer)
+        self.vtk_array.Modified()
+
+
+class DiagnosticsNetworkWidget(QtWidgets.QWidget):
+    poreClicked = QtCore.Signal(int)
+    throatClicked = QtCore.Signal(int)
+
+    def __init__(self, diagnostics_properties, parent=None):
+        super().__init__(parent)
+        self._diagnostics_properties = diagnostics_properties
+        # expanded colour buffers, built on the first refresh and reused afterwards
+        self._pore_colors = None
+        self._throat_colors = None
+
+        # Widgets
+        self.network_widget = QtWidgets.QWidget()
+        self.network_widget.setObjectName("network_widget")
+        self.network_widget.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+        self.network_widget.setVisible(False)  # Fixes _vtk_widget glitch at first show
+        self.first_show = True
+        network_layout = QtWidgets.QVBoxLayout(self.network_widget)
+
+        self.color_combo = QtWidgets.QComboBox()
+        self.color_combo.addItems(COLOR_MODES)
+        self.color_combo.currentTextChanged.connect(self._apply_color_mode)
+
+        self._invasion_legend = self._build_invasion_legend()
+        self._invasion_legend.setVisible(False)
+        self._invasion_legend.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed)
+
+        color_bar = QtWidgets.QHBoxLayout()
+        color_bar.addWidget(QtWidgets.QLabel("Color:"))
+        color_bar.addWidget(self.color_combo)
+        color_bar.addSpacing(12)
+        color_bar.addWidget(self._invasion_legend)
+        color_bar.addStretch()
+
+        layout = QtWidgets.QVBoxLayout(self)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.addWidget(self.network_widget)
+        layout.addLayout(color_bar)
+
+        # Vtk
+        network = self._diagnostics_properties
+        self._coords = network["pore.coords"]
+        self._pore_radii = network["pore.radius"]
+        self._throat_conns = network["throat.conns"]
+        throat_radii = network["throat.radius"]
+        self._throat_tube_radius = self._compute_tube_radius(throat_radii, self._pore_radii)
+
+        self._points = self._build_points(self._coords)
+        self._pore_actor = self._build_pores(self._points, self._pore_radii)
+        self._throat_actor = self._build_throats(self._points, self._throat_conns)
+        self._pore_highlight = self._make_pore_highlight_actor()
+        self._throat_highlight = self._make_throat_highlight_actor()
+
+        self._renderer = vtk.vtkRenderer()
+        self._renderer.SetBackground(1.0, 1.0, 1.0)
+        self._renderer.AddActor(self._pore_actor)
+        self._renderer.AddActor(self._throat_actor)
+        self._renderer.AddActor(self._pore_highlight)
+        self._renderer.AddActor(self._throat_highlight)
+
+        self._vtk_widget = QVTKRenderWindowInteractor()
+        self._vtk_widget.setObjectName("network_vtk_widget")
+        self._vtk_widget.GetRenderWindow().AddRenderer(self._renderer)
+        self._network_window = QtGui.QWindow.fromWinId(self._vtk_widget.winId())
+        self._network_window.setObjectName("network_window_widget")
+        self._network_container = QtWidgets.QWidget.createWindowContainer(self._network_window, self.network_widget)
+        self._network_container.setObjectName("network_container_widget")
+        self._network_container.setProperty("embeddedVtk", self._vtk_widget)
+        self._network_container.setAttribute(QtCore.Qt.WA_DontCreateNativeAncestors)
+        network_layout.addWidget(self._network_container)
+        self._vtk_widget.show()
+
+        self._picker = vtk.vtkCellPicker()
+        self._picker.SetTolerance(0.001)
+
+        self._style = vtk.vtkInteractorStyleTrackballCamera()
+        self._interactor = self._vtk_widget.GetRenderWindow().GetInteractor()
+        self._interactor.SetInteractorStyle(self._style)
+        self._interactor.SetPicker(self._picker)
+        self._vtk_widget.installEventFilter(self)  # Pick from the Qt mouse event delivered to the VTK widget
+
+        self._renderer.ResetCamera()
+        self._interactor.Initialize()
+
+    def eventFilter(self, obj, event):
+        if obj is self._vtk_widget and event.type() == QtCore.QEvent.MouseButtonPress:
+            if event.button() == QtCore.Qt.LeftButton:
+                self._pick_at_event(event)
+        return False
+
+    def showEvent(self, event: QtGui.QShowEvent):
+        if self.first_show:
+            self.network_widget.setVisible(True)  # Fixes _vtk_widget glitch at first show
+            self.first_show = False
+        super().showEvent(event)
+
+    @staticmethod
+    def _compute_tube_radius(throat_radii, pore_radii):
+        radius = float(np.median(throat_radii)) if throat_radii.size else 0.0
+        if not np.isfinite(radius) or radius <= 0:
+            radius = float(np.median(pore_radii)) * 0.25
+        return radius
+
+    @staticmethod
+    def _build_points(coords):
+        points = vtk.vtkPoints()
+        points.SetData(numpy_to_vtk(np.ascontiguousarray(coords, dtype=np.float64), deep=True))
+        return points
+
+    @staticmethod
+    def _sphere_resolution(n_pores):
+        if n_pores >= LARGE_NETWORK_PORES:
+            return LARGE_NETWORK_SPHERE_RESOLUTION
+        return PORE_SPHERE_RESOLUTION
+
+    def _build_pores(self, points, radii):
+        self._pore_colors = None
+
+        polydata = vtk.vtkPolyData()
+        polydata.SetPoints(points)
+
+        radius_array = numpy_to_vtk(np.ascontiguousarray(radii, dtype=np.float32), deep=True, array_type=vtk.VTK_FLOAT)
+        radius_array.SetName("radius")
+        polydata.GetPointData().SetScalars(radius_array)
+
+        resolution = self._sphere_resolution(len(radii))
+        sphere = vtk.vtkSphereSource()
+        sphere.SetRadius(1.0)
+        sphere.SetThetaResolution(resolution)
+        sphere.SetPhiResolution(resolution)
+
+        glyph = vtk.vtkGlyph3D()
+        glyph.SetSourceConnection(sphere.GetOutputPort())
+        glyph.SetInputData(polydata)
+        glyph.SetScaleModeToScaleByScalar()
+        glyph.SetScaleFactor(1.0)
+        glyph.GeneratePointIdsOn()
+        glyph.Update()
+
+        self._pore_polydata = vtk.vtkPolyData()
+        self._pore_polydata.DeepCopy(glyph.GetOutput())
+        self._pore_point_to_id = vtk_to_numpy(self._pore_polydata.GetPointData().GetArray(INPUT_POINT_IDS)).astype(int)
+
+        self._pore_mapper = vtk.vtkPolyDataMapper()
+        self._pore_mapper.SetInputData(self._pore_polydata)
+        self._pore_mapper.ScalarVisibilityOff()
+
+        actor = vtk.vtkActor()
+        actor.SetMapper(self._pore_mapper)
+        actor.GetProperty().SetColor(*PORE_COLOR)
+        return actor
+
+    def _build_throats(self, points, throat_conns):
+        self._throat_colors = None
+        self._throat_polydata = None
+        self._throat_mapper = None
+        self._throat_cell_to_id = None
+        if len(throat_conns) == 0:
+            return None
+
+        lines = vtk.vtkCellArray()
+        throat_ids = vtk.vtkIdTypeArray()
+        throat_ids.SetName(THROAT_IDS)
+        throat_ids.SetNumberOfComponents(1)
+        for throat_id, (pore_a, pore_b) in enumerate(throat_conns):
+            line = vtk.vtkLine()
+            line.GetPointIds().SetId(0, int(pore_a))
+            line.GetPointIds().SetId(1, int(pore_b))
+            lines.InsertNextCell(line)
+            throat_ids.InsertNextValue(throat_id)
+
+        polydata = vtk.vtkPolyData()
+        polydata.SetPoints(points)
+        polydata.SetLines(lines)
+        polydata.GetCellData().AddArray(throat_ids)
+
+        tube = vtk.vtkTubeFilter()
+        tube.SetInputData(polydata)
+        tube.SetRadius(self._throat_tube_radius)
+        tube.SetNumberOfSides(6)
+        tube.CappingOn()
+        tube.Update()
+
+        self._throat_polydata = vtk.vtkPolyData()
+        self._throat_polydata.DeepCopy(tube.GetOutput())
+        self._throat_cell_to_id = vtk_to_numpy(self._throat_polydata.GetCellData().GetArray(THROAT_IDS)).astype(int)
+
+        self._throat_mapper = vtk.vtkPolyDataMapper()
+        self._throat_mapper.SetInputData(self._throat_polydata)
+        self._throat_mapper.ScalarVisibilityOff()
+
+        actor = vtk.vtkActor()
+        actor.SetMapper(self._throat_mapper)
+        actor.GetProperty().SetColor(*THROAT_COLOR)
+        return actor
+
+    def _make_pore_highlight_actor(self):
+        self._pore_highlight_source = vtk.vtkSphereSource()
+        self._pore_highlight_source.SetThetaResolution(20)
+        self._pore_highlight_source.SetPhiResolution(20)
+
+        mapper = vtk.vtkPolyDataMapper()
+        mapper.SetInputConnection(self._pore_highlight_source.GetOutputPort())
+
+        actor = vtk.vtkActor()
+        actor.SetMapper(mapper)
+        actor.GetProperty().SetColor(*HIGHLIGHT_COLOR)
+        actor.GetProperty().SetOpacity(0.45)
+        actor.PickableOff()
+        actor.VisibilityOff()
+        return actor
+
+    def _make_throat_highlight_actor(self):
+        self._throat_highlight_points = vtk.vtkPoints()
+        self._throat_highlight_points.SetNumberOfPoints(2)
+        self._throat_highlight_points.SetPoint(0, 0.0, 0.0, 0.0)
+        self._throat_highlight_points.SetPoint(1, 0.0, 0.0, 0.0)
+
+        line = vtk.vtkLine()
+        line.GetPointIds().SetId(0, 0)
+        line.GetPointIds().SetId(1, 1)
+        lines = vtk.vtkCellArray()
+        lines.InsertNextCell(line)
+
+        polydata = vtk.vtkPolyData()
+        polydata.SetPoints(self._throat_highlight_points)
+        polydata.SetLines(lines)
+
+        tube = vtk.vtkTubeFilter()
+        tube.SetInputData(polydata)
+        tube.SetRadius(self._throat_tube_radius * 1.6)
+        tube.SetNumberOfSides(10)
+        tube.CappingOn()
+
+        mapper = vtk.vtkPolyDataMapper()
+        mapper.SetInputConnection(tube.GetOutputPort())
+
+        actor = vtk.vtkActor()
+        actor.SetMapper(mapper)
+        actor.GetProperty().SetColor(*HIGHLIGHT_COLOR)
+        actor.GetProperty().SetOpacity(0.55)
+        actor.PickableOff()
+        actor.VisibilityOff()
+        return actor
+
+    @staticmethod
+    def _build_invasion_legend():
+        legend = QtWidgets.QWidget()
+        legend_layout = QtWidgets.QHBoxLayout(legend)
+        legend_layout.setContentsMargins(0, 0, 0, 0)
+        legend_layout.setSpacing(4)
+        for _method, label, (r, g, b) in INVASION_METHOD_LEGEND:
+            swatch = QtWidgets.QLabel()
+            swatch.setFixedSize(14, 14)
+            swatch.setStyleSheet(f"background-color: rgb({r}, {g}, {b}); border: 1px solid #555;")
+            legend_layout.addWidget(swatch)
+            legend_layout.addWidget(QtWidgets.QLabel(label))
+            legend_layout.addSpacing(10)
+        return legend
+
+    def refresh_colors(self):
+        self._apply_color_mode(self.color_combo.currentText())
+
+    def _apply_color_mode(self, mode):
+        self._invasion_legend.setVisible(mode == COLOR_MODE_INVASION_METHOD)
+        if mode == COLOR_MODE_FILLING:
+            self._apply_element_colors(self._fill_colors)
+        elif mode == COLOR_MODE_WATER_CONDUCTIVITY:
+            self._apply_element_colors(self._water_conductivity_colors)
+        elif mode == COLOR_MODE_OIL_CONDUCTIVITY:
+            self._apply_element_colors(self._oil_conductivity_colors)
+        elif mode == COLOR_MODE_INVASION_METHOD:
+            self._apply_element_colors(self._invasion_method)
+        else:
+            self._pore_mapper.ScalarVisibilityOff()
+            if self._throat_mapper is not None:
+                self._throat_mapper.ScalarVisibilityOff()
+        self._vtk_widget.GetRenderWindow().Render()
+
+    def _apply_element_colors(self, color_func):
+        network = self._diagnostics_properties
+
+        if self._pore_colors is None:
+            self._pore_colors = _ExpandedColors(self._pore_point_to_id)
+        self._pore_colors.update(color_func(network, "pore"))
+        self._set_point_colors(self._pore_polydata, self._pore_mapper, self._pore_colors)
+
+        if self._throat_mapper is not None:
+            if self._throat_colors is None:
+                self._throat_colors = _ExpandedColors(self._throat_cell_to_id)
+            self._throat_colors.update(color_func(network, "throat"))
+            self._set_cell_colors(self._throat_polydata, self._throat_mapper, self._throat_colors)
+
+    @staticmethod
+    def _fill_colors(network, element_type):
+        filled = network[f"{element_type}.water_filled"]
+        ws = np.clip(network[f"{element_type}.water_saturation"], 0.0, 1.0)
+
+        colors = np.zeros((filled.size, 3), dtype=np.uint8)
+        colors[filled, 2] = (255 * ws[filled]).astype(np.uint8)  # blue channel
+        not_filled = ~filled
+        colors[not_filled, 0] = (255 * (1.0 - ws[not_filled])).astype(np.uint8)  # red channel
+        return colors
+
+    @classmethod
+    def _water_conductivity_colors(cls, network, element_type):
+        return cls._conductivity_ratio_colors(network, element_type, "water", BLUE_CHANNEL)
+
+    @classmethod
+    def _oil_conductivity_colors(cls, network, element_type):
+        return cls._conductivity_ratio_colors(network, element_type, "oil", RED_CHANNEL)
+
+    @classmethod
+    def _invasion_method(cls, network, element_type):
+        filled = np.asarray(network[f"{element_type}.filled"], dtype=bool).ravel()
+        invasion_method = np.asarray(network[f"{element_type}.invasion_method"], dtype=int).ravel()
+        colors = np.zeros((invasion_method.size, 3), dtype=np.uint8)
+
+        for method, _label, rgb in INVASION_METHOD_LEGEND:
+            colors[filled & (invasion_method == method)] = rgb
+        return colors
+
+    @staticmethod
+    def _conductivity_ratio_colors(network, element_type, phase, channel):
+        multiphase = network[f"{element_type}.{phase}_multiphase_conductivity"]
+        singlephase = network[f"{element_type}.{phase}_singlephase_conductivity"]
+
+        with np.errstate(divide="ignore", invalid="ignore"):
+            ratio = np.where(singlephase > 0, multiphase / singlephase, 0.0)
+        ratio = np.clip(ratio, 0.0, 1.0)
+
+        colors = np.zeros((ratio.size, 3), dtype=np.uint8)
+        colors[:, channel] = (255 * ratio).astype(np.uint8)
+        return colors
+
+    @staticmethod
+    def _set_point_colors(polydata, mapper, colors):
+        polydata.GetPointData().SetScalars(colors.vtk_array)
+        mapper.SetScalarModeToUsePointData()
+        mapper.SetColorModeToDirectScalars()
+        mapper.ScalarVisibilityOn()
+
+    @staticmethod
+    def _set_cell_colors(polydata, mapper, colors):
+        polydata.GetCellData().SetScalars(colors.vtk_array)
+        mapper.SetScalarModeToUseCellData()
+        mapper.SetColorModeToDirectScalars()
+        mapper.ScalarVisibilityOn()
+
+    def _pick_at_event(self, event):
+        # Convert the Qt click (widget-local, top-left origin, logical px) to VTK display space
+        # (bottom-left origin, physical px), flipping against the render window's own height.
+        render_window = self._vtk_widget.GetRenderWindow()
+        _, height = render_window.GetSize()
+        ratio = self._vtk_widget.devicePixelRatioF()
+        x = event.x() * ratio
+        y = height - event.y() * ratio - 1
+
+        self._picker.Pick(x, y, 0, self._renderer)
+        if self._picker.GetCellId() < 0:
+            return
+
+        actor = self._picker.GetActor()
+        if actor is self._pore_actor:
+            self._pick_pore()
+        elif actor is self._throat_actor:
+            self._pick_throat()
+
+    def _pick_pore(self):
+        point_id = self._picker.GetPointId()
+        if not (0 <= point_id < self._pore_point_to_id.size):
+            return
+        pore_id = int(self._pore_point_to_id[point_id])
+        self.highlight_pore(pore_id)
+        self.poreClicked.emit(pore_id)
+
+    def _pick_throat(self):
+        cell_id = self._picker.GetCellId()
+        if self._throat_cell_to_id is None or not (0 <= cell_id < self._throat_cell_to_id.size):
+            return
+        throat_id = int(self._throat_cell_to_id[cell_id])
+        self.highlight_throat(throat_id)
+        self.throatClicked.emit(throat_id)
+
+    def highlight_pore(self, pore_id):
+        if not (0 <= pore_id < len(self._coords)):
+            return
+        x, y, z = self._coords[pore_id]
+        self._pore_highlight_source.SetCenter(x, y, z)
+        self._pore_highlight_source.SetRadius(self._highlight_radius(pore_id))
+        self._throat_highlight.VisibilityOff()
+        self._pore_highlight.VisibilityOn()
+        self._vtk_widget.GetRenderWindow().Render()
+
+    def highlight_throat(self, throat_id):
+        if not (0 <= throat_id < len(self._throat_conns)):
+            return
+        pore_a, pore_b = self._throat_conns[throat_id]
+        self._throat_highlight_points.SetPoint(0, *self._coords[int(pore_a)])
+        self._throat_highlight_points.SetPoint(1, *self._coords[int(pore_b)])
+        self._throat_highlight_points.Modified()
+        self._pore_highlight.VisibilityOff()
+        self._throat_highlight.VisibilityOn()
+        self._vtk_widget.GetRenderWindow().Render()
+
+    def _highlight_radius(self, pore_id):
+        r = float(self._pore_radii[pore_id]) if pore_id < self._pore_radii.size else 0.0
+        return r * 1.25 if r > 0 else float(np.median(self._pore_radii)) * 1.25

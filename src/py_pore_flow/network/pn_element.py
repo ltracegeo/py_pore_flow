@@ -135,12 +135,6 @@ class PnElement(ABC):
     def set_trapped(self, id, trapped):
         self.element.trapped[id] = trapped
 
-    def set_oil_filled(self, id, oil_filled):
-        self.element.oil_filled[id] = oil_filled
-
-    def set_water_filled(self, id, water_filled):
-        self.element.water_filled[id] = water_filled
-
     def set_snap_off_viability(self, id, snap_off_viability):
         self.element.snap_off_viability[id] = snap_off_viability
 
@@ -184,6 +178,7 @@ class PnElement(ABC):
             self.set_water_filled(id, filled)
         else:
             self.set_oil_filled(id, filled)
+        self.element.filled[id] = filled
 
     def is_filled(self, id, phase):
         if phase == WATER:
