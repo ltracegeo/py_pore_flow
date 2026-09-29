@@ -250,7 +250,7 @@ class AggregateDiagnosticsWriter:
 
     # ------------------------------------------------------------------ writing
 
-    def save_state(self, pc=np.nan, sw=np.nan):
+    def save_state(self, pc=np.nan, sw=np.nan, krw=np.nan, kro=np.nan):
         self._n_saved_states += 1
         self._step_scalars.append((pc, sw))
         for element_type, storer in self._spools.items():

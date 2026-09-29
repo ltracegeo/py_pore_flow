@@ -921,7 +921,7 @@ class StepSimulation:
         pores_filled, total_pores, percentage = self.simulation.get_oil_filled_percentage()
 
         if self.diagnostics_writer is not None:
-            self.diagnostics_writer.save_state(self.current_pc, Sw)
+            self.diagnostics_writer.save_state(self.current_pc, Sw, Krw, Kro)
         return self.current_pc, Sw, Krw, Kro, pores_filled, total_pores, percentage
 
     def get_pores_left(self):
