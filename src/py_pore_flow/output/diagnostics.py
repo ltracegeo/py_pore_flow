@@ -472,28 +472,6 @@ class ChunkedRows:
         self.shape = (0, self.shape[1])
 
 
-def open_chunks(path, name, n_elements, n_data, dtype, item_shape=()):
-    """Open every chunk file of a storer as a memmap, wrapped in a ChunkedRows."""
-    chunk_regex = re.compile(rf"^diagnostics_{re.escape(name)}_(\d+){re.escape(FILE_EXTENSION)}$")
-    chunks = []
-    for file_name in os.listdir(path):
-        match = chunk_regex.match(file_name)
-        if match:
-            chunks.append((int(match.group(1)), os.path.join(path, file_name)))
-    chunk_paths = [chunk_path for _, chunk_path in sorted(chunks)]
-
-    cols = n_elements * n_data * int(np.prod(item_shape, dtype=int))
-    itemsize = np.dtype(dtype).itemsize
-
-    arrays = []
-    for chunk_path in chunk_paths:
-        n_rows = os.path.getsize(chunk_path) // (cols * itemsize)
-        if n_rows > 0:
-            arrays.append(np.memmap(chunk_path, dtype=dtype, mode="r", shape=(n_rows, cols)))
-
-    return ChunkedRows(arrays, cols, dtype)
-
-
 class DiagnosticsFileCache:
     """Opens the chunk files of each storer once per Diagnostics instance.
 
@@ -509,7 +487,7 @@ class DiagnosticsFileCache:
     def rows(self, name, n_elements, n_data, dtype, item_shape=()):
         rows = self._rows.get(name)
         if rows is None:
-            rows = open_chunks(self.path, name, n_elements, n_data, dtype, item_shape)
+            rows = self._open_chunks(self.path, name, n_elements, n_data, dtype, item_shape)
             self._rows[name] = rows
         return rows
 
@@ -517,6 +495,28 @@ class DiagnosticsFileCache:
         for rows in self._rows.values():
             rows.close()
         self._rows.clear()
+
+    @staticmethod
+    def _open_chunks(path, name, n_elements, n_data, dtype, item_shape=()):
+        """Open every chunk file of a storer as a memmap, wrapped in a ChunkedRows."""
+        chunk_regex = re.compile(rf"^diagnostics_{re.escape(name)}_(\d+){re.escape(FILE_EXTENSION)}$")
+        chunks = []
+        for file_name in os.listdir(path):
+            match = chunk_regex.match(file_name)
+            if match:
+                chunks.append((int(match.group(1)), os.path.join(path, file_name)))
+        chunk_paths = [chunk_path for _, chunk_path in sorted(chunks)]
+
+        cols = n_elements * n_data * int(np.prod(item_shape, dtype=int))
+        itemsize = np.dtype(dtype).itemsize
+
+        arrays = []
+        for chunk_path in chunk_paths:
+            n_rows = os.path.getsize(chunk_path) // (cols * itemsize)
+            if n_rows > 0:
+                arrays.append(np.memmap(chunk_path, dtype=dtype, mode="r", shape=(n_rows, cols)))
+
+        return ChunkedRows(arrays, cols, dtype)
 
 
 # read diagnossis data related to a single simulation step

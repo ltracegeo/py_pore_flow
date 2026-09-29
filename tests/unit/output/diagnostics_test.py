@@ -14,6 +14,7 @@ from py_pore_flow.output.diagnostics import (
     CORNER_SHAPE,
     STEP_SCALAR_NAMES,
     Diagnostics,
+    DiagnosticsFileCache,
     DiagnosticsInfo,
     DiagnosticsStateLoader,
     DiagnosticsStorer,
@@ -22,7 +23,6 @@ from py_pore_flow.output.diagnostics import (
     NETWORK_ARRAYS_NAME,
     THROATS_FLOATS_NAME,
     THROATS_FLOATS_NDATA,
-    open_chunks,
 )
 from py_pore_flow.parameters.parameter_manager import ParameterManager
 from py_pore_flow.simulation.simulation import calculate_initial_values
@@ -344,7 +344,9 @@ class DiagnosticsTests(unittest.TestCase):
             [np.fromfile(path, dtype=np.float64).reshape(-1, cols) for path in chunk_paths], axis=0
         )
 
-        rows = open_chunks(self.path, THROATS_FLOATS_NAME, self.n_throats, THROATS_FLOATS_NDATA, np.float64)
+        rows = DiagnosticsFileCache(self.path).rows(
+            THROATS_FLOATS_NAME, self.n_throats, THROATS_FLOATS_NDATA, np.float64
+        )
         self.assertEqual(rows.shape, concatenated.shape)
         for step in range(concatenated.shape[0]):
             assert_array_equal(rows[step], concatenated[step])
