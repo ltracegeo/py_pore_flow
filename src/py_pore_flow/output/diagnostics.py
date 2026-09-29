@@ -2,6 +2,7 @@ import json
 import os
 import re
 
+import dask.array as da
 import numpy as np
 
 from py_pore_flow.equations.geometry import MAX_NUMBER_OF_CORNERS
@@ -428,50 +429,6 @@ class DiagnosticsInfo:
         self.n_cycles = len(self.cycle_n_steps)
 
 
-class ChunkedRows:
-    """Row addressable, lazy view over the ordered chunk files of a single storer.
-
-    Replaces the np.concatenate the loader used to do when a run spans more than one chunk:
-    that copied every step of every element into RAM on *each* property read, and a run
-    longer than one chunk is the normal case.
-    """
-
-    __slots__ = ("_chunks", "_starts", "shape", "dtype")
-
-    def __init__(self, chunks, n_cols, dtype):
-        self._chunks = [chunk for chunk in chunks if chunk.shape[0] > 0]
-        starts = [0]
-        for chunk in self._chunks:
-            starts.append(starts[-1] + chunk.shape[0])
-        self._starts = np.array(starts, dtype=np.int64)
-        self.shape = (int(self._starts[-1]), int(n_cols))
-        self.dtype = np.dtype(dtype)
-
-    def __len__(self):
-        return self.shape[0]
-
-    def __getitem__(self, key):
-        if isinstance(key, tuple):
-            row = self._row(key[0])
-            rest = key[1:]
-            return row[rest[0]] if len(rest) == 1 else row[rest]
-        return self._row(key)
-
-    def _row(self, step):
-        step = int(step)
-        if step < 0:
-            step += self.shape[0]
-        if not 0 <= step < self.shape[0]:
-            raise IndexError(f"step {step} is out of range for {self.shape[0]} saved steps")
-        chunk_index = int(np.searchsorted(self._starts, step, side="right")) - 1
-        return self._chunks[chunk_index][step - int(self._starts[chunk_index])]
-
-    def close(self):
-        self._chunks = []
-        self._starts = np.zeros(1, dtype=np.int64)
-        self.shape = (0, self.shape[1])
-
-
 class DiagnosticsFileCache:
     """Opens the chunk files of each storer once per Diagnostics instance.
 
@@ -492,8 +449,6 @@ class DiagnosticsFileCache:
         return rows
 
     def close(self):
-        for rows in self._rows.values():
-            rows.close()
         self._rows.clear()
 
     @staticmethod
@@ -516,7 +471,10 @@ class DiagnosticsFileCache:
             if n_rows > 0:
                 arrays.append(np.memmap(chunk_path, dtype=dtype, mode="r", shape=(n_rows, cols)))
 
-        return ChunkedRows(arrays, cols, dtype)
+        if len(arrays) > 0:
+            return da.concatenate([da.from_array(a) for a in arrays], axis=0)
+        else:
+            return da.from_array(np.empty((0, cols), dtype=dtype))
 
 
 # read diagnossis data related to a single simulation step
@@ -536,7 +494,7 @@ class DiagnosticsStateLoader:
     def data_view(self, data, index, item_shape=()):
         item_size = int(np.prod(item_shape, dtype=int))
         block = self.n_elements * item_size
-        flat = data[self.step, index * block : (index + 1) * block]
+        flat = data[self.step, index * block : (index + 1) * block].compute()
         return flat.reshape((self.n_elements, *item_shape))
 
     @staticmethod

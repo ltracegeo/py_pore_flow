@@ -543,7 +543,7 @@ class _SpoolReader:
 
     def values(self, name, step):
         position = self._index[name]
-        return self._rows[step, position * self._n_elements : (position + 1) * self._n_elements]
+        return self._rows[step, position * self._n_elements : (position + 1) * self._n_elements].compute()
 
 
 class DiagnosticsAggregates:

@@ -349,8 +349,8 @@ class DiagnosticsTests(unittest.TestCase):
         )
         self.assertEqual(rows.shape, concatenated.shape)
         for step in range(concatenated.shape[0]):
-            assert_array_equal(rows[step], concatenated[step])
-            assert_array_equal(rows[step, 0 : self.n_throats], concatenated[step, 0 : self.n_throats])
+            assert_array_equal(rows[step].compute(), concatenated[step])
+            assert_array_equal(rows[step, 0 : self.n_throats].compute(), concatenated[step, 0 : self.n_throats])
 
     def test_chunk_files_are_opened_once_per_storer(self):
         # Regression guard for the read path: every property read used to rescan the whole
