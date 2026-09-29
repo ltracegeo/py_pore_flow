@@ -10,7 +10,7 @@ from py_pore_flow.equations.geometry import MAX_NUMBER_OF_CORNERS
 FILE_EXTENSION = ".dat"
 INFO_FILE_NAME = "info"
 STEP_SCALARS_NAME = "step_scalars"
-STEP_SCALARS_NDATA = 2
+STEP_SCALARS_NDATA = 4
 
 # simulation wide scalars saved once per step, in the order they are written. They are what
 # lets the heatmap put something other than the step index on its X axis.
@@ -221,9 +221,9 @@ class DiagnosticsWriter:
         self._export_pn(network.pn, path)
 
     # stores elements properties of a single step
-    def save_state(self, pc=np.nan, sw=np.nan):
+    def save_state(self, pc=np.nan, sw=np.nan, krw=np.nan, kro=np.nan):
         self.n_saved_sates += 1
-        self.step_scalars_storer.save_state([pc, sw])
+        self.step_scalars_storer.save_state([pc, sw, krw, kro])
 
         throat = self.pn.throat
         pore = self.pn.pore
@@ -592,6 +592,8 @@ class DiagnosticsScalarsStep(DiagnosticsStateLoader):
         floats = self.load_state(STEP_SCALARS_NAME, STEP_SCALARS_NDATA, np.float64)
         self.pc = self.data_view(floats, 0)[0]
         self.sw = self.data_view(floats, 1)[0]
+        self.krw = self.data_view(floats, 2)[0]
+        self.kro = self.data_view(floats, 3)[0]
 
     def __str__(self):
         return f"DiagnosticsScalarsStep (step: {self.step} - pc: {self.pc},  sw: {self.sw})"
@@ -706,6 +708,8 @@ class DiagnosticsScalarsCycle(DiagnosticsStateLoader):
 
         self.pc = scalar_floats[cycle_offset:cycle_offset_end, 0]
         self.sw = scalar_floats[cycle_offset:cycle_offset_end, 1]
+        self.krw = scalar_floats[cycle_offset:cycle_offset_end, 2]
+        self.kro = scalar_floats[cycle_offset:cycle_offset_end, 3]
 
     def __str__(self):
         return f"DiagnosticsScalarsCycle (cycle: {self.step})"
@@ -725,6 +729,14 @@ class DiagnosticsCycleStep:
     @property
     def sw(self):
         return self.scalars.sw
+
+    @property
+    def krw(self):
+        return self.scalars.krw
+
+    @property
+    def kro(self):
+        return self.scalars.kro
 
     def __str__(self):
         return f"DiagnosticsCycleStep (step: {self.step})"
@@ -750,6 +762,14 @@ class DiagnosticsCycle:
     @property
     def sw(self):
         return self.scalars.sw
+
+    @property
+    def krw(self):
+        return self.scalars.krw
+
+    @property
+    def kro(self):
+        return self.scalars.kro
 
     # get data for a single step
     def __getitem__(self, step):
