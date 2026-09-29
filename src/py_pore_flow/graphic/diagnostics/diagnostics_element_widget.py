@@ -55,6 +55,9 @@ class DiagnosticsElementWidget(QtWidgets.QFrame):
         self.step_input.valueChanged.connect(self._on_step_changed)
 
         self.status_label = QtWidgets.QLabel()
+        font = QtGui.QFont("Courier New")
+        font.setStyleHint(QtGui.QFont.Monospace)
+        self.status_label.setFont(font)
 
         element_selection_layout = QtWidgets.QHBoxLayout()
         element_selection_layout.addWidget(self.element_type_combobox)
@@ -166,8 +169,14 @@ class DiagnosticsElementWidget(QtWidgets.QFrame):
         if n_steps > 0:
             self._diagnostics_properties.set_step(step)
 
+        pc = self._diagnostics.cycle[cycle_id][step].pc
+        sw = self._diagnostics.cycle[cycle_id][step].sw
+        krw = self._diagnostics.cycle[cycle_id][step].krw
+        kro = self._diagnostics.cycle[cycle_id][step].kro
         self.element_widget.update()
-        self.status_label.setText(f"{self.cycle_combobox.currentText()} — step {step} / {max(0, n_steps - 1)}")
+        self.status_label.setText(
+            f"{self.cycle_combobox.currentText()}: step {step:3} / {max(0, n_steps - 1)} - Pc: {pc:.2f}, Sw: {sw:.2f}, Krw: {krw:.2f}, Kro: {kro:.2f}"
+        )
         self.networkChanged.emit()
 
 
