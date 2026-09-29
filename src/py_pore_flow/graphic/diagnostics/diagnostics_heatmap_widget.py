@@ -18,8 +18,10 @@ AGG_SUM = "sum"
 NO_BIN_VALUE = 0
 
 X_AXIS_STEP = "step"
+X_AXIS_PC = "pc"
+X_AXIS_SW = "sw"
 # label -> name of the per step simulation scalar the diagnostics stored
-X_AXIS_SOURCES = {"capillary pressure (Pc)": "pc", "water saturation (Sw)": "sw"}
+X_AXIS_SOURCES = {"capillary pressure (Pc)": X_AXIS_PC, "water saturation (Sw)": X_AXIS_SW}
 X_AXIS_LABELS = [X_AXIS_STEP] + list(X_AXIS_SOURCES)
 
 
@@ -215,8 +217,14 @@ class HeatmapWidget(QtWidgets.QWidget):
         if source is None:
             return None
 
-        reader = self._aggregates if self._aggregates is not None else self._diagnostics
-        values = reader.step_axis(cycle_id, source)
+        if self._aggregates is not None:
+            values = self._aggregates.step_axis(cycle_id, source)
+        else:
+            if source == X_AXIS_PC:
+                values = self._diagnostics.cycle[cycle_id].pc
+            else:
+                values = self._diagnostics.cycle[cycle_id].sw
+
         if values is None or not np.isfinite(values).any():
             return None
         return np.asarray(values, dtype=float)

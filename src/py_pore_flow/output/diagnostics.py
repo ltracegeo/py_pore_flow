@@ -9,7 +9,8 @@ from py_pore_flow.equations.geometry import MAX_NUMBER_OF_CORNERS
 
 FILE_EXTENSION = ".dat"
 INFO_FILE_NAME = "info"
-STEP_SCALARS_FILE_NAME = "step_scalars"
+STEP_SCALARS_NAME = "step_scalars"
+STEP_SCALARS_NDATA = 2
 
 # simulation wide scalars saved once per step, in the order they are written. They are what
 # lets the heatmap put something other than the step index on its X axis.
@@ -178,7 +179,7 @@ class DiagnosticsWriter:
 
         self.info_storer = DiagnosticsInfoStorer(path)
         self.info_storer.save_number_of_elements(n_throats, n_pores)
-        self.step_scalars_storer = DiagnosticsStepScalarsStorer(path)
+        self.step_scalars_storer = DiagnosticsStorer(STEP_SCALARS_NAME, 1, STEP_SCALARS_NDATA, np.float64, path)
         self.storer_throats_floats = DiagnosticsStorer(
             THROATS_FLOATS_NAME, n_throats, THROATS_FLOATS_NDATA, np.float64, path
         )
@@ -222,7 +223,7 @@ class DiagnosticsWriter:
     # stores elements properties of a single step
     def save_state(self, pc=np.nan, sw=np.nan):
         self.n_saved_sates += 1
-        self.step_scalars_storer.save_state((pc, sw))
+        self.step_scalars_storer.save_state([pc, sw])
 
         throat = self.pn.throat
         pore = self.pn.pore
@@ -279,6 +280,7 @@ class DiagnosticsWriter:
         self.storer_pores_cycle_ints.save_state([pore.invasion_method])
 
     def close(self):
+        self.step_scalars_storer.close()
         self.storer_throats_floats.close()
         self.storer_throats_bools.close()
         self.storer_throats_corners_bool.close()
@@ -392,19 +394,6 @@ class DiagnosticsStorer:
         truncated_size = self._step * self._row_width * np.dtype(self._dtype).itemsize
         with open(path, "r+b") as f:
             f.truncate(truncated_size)
-
-
-class DiagnosticsStepScalarsStorer:
-    """Appends the simulation scalars of one step. Two floats a step, so no chunking."""
-
-    def __init__(self, path="."):
-        self._path = os.path.join(path, STEP_SCALARS_FILE_NAME + FILE_EXTENSION)
-        with open(self._path, "wb"):
-            pass
-
-    def save_state(self, values):
-        with open(self._path, "ab") as file:
-            np.asarray(values, dtype=np.float64).tofile(file)
 
 
 class DiagnosticsInfoStorer:
@@ -582,7 +571,6 @@ class DiagnosticsStateLoader:
         self.path = path
         self.step = step
         self.n_elements = n_elements
-        # a standalone loader still works, it just gets a cache of its own
         self._cache = cache if cache is not None else DiagnosticsFileCache(path)
 
     # return a lazy row view over the chunk files of a "saved state" storer
@@ -596,9 +584,17 @@ class DiagnosticsStateLoader:
         flat = data[self.step, index * block : (index + 1) * block]
         return flat.reshape((self.n_elements, *item_shape))
 
-    @staticmethod
-    def _load_state(path, name, n_elements, n_data, dtype, item_shape=()):
-        return open_chunks(path, name, n_elements, n_data, dtype, item_shape)
+
+class DiagnosticsScalarsStep(DiagnosticsStateLoader):
+    def __init__(self, path, step, cache=None):
+        super().__init__(path, step, 1, cache)
+
+        floats = self.load_state(STEP_SCALARS_NAME, STEP_SCALARS_NDATA, np.float64)
+        self.pc = self.data_view(floats, 0)[0]
+        self.sw = self.data_view(floats, 1)[0]
+
+    def __str__(self):
+        return f"DiagnosticsScalarsStep (step: {self.step} - pc: {self.pc},  sw: {self.sw})"
 
 
 class DiagnosticsThroatsStep(DiagnosticsStateLoader):
@@ -701,11 +697,34 @@ class DiagnosticsPoreCycle(DiagnosticsStateLoader):
         return f"DiagnosticsPoreCycle (cycle: {self.step}, pores: {self.n_elements})"
 
 
+class DiagnosticsScalarsCycle(DiagnosticsStateLoader):
+    def __init__(self, path, cycle_offset: int, cycle_n_steps: int, cache=None):
+        super().__init__(path, 0, 1, cache)
+
+        cycle_offset_end = cycle_offset + cycle_n_steps
+        scalar_floats = self.load_state(STEP_SCALARS_NAME, STEP_SCALARS_NDATA, np.float64)
+
+        self.pc = scalar_floats[cycle_offset:cycle_offset_end, 0]
+        self.sw = scalar_floats[cycle_offset:cycle_offset_end, 1]
+
+    def __str__(self):
+        return f"DiagnosticsScalarsCycle (cycle: {self.step})"
+
+
 class DiagnosticsCycleStep:
     def __init__(self, path, step, n_throats, n_pores, cache=None):
         self.step = step
+        self.scalars = DiagnosticsScalarsStep(path, step, cache)
         self.throat = DiagnosticsThroatsStep(path, step, n_throats, cache)
         self.pore = DiagnosticsPoresStep(path, step, n_pores, cache)
+
+    @property
+    def pc(self):
+        return self.scalars.pc
+
+    @property
+    def sw(self):
+        return self.scalars.sw
 
     def __str__(self):
         return f"DiagnosticsCycleStep (step: {self.step})"
@@ -713,14 +732,24 @@ class DiagnosticsCycleStep:
 
 class DiagnosticsCycle:
     def __init__(self, path, cycle, info: DiagnosticsInfo, cache=None):
-        self.path = path
-        self.cycle = cycle
-        self.info = info
         self._cache = cache
         self._steps = {}
         self._step_offset = sum(info.cycle_n_steps.get(c, 0) for c in range(cycle))
+
+        self.path = path
+        self.cycle = cycle
+        self.info = info
         self.throat = DiagnosticsThroatCycle(self.path, self.cycle, self.info.n_throats, cache)
         self.pore = DiagnosticsPoreCycle(self.path, self.cycle, self.info.n_pores, cache)
+        self.scalars = DiagnosticsScalarsCycle(self.path, self._step_offset, info.cycle_n_steps[cycle], cache)
+
+    @property
+    def pc(self):
+        return self.scalars.pc
+
+    @property
+    def sw(self):
+        return self.scalars.sw
 
     # get data for a single step
     def __getitem__(self, step):
@@ -769,8 +798,10 @@ class DiagnosticsCycles:
 
 # read diagnostics files
 # usage:
+#   diagnostics.cycle[cycle_id][step].pc
 #   diagnostics.cycle[cycle_id][step].pore.water_saturation[pore_id]
 #   diagnostics.cycle[cycle_id].throat.water_saturation[throat_id]
+#   diagnostics.cycle[cycle_id].pc
 class Diagnostics:
     DRAINAGE = 0
     IMBIBITION = 1
@@ -782,38 +813,6 @@ class Diagnostics:
         self._cache = DiagnosticsFileCache(path)
         self.cycle = DiagnosticsCycles(path, self.info, self._cache)
         self._network = None
-        self._step_scalars = None
-
-    @property
-    def step_scalars(self):
-        """(n_steps, len(STEP_SCALAR_NAMES)) of the simulation scalars, read on first use."""
-        if self._step_scalars is None:
-            self._step_scalars = self._load_step_scalars(self.path)
-        return self._step_scalars
-
-    def step_axis(self, cycle, name):
-        """Per step values of a simulation scalar over one cycle, or None when not saved.
-
-        Diagnostics written before the scalars were recorded simply have no file.
-        """
-        if name not in STEP_SCALAR_NAMES:
-            return None
-
-        scalars = self.step_scalars
-        if scalars.size == 0:
-            return None
-
-        offset = sum(self.info.cycle_n_steps.get(c, 0) for c in range(cycle))
-        n_steps = self.info.cycle_n_steps.get(cycle, 0)
-        values = scalars[offset : offset + n_steps, STEP_SCALAR_NAMES.index(name)]
-        return values if values.size else None
-
-    @staticmethod
-    def _load_step_scalars(path):
-        file_path = os.path.join(path, STEP_SCALARS_FILE_NAME + FILE_EXTENSION)
-        if not os.path.exists(file_path):
-            return np.empty((0, len(STEP_SCALAR_NAMES)), dtype=np.float64)
-        return np.fromfile(file_path, dtype=np.float64).reshape(-1, len(STEP_SCALAR_NAMES))
 
     @property
     def network(self):
@@ -847,7 +846,6 @@ class Diagnostics:
         self._cache.close()
         self.cycle = DiagnosticsCycles(self.path, self.info, self._cache)
         self._network = None
-        self._step_scalars = None
 
     @property
     def drainage(self):

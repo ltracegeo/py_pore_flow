@@ -12,7 +12,7 @@ from numpy.testing import assert_array_equal
 from py_pore_flow.network.network import initialize_pn, NetworkManager, PoreNetwork
 from py_pore_flow.output.diagnostics import (
     CORNER_SHAPE,
-    STEP_SCALAR_NAMES,
+    STEP_SCALARS_NAME,
     ConcatenatedMemMaps,
     Diagnostics,
     DiagnosticsFileCache,
@@ -407,24 +407,44 @@ class DiagnosticsTests(unittest.TestCase):
         self._write(cycles, chunk_size=3)
 
         diagnostics = Diagnostics(self.path)
-        self.assertEqual(diagnostics.step_scalars.shape, (sum(cycles), len(STEP_SCALAR_NAMES)))
+
+        offset = 0
+        for cycle, n_steps in enumerate(cycles):
+            for step in range(n_steps):
+                self.assertEqual(diagnostics.cycle[cycle][step].pc, step_pc(offset + step))
+                self.assertEqual(diagnostics.cycle[cycle][step].sw, step_sw(offset + step))
+            offset += n_steps
+
+    def test_step_scalars_of_a_cycle_cover_only_that_cycle(self):
+        # they are stored as one flat run over the whole simulation, so a cycle that took
+        # the lot would put every other cycle's steps on the heatmap X axis
+        cycles = [4, 5]
+        self._write(cycles, chunk_size=3)
+
+        diagnostics = Diagnostics(self.path)
 
         offset = 0
         for cycle, n_steps in enumerate(cycles):
             expected_pc = [step_pc(offset + step) for step in range(n_steps)]
             expected_sw = [step_sw(offset + step) for step in range(n_steps)]
-            assert_array_equal(diagnostics.step_axis(cycle, "pc"), expected_pc)
-            assert_array_equal(diagnostics.step_axis(cycle, "sw"), expected_sw)
+            assert_array_equal(diagnostics.cycle[cycle].pc, expected_pc)
+            assert_array_equal(diagnostics.cycle[cycle].sw, expected_sw)
             offset += n_steps
 
     def test_step_scalars_are_absent_from_diagnostics_that_predate_them(self):
+        # those dumps carry no chunk for the scalars at all, and every other property of
+        # theirs still has to read
         self._write([3], chunk_size=100)
-        os.remove(os.path.join(self.path, "step_scalars" + FILE_EXTENSION))
+        for chunk_path in self._chunk_paths(STEP_SCALARS_NAME):
+            os.remove(chunk_path)
 
         diagnostics = Diagnostics(self.path)
-        self.assertEqual(diagnostics.step_scalars.size, 0)
-        self.assertIsNone(diagnostics.step_axis(0, "pc"))
-        self.assertIsNone(diagnostics.step_axis(0, "not_a_scalar"))
+
+        self.assertEqual(diagnostics.cycle[0].pc.size, 0)
+        self.assertEqual(diagnostics.cycle[0].sw.size, 0)
+        self.assertTrue(np.isnan(diagnostics.cycle[0][0].pc))
+        self.assertTrue(np.isnan(diagnostics.cycle[0][0].sw))
+        self.assertEqual(diagnostics.cycle[0][0].throat.water_saturation.size, self.n_throats)
 
     def test_close_releases_the_chunk_files(self):
         # the viewer has to let the mappings go: on Windows they lock the files, and the
