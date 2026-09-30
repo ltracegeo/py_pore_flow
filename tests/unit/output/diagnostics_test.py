@@ -13,6 +13,7 @@ from py_pore_flow.network.network import initialize_pn, NetworkManager, PoreNetw
 from py_pore_flow.output.diagnostics import (
     CORNER_SHAPE,
     STEP_SCALAR_NAMES,
+    ConcatenatedMemMaps,
     Diagnostics,
     DiagnosticsFileCache,
     DiagnosticsInfo,
@@ -349,8 +350,8 @@ class DiagnosticsTests(unittest.TestCase):
         )
         self.assertEqual(rows.shape, concatenated.shape)
         for step in range(concatenated.shape[0]):
-            assert_array_equal(rows[step].compute(), concatenated[step])
-            assert_array_equal(rows[step, 0 : self.n_throats].compute(), concatenated[step, 0 : self.n_throats])
+            assert_array_equal(rows[step], concatenated[step])
+            assert_array_equal(rows[step, 0 : self.n_throats], concatenated[step, 0 : self.n_throats])
 
     def test_chunk_files_are_opened_once_per_storer(self):
         # Regression guard for the read path: every property read used to rescan the whole
@@ -437,6 +438,92 @@ class DiagnosticsTests(unittest.TestCase):
 
         shutil.rmtree(self.path)
         self.assertFalse(os.path.exists(self.path))
+
+
+# chunk row counts of the pieces a ConcatenatedMemMaps is built from: uneven on purpose, so
+# a boundary falls in the middle of the slices the tests take
+CONCATENATED_PIECES = [3, 4, 2]
+CONCATENATED_COLS = 5
+
+
+class ConcatenatedMemMapsTests(unittest.TestCase):
+    """Every supported index has to give what np.concatenate would have given."""
+
+    def setUp(self):
+        start = 0
+        self.pieces = []
+        for n_rows in CONCATENATED_PIECES:
+            size = n_rows * CONCATENATED_COLS
+            self.pieces.append(np.arange(start, start + size).reshape(n_rows, CONCATENATED_COLS))
+            start += size
+
+        self.expected = np.concatenate(self.pieces, axis=0)
+        self.rows = ConcatenatedMemMaps(self.pieces)
+
+    def _assert_matches(self, key):
+        assert_array_equal(np.asarray(self.rows[key]), self.expected[key])
+
+    def test_shape_and_length_match_the_concatenation(self):
+        self.assertEqual(self.rows.shape, self.expected.shape)
+        self.assertEqual(len(self.rows), len(self.expected))
+
+    def test_iterating_yields_every_row_in_order(self):
+        assert_array_equal(np.asarray(list(self.rows)), self.expected)
+
+    def test_a_single_row_matches_whichever_piece_holds_it(self):
+        for step in range(len(self.expected)):
+            self._assert_matches(step)
+
+    def test_a_negative_row_counts_back_from_the_end(self):
+        for step in range(-len(self.expected), 0):
+            self._assert_matches(step)
+
+    def test_a_row_past_the_end_raises(self):
+        # a negative index below -len is NOT checked and still reads from the last piece
+        with self.assertRaises(IndexError):
+            self.rows[len(self.expected)]
+
+    def test_a_row_and_a_column_slice_is_the_read_the_loaders_make(self):
+        # DiagnosticsStateLoader.data_view indexes exactly like this, once per property
+        for step in range(len(self.expected)):
+            self._assert_matches((step, slice(1, 4)))
+            self._assert_matches((step, 2))
+
+    def test_a_column_slice_over_every_row_keeps_both_axes(self):
+        # get_full_data reads a column block of every step at once; the column key used to
+        # be applied to the rows a second time, which silently returned the wrong block
+        self._assert_matches((slice(None), slice(1, 4)))
+        self._assert_matches((slice(1, 8), slice(1, 4)))
+        self._assert_matches((slice(1, 8), 2))
+
+    def test_a_row_slice_spans_the_pieces(self):
+        for start in range(len(self.expected) + 1):
+            for stop in range(start, len(self.expected) + 1):
+                self._assert_matches(slice(start, stop))
+
+    def test_an_empty_slice_keeps_the_column_axis(self):
+        self._assert_matches(slice(3, 3))
+
+    def test_a_slice_of_a_slice_still_matches(self):
+        sliced = self.rows[2:8]
+        assert_array_equal(np.asarray(sliced[1:4]), self.expected[2:8][1:4])
+        assert_array_equal(np.asarray(sliced[1]), self.expected[2:8][1])
+        assert_array_equal(np.asarray(sliced[:, 1:4]), self.expected[2:8][:, 1:4])
+
+    def test_a_numpy_integer_indexes_like_a_python_one(self):
+        # isinstance(np.int64(0), int) is False, and an unhandled key used to return None
+        for dtype in (np.int32, np.int64):
+            self._assert_matches(dtype(4))
+            assert_array_equal(np.asarray(self.rows[dtype(4), 1:4]), self.expected[4, 1:4])
+
+    def test_an_unsupported_key_raises_instead_of_returning_none(self):
+        for key in ([1, 2], Ellipsis, "step", 1.5):
+            with self.assertRaises(NotImplementedError):
+                self.rows[key]
+
+    def test_a_step_other_than_one_is_refused(self):
+        with self.assertRaises(NotImplementedError):
+            self.rows[::2]
 
 
 if __name__ == "__main__":
