@@ -28,24 +28,13 @@ class DiagnosticsElementWidget(QtWidgets.QFrame):
         self._diagnostics_properties.set_cycle(0)
         self._diagnostics_properties.set_step(0)
 
-        network = self._diagnostics.network
+        # Element geometry
+        self.element_widget = ElementWidget(self._diagnostics_properties)
+        self.element_widget.poreSelected.connect(lambda id: self.poreSelected.emit(id))
+        self.element_widget.throatSelected.connect(lambda id: self.throatSelected.emit(id))
 
-        pg.setConfigOption("background", "w")
-        pg.setConfigOption("foreground", "k")
 
-        self.element_type_combobox = QtWidgets.QComboBox()
-        self.element_type_combobox.addItem("Throat")
-        self.element_type_combobox.addItem("Pore")
-        self.element_type_combobox.currentTextChanged.connect(
-            lambda text: self._on_element_changed(self.element_id_input.text())
-        )
-        self.element_id_input = QtWidgets.QLineEdit()
-        self.element_id_input.setValidator(QtGui.QIntValidator())
-        self.element_id_input.editingFinished.connect(lambda: self._on_element_changed(self.element_id_input.text()))
-        self.element_conn_combobox = QtWidgets.QComboBox()
-        self.element_conn_combobox.setPlaceholderText("Go to connection")
-        self.element_conn_combobox.currentTextChanged.connect(self._on_element_conn_changed)
-
+        # Step control
         self.cycle_combobox = QtWidgets.QComboBox()
         for name in CYCLE_NAMES:
             self.cycle_combobox.addItem(name)
@@ -59,83 +48,24 @@ class DiagnosticsElementWidget(QtWidgets.QFrame):
         font.setStyleHint(QtGui.QFont.Monospace)
         self.status_label.setFont(font)
 
-        element_selection_layout = QtWidgets.QHBoxLayout()
-        element_selection_layout.addWidget(self.element_type_combobox)
-        element_selection_layout.addWidget(QtWidgets.QLabel("ID:"))
-        element_selection_layout.addWidget(self.element_id_input)
-        element_selection_layout.addWidget(self.element_conn_combobox)
+        step_control_layout = QtWidgets.QFormLayout()
+        step_control_layout.addRow("Cycle:", self.cycle_combobox)
+        step_control_layout.addRow("Step:", self.step_input)
+        step_control_layout.addRow("", self.status_label)
 
-        self.element_widget = ElementWidget()
-        self.element_widget.set_pn(self._diagnostics_properties)
-
-        layout = QtWidgets.QFormLayout(self)
-        layout.addRow(element_selection_layout)
-        layout.addRow(self.element_widget)
-        layout.addRow("Cycle:", self.cycle_combobox)
-        layout.addRow("Step:", self.step_input)
-        layout.addRow("", self.status_label)
+        # Layout
+        layout = QtWidgets.QVBoxLayout(self)
+        layout.addWidget(self.element_widget)
+        layout.addLayout(step_control_layout)
 
         self._update_step_range()
         self._refresh()
 
     def select_pore(self, pore_id):
-        self._select_element("Pore", pore_id)
+        self.element_widget.select_pore(pore_id)
 
     def select_throat(self, throat_id):
-        self._select_element("Throat", throat_id)
-
-    def _select_element(self, element_type, element_id):
-        self.element_type_combobox.blockSignals(True)
-        self.element_type_combobox.setCurrentText(element_type)
-        self.element_type_combobox.blockSignals(False)
-        self.element_id_input.setText(str(element_id))
-        self._on_element_changed(str(element_id))
-
-    def set_pore(self, pore_id):
-        self.element_widget.set_pore(pore_id)
-        self._update_conn_combobox(self.element_widget.get_conns(), "Throat")
-
-    def set_throat(self, throat_id):
-        self.element_widget.set_throat(throat_id)
-        self._update_conn_combobox(self.element_widget.get_conns(), "Pore")
-
-    def _on_element_changed(self, text):
-        if not text:
-            return
-
-        try:
-            element_id = int(text)
-            if self.element_type_combobox.currentText() == "Throat":
-                self.set_throat(element_id)
-                self.element_widget.update()
-                self.throatSelected.emit(element_id)
-            else:
-                self.set_pore(element_id)
-                self.element_widget.update()
-                self.poreSelected.emit(element_id)
-        except ElementNotFoundException:
-            self.element_id_input.blockSignals(True)
-            self.element_id_input.setText("")
-            self.element_id_input.blockSignals(False)
-
-    def _update_conn_combobox(self, conns, element_type):
-        self.element_conn_combobox.blockSignals(True)
-        self.element_conn_combobox.clear()
-        for conn_id in conns:
-            self.element_conn_combobox.addItem(f"{element_type} {conn_id}")
-        self.element_conn_combobox.blockSignals(False)
-
-    def _on_element_conn_changed(self, text):
-        pattern = re.compile(r"(Throat|Pore) (\d+)")
-        re_match = pattern.match(text)
-        if re_match:
-            element_type = re_match[1]
-            element_id = int(re_match[2])
-            self.element_type_combobox.blockSignals(True)
-            self.element_type_combobox.setCurrentText(element_type)
-            self.element_type_combobox.blockSignals(False)
-            self.element_id_input.setText(str(element_id))
-            self._on_element_changed(str(element_id))
+        self.element_widget.select_throat(throat_id)
 
     def _on_cycle_changed(self, _index):
         self._update_step_range()
@@ -180,12 +110,113 @@ class DiagnosticsElementWidget(QtWidgets.QFrame):
         self.networkChanged.emit()
 
 
+class ElementWidget(QtWidgets.QWidget):
+    poreSelected = QtCore.Signal(int)
+    throatSelected = QtCore.Signal(int)
+
+    def __init__(self, diagnostics_properties):
+        super().__init__()
+
+        pg.setConfigOption("background", "w")
+        pg.setConfigOption("foreground", "k")
+
+        self.element_type_combobox = QtWidgets.QComboBox()
+        self.element_type_combobox.addItem("Throat")
+        self.element_type_combobox.addItem("Pore")
+        self.element_type_combobox.currentTextChanged.connect(
+            lambda text: self._on_element_changed(self.element_id_input.text())
+        )
+        self.element_id_input = QtWidgets.QLineEdit()
+        self.element_id_input.setValidator(QtGui.QIntValidator())
+        self.element_id_input.editingFinished.connect(lambda: self._on_element_changed(self.element_id_input.text()))
+        self.element_conn_combobox = QtWidgets.QComboBox()
+        self.element_conn_combobox.setPlaceholderText("Go to connection")
+        self.element_conn_combobox.currentTextChanged.connect(self._on_element_conn_changed)
+
+        element_selection_layout = QtWidgets.QHBoxLayout()
+        element_selection_layout.addWidget(self.element_type_combobox)
+        element_selection_layout.addWidget(QtWidgets.QLabel("ID:"))
+        element_selection_layout.addWidget(self.element_id_input)
+        element_selection_layout.addWidget(self.element_conn_combobox)
+
+        self.element_geometry_widget = ElementGeometryWidget()
+        self.element_geometry_widget.set_pn(diagnostics_properties)
+
+        element_layout = QtWidgets.QVBoxLayout()
+        element_layout.addLayout(element_selection_layout)
+        element_layout.addWidget(self.element_geometry_widget)
+
+        self.setLayout(element_layout)
+
+    def _on_element_changed(self, text):
+        if not text:
+            return
+
+        try:
+            element_id = int(text)
+            if self.element_type_combobox.currentText() == "Throat":
+                self.set_throat(element_id)
+                self.element_geometry_widget.update()
+                self.throatSelected.emit(element_id)
+            else:
+                self.set_pore(element_id)
+                self.element_geometry_widget.update()
+                self.poreSelected.emit(element_id)
+        except ElementNotFoundException:
+            self.element_id_input.blockSignals(True)
+            self.element_id_input.setText("")
+            self.element_id_input.blockSignals(False)
+
+    def _on_element_conn_changed(self, text):
+        pattern = re.compile(r"(Throat|Pore) (\d+)")
+        re_match = pattern.match(text)
+        if re_match:
+            element_type = re_match[1]
+            element_id = int(re_match[2])
+            self.element_type_combobox.blockSignals(True)
+            self.element_type_combobox.setCurrentText(element_type)
+            self.element_type_combobox.blockSignals(False)
+            self.element_id_input.setText(str(element_id))
+            self._on_element_changed(str(element_id))
+
+    def select_pore(self, pore_id):
+        self._select_element("Pore", pore_id)
+
+    def select_throat(self, throat_id):
+        self._select_element("Throat", throat_id)
+
+    def set_pore(self, pore_id):
+        self.element_geometry_widget.set_pore(pore_id)
+        self._update_conn_combobox(self.element_geometry_widget.get_conns(), "Throat")
+
+    def set_throat(self, throat_id):
+        self.element_geometry_widget.set_throat(throat_id)
+        self._update_conn_combobox(self.element_geometry_widget.get_conns(), "Pore")
+
+    def update(self):
+        self.element_geometry_widget.update()
+
+    def _update_conn_combobox(self, conns, element_type):
+        self.element_conn_combobox.blockSignals(True)
+        self.element_conn_combobox.clear()
+        for conn_id in conns:
+            self.element_conn_combobox.addItem(f"{element_type} {conn_id}")
+        self.element_conn_combobox.blockSignals(False)
+
+    def _select_element(self, element_type, element_id):
+        self.element_type_combobox.blockSignals(True)
+        self.element_type_combobox.setCurrentText(element_type)
+        self.element_type_combobox.blockSignals(False)
+        self.element_id_input.setText(str(element_id))
+        self._on_element_changed(str(element_id))
+
+
 # --- copied from py_pore_flow.graphic.manual_simulation ---------------------------------
 # ElementWidget / ConductanceBarWidget are duplicated here because manual_simulation must
 # not depend on PySide2 (it is shared with another project), so it cannot be imported.
 
 
-class ElementWidget(QtWidgets.QFrame):
+class ElementGeometryWidget(QtWidgets.QFrame):
     def __init__(self):
         super().__init__()
 
