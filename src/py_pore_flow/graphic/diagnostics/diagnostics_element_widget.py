@@ -15,6 +15,10 @@ _LOADER_ATTRS = {"path", "step", "n_elements"}
 
 CYCLE_NAMES = ["drainage", "imbibition", "2nd_drainage"]
 
+# krel curve colors: water reads as blue, oil as a dark red
+KRW_COLOR = "#1565C0"
+KRO_COLOR = "#8B1A1A"
+
 
 class DiagnosticsElementWidget(QtWidgets.QFrame):
     networkChanged = QtCore.Signal()
@@ -28,11 +32,19 @@ class DiagnosticsElementWidget(QtWidgets.QFrame):
         self._diagnostics_properties.set_cycle(0)
         self._diagnostics_properties.set_step(0)
 
+        # Krel
+        self.krel_widget = KrelWidget(self._diagnostics)
+
         # Element geometry
         self.element_widget = ElementWidget(self._diagnostics_properties)
         self.element_widget.poreSelected.connect(lambda id: self.poreSelected.emit(id))
         self.element_widget.throatSelected.connect(lambda id: self.throatSelected.emit(id))
 
+        # Tabs
+        plots_tab = QtWidgets.QTabWidget()
+        plots_tab.addTab(self.element_widget, "Element")
+        plots_tab.addTab(self.krel_widget, "Krel")
+        plots_tab.currentChanged.connect(self._on_tab_changed)
 
         # Step control
         self.cycle_combobox = QtWidgets.QComboBox()
@@ -55,7 +67,7 @@ class DiagnosticsElementWidget(QtWidgets.QFrame):
 
         # Layout
         layout = QtWidgets.QVBoxLayout(self)
-        layout.addWidget(self.element_widget)
+        layout.addWidget(plots_tab)
         layout.addLayout(step_control_layout)
 
         self._update_step_range()
@@ -67,12 +79,14 @@ class DiagnosticsElementWidget(QtWidgets.QFrame):
     def select_throat(self, throat_id):
         self.element_widget.select_throat(throat_id)
 
-    def _on_cycle_changed(self, _index):
+    def _on_cycle_changed(self, cycle_id):
         self._update_step_range()
         self._refresh()
+        self.krel_widget.set_cycle(cycle_id)
 
-    def _on_step_changed(self, _value):
+    def _on_step_changed(self, value):
         self._refresh()
+        self.krel_widget.set_step(value)
 
     def _update_step_range(self):
         cycle_id = self.cycle_combobox.currentIndex()
@@ -108,6 +122,154 @@ class DiagnosticsElementWidget(QtWidgets.QFrame):
             f"{self.cycle_combobox.currentText()}: step {step:3} / {max(0, n_steps - 1)} - Pc: {pc:.2f}, Sw: {sw:.2f}, Krw: {krw:.2f}, Kro: {kro:.2f}"
         )
         self.networkChanged.emit()
+
+    def _on_tab_changed(self, tab_index):
+        if tab_index == 1:
+            self.krel_widget.initialize_plot()
+        else:
+            self.krel_widget.delete_plot()
+
+
+class KrelWidget(QtWidgets.QWidget):
+    """Relative permeability of one cycle, with the current step marked on both curves.
+
+    The plot is built when the tab is first shown and thrown away when it is left.
+    """
+
+    def __init__(self, diagnostics):
+        super().__init__()
+        self._diagnostics = diagnostics
+        self.cycle_id = 0
+        self.step = 0
+        self.plot_initialized = False
+
+        self._graphics = None
+        self._plot = None
+        self._krw_curve = None
+        self._kro_curve = None
+        self._krw_highlight = None
+        self._kro_highlight = None
+
+        self._layout = QtWidgets.QVBoxLayout(self)
+        self._layout.setContentsMargins(0, 0, 0, 0)
+
+    def set_cycle(self, cycle_id):
+        self.cycle_id = cycle_id
+        self._update_curves(self.cycle_id)
+        self._update_highlight(self.step)
+
+    def set_step(self, step):
+        self.step = step
+        self._update_highlight(self.step)
+
+    def initialize_plot(self):
+        if self.plot_initialized:
+            return
+
+        pg.setConfigOption("background", "w")
+        pg.setConfigOption("foreground", "k")
+
+        self._graphics = pg.GraphicsLayoutWidget()
+        self._plot = self._graphics.addPlot(left="Krel", bottom="Sw")
+        self._plot.showGrid(x=True, y=True, alpha=0.3)
+        self._plot.addLegend(offset=(-10, 10))
+
+        self._krw_curve = self._add_curve(KRW_COLOR, "Krw")
+        self._kro_curve = self._add_curve(KRO_COLOR, "Kro")
+        self._krw_highlight = self._add_highlight(KRW_COLOR)
+        self._kro_highlight = self._add_highlight(KRO_COLOR)
+
+        self._layout.addWidget(self._graphics)
+        self.plot_initialized = True
+
+        self._update_curves(self.cycle_id)
+        self._update_highlight(self.step)
+
+    def delete_plot(self):
+        if not self.plot_initialized:
+            return
+
+        self.plot_initialized = False
+
+        self._layout.removeWidget(self._graphics)
+        self._graphics.clear()
+        self._graphics.setParent(None)
+        self._graphics.deleteLater()
+
+        self._graphics = None
+        self._plot = None
+        self._krw_curve = None
+        self._kro_curve = None
+        self._krw_highlight = None
+        self._kro_highlight = None
+
+    def _add_curve(self, color, name):
+        curve = self._plot.plot(pen=pg.mkPen(color, width=2), name=name)
+        curve.curve.setSegmentedLineMode("off")
+        return curve
+
+    def _add_highlight(self, color):
+        highlight = pg.ScatterPlotItem(
+            pxMode=True, symbol="o", size=11, brush=pg.mkBrush(color), pen=pg.mkPen("w", width=2)
+        )
+        highlight.setZValue(10)
+        self._plot.addItem(highlight)
+        return highlight
+
+    def _update_curves(self, cycle_id):
+        if not self.plot_initialized:
+            return
+
+        x = self._diagnostics.cycle[cycle_id].sw
+
+        y = self._diagnostics.cycle[cycle_id].krw
+        self._plot_krw(x, y)
+        y = self._diagnostics.cycle[cycle_id].kro
+        self._plot_kro(x, y)
+
+    def _update_highlight(self, step):
+        if not self.plot_initialized:
+            return
+
+        sw = self._diagnostics.cycle[self.cycle_id].sw
+        if not 0 <= step < len(sw):
+            self._highlight_krw(np.nan, np.nan)
+            self._highlight_kro(np.nan, np.nan)
+            return
+
+        x = sw[step]
+
+        y = self._diagnostics.cycle[self.cycle_id].krw[step]
+        self._highlight_krw(x, y)
+        y = self._diagnostics.cycle[self.cycle_id].kro[step]
+        self._highlight_kro(x, y)
+
+    def _plot_krw(self, x, y):
+        self._set_curve(self._krw_curve, x, y)
+
+    def _plot_kro(self, x, y):
+        self._set_curve(self._kro_curve, x, y)
+
+    def _highlight_krw(self, x, y):
+        self._set_highlight(self._krw_highlight, x, y)
+
+    def _highlight_kro(self, x, y):
+        self._set_highlight(self._kro_highlight, x, y)
+
+    @staticmethod
+    def _set_curve(curve, x, y):
+        x = np.asarray(x, dtype=float).ravel()
+        y = np.asarray(y, dtype=float).ravel()
+
+        finite = np.isfinite(x) & np.isfinite(y)
+        curve.setData(x[finite], y[finite])
+
+    @staticmethod
+    def _set_highlight(highlight, x, y):
+        if not (np.isfinite(x) and np.isfinite(y)):
+            highlight.setData(np.empty(0), np.empty(0))
+            return
+        highlight.setData(np.array([float(x)]), np.array([float(y)]))
 
 
 class ElementWidget(QtWidgets.QWidget):
