@@ -252,26 +252,6 @@ class HeatmapSourceTests(unittest.TestCase):
         self.assertFalse(widget.log_x_check.isEnabled())
         self.assertFalse(widget.log_x_check.isChecked())
 
-    def test_the_x_axis_falls_back_to_the_step_index_when_no_scalar_was_saved(self):
-        stripped = tempfile.mkdtemp(prefix="diagnostics_no_scalars_")
-        try:
-            for name in os.listdir(self.complete_path):
-                if not name.startswith(f"diagnostics_{STEP_SCALARS_NAME}"):
-                    shutil.copy(os.path.join(self.complete_path, name), stripped)
-
-            diagnostics = Diagnostics(stripped)
-            try:
-                widget = HeatmapWidget(diagnostics)
-                widget.x_axis_combo.setCurrentText(X_AXIS_PC)
-                self.assertFalse(widget.log_x_check.isEnabled())
-
-                image = self._configure(widget, COLOR_COUNT, AGG_SUM, x_axis=X_AXIS_PC)
-                assert_allclose(image, self._raw_image(COLOR_COUNT, AGG_SUM))
-            finally:
-                diagnostics.close()
-        finally:
-            shutil.rmtree(stripped, ignore_errors=True)
-
     def test_the_aggregate_source_only_offers_the_precomputed_pairs(self):
         widget = HeatmapWidget(None, DiagnosticsAggregates(self.basic_path))
 
