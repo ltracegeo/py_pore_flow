@@ -19,21 +19,22 @@ import os
 
 import numpy as np
 
-from py_pore_flow.output.diagnostics import (
+from py_pore_flow.output.diagnostics.data.diagnostics_info import (
+    DiagnosticsInfo,
+    DiagnosticsInfoStorer,
+)
+from py_pore_flow.output.diagnostics.data.diagnostics_network import export_network, load_network
+from py_pore_flow.output.diagnostics.utils.aggregate import (
     ANGLE_NAME,
     DIRECTION_AXES,
     DIRECTIONAL_SPECS,
-    Diagnostics,
-    DiagnosticsFileCache,
-    DiagnosticsInfo,
-    DiagnosticsInfoStorer,
-    DiagnosticsStorer,
-    DiagnosticsWriter,
-    FILE_EXTENSION,
-    STEP_SCALAR_NAMES,
     throat_axis_angles,
     throat_axis_cosines,
 )
+from py_pore_flow.output.diagnostics.utils.diagnostics_file_cache import FILE_EXTENSION, DiagnosticsFileCache
+from py_pore_flow.output.diagnostics.utils.diagnostics_io import DiagnosticsStorer
+
+STEP_SCALAR_NAMES = ("pc", "sw")
 
 LEVEL_OFF = "off"
 LEVEL_BASIC = "basic"
@@ -202,8 +203,8 @@ class AggregateDiagnosticsWriter:
         self._pairs = list(DEFAULT_PAIRS if pairs is None else pairs)
         self._requested_n_bins = n_bins
 
-        DiagnosticsWriter._export_pn(network.pn, path)
-        self._static = Diagnostics._load_network(path)
+        export_network(network.pn, path)
+        self._static = load_network(path)
         self._setup_throat_directions()
 
         self._n_elements = {
@@ -255,7 +256,7 @@ class AggregateDiagnosticsWriter:
         self._step_scalars.append((pc, sw))
         for element_type, storer in self._spools.items():
             element = getattr(self.pn, element_type)
-            storer.save_state([self._live_values(element_type, element, name) for name in self._dynamic[element_type]])
+            storer._save_state([self._live_values(element_type, element, name) for name in self._dynamic[element_type]])
 
     def save_cycle_data(self):
         self._info_storer.save_number_of_steps(self._cycle_id, self._n_saved_states)

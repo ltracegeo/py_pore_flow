@@ -3,7 +3,7 @@ import pyqtgraph as pg
 from PySide2 import QtCore, QtGui, QtWidgets
 
 from py_pore_flow.graphic.diagnostics.diagnostics_properties import DiagnosticsProperties
-from py_pore_flow.output.diagnostics_aggregate import AGG_COUNT, SCALE_LINEAR, SCALE_LOG
+from py_pore_flow.output.diagnostics.diagnostics_aggregate import AGG_COUNT, SCALE_LINEAR, SCALE_LOG
 
 CYCLE_NAMES = ["drainage", "imbibition", "2nd_drainage"]
 ELEMENT_TYPES = ["All", "Any", "Pore", "Throat"]

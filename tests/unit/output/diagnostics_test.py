@@ -9,20 +9,17 @@ from unittest import mock
 import numpy as np
 from numpy.testing import assert_array_equal
 
-from py_pore_flow.network.network import initialize_pn, NetworkManager, PoreNetwork
-from py_pore_flow.output.diagnostics import (
+from py_pore_flow.network.network import NetworkManager, PoreNetwork, initialize_pn
+from py_pore_flow.output.diagnostics.data.diagnostics_info import DiagnosticsInfo
+from py_pore_flow.output.diagnostics.data.diagnostics_network import NETWORK_ARRAYS_NAME
+from py_pore_flow.output.diagnostics.data.diagnostics_throats_step import THROATS_FLOATS_NAME, THROATS_FLOATS_NDATA
+from py_pore_flow.output.diagnostics.diagnostics import Diagnostics, DiagnosticsWriter
+from py_pore_flow.output.diagnostics.utils.concatenated_memmaps import ConcatenatedMemMaps
+from py_pore_flow.output.diagnostics.utils.diagnostics_file_cache import FILE_EXTENSION, DiagnosticsFileCache
+from py_pore_flow.output.diagnostics.utils.diagnostics_io import (
     CORNER_SHAPE,
-    ConcatenatedMemMaps,
-    Diagnostics,
-    DiagnosticsFileCache,
-    DiagnosticsInfo,
     DiagnosticsStateLoader,
     DiagnosticsStorer,
-    DiagnosticsWriter,
-    FILE_EXTENSION,
-    NETWORK_ARRAYS_NAME,
-    THROATS_FLOATS_NAME,
-    THROATS_FLOATS_NDATA,
 )
 from py_pore_flow.parameters.parameter_manager import ParameterManager
 from py_pore_flow.simulation.simulation import calculate_initial_values
@@ -309,7 +306,7 @@ class DiagnosticsTests(unittest.TestCase):
         with mock.patch.object(DiagnosticsStorer, "N_STEPS", 100):
             storer = DiagnosticsStorer("shaped", n_elements, n_data, np.float64, self.path, item_shape=item_shape)
             for step in range(n_steps):
-                storer.save_state([value(step, 0), value(step, 1)])
+                storer._save_state([value(step, 0), value(step, 1)])
             storer.close()
 
         for step in range(n_steps):
@@ -357,7 +354,9 @@ class DiagnosticsTests(unittest.TestCase):
         # diagnostics directory, 12 times per read.
         self._write([4, 5], chunk_size=3)
 
-        with mock.patch("py_pore_flow.output.diagnostics.os.listdir", wraps=os.listdir) as listdir:
+        with mock.patch(
+            "py_pore_flow.output.diagnostics.utils.diagnostics_file_cache.os.listdir", wraps=os.listdir
+        ) as listdir:
             diagnostics = Diagnostics(self.path)
             diagnostics.cycle[0][0]
             after_first_step = listdir.call_count
