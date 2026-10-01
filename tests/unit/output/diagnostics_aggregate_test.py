@@ -5,11 +5,11 @@ import tempfile
 import unittest
 
 import numpy as np
-from numpy.testing import assert_allclose, assert_array_equal
+from numpy.testing import assert_allclose
 
 from py_pore_flow.network.network import initialize_pn, NetworkManager, PoreNetwork
-from py_pore_flow.output.diagnostics import Diagnostics, FILE_EXTENSION
-from py_pore_flow.output.diagnostics_aggregate import (
+from py_pore_flow.output.diagnostics.data.diagnostics_network import load_network
+from py_pore_flow.output.diagnostics.diagnostics_aggregate import (
     AGG_COUNT,
     AGG_MEAN,
     AGG_SUM,
@@ -25,6 +25,7 @@ from py_pore_flow.output.diagnostics_aggregate import (
     read_manifest,
     resolve_n_bins,
 )
+from py_pore_flow.output.diagnostics.utils.diagnostics_file_cache import FILE_EXTENSION
 from py_pore_flow.parameters.parameter_manager import ParameterManager
 from py_pore_flow.simulation.simulation import calculate_initial_values
 
@@ -90,7 +91,7 @@ class DiagnosticsAggregateTests(unittest.TestCase):
             writer.save_cycle_data()
         writer.close()
 
-        cls.radius = np.asarray(Diagnostics._load_network(cls.path)["throat.radius"], dtype=np.float64)
+        cls.radius = np.asarray(load_network(cls.path)["throat.radius"], dtype=np.float64)
 
     @classmethod
     def tearDownClass(cls):

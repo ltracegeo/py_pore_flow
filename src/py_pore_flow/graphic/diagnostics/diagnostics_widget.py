@@ -12,8 +12,8 @@ from py_pore_flow.graphic.diagnostics.diagnostics_tabs import (
     ElementGeometryTab,
     HeatmapTab,
 )
-from py_pore_flow.output.diagnostics import Diagnostics
-from py_pore_flow.output.diagnostics_aggregate import DiagnosticsAggregates, LEVEL_BASIC, diagnostics_level
+from py_pore_flow.output.diagnostics.diagnostics import Diagnostics
+from py_pore_flow.output.diagnostics.diagnostics_aggregate import DiagnosticsAggregates, LEVEL_BASIC, diagnostics_level
 
 
 class DiagnosticsWidget(QFrame):

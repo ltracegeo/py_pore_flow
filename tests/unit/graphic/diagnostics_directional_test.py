@@ -13,24 +13,22 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import numpy as np
 from numpy.testing import assert_allclose
-
 from PySide2 import QtWidgets
 
 from py_pore_flow.graphic.diagnostics.diagnostics_crossplot_widget import CrossPlotWidget
 from py_pore_flow.graphic.diagnostics.diagnostics_heatmap_widget import HeatmapWidget
 from py_pore_flow.graphic.diagnostics.diagnostics_properties import DiagnosticsProperties
 from py_pore_flow.network.network import initialize_pn, NetworkManager, PoreNetwork
-from py_pore_flow.output.diagnostics import (
-    DIRECTION_AXES,
-    Diagnostics,
-    DiagnosticsWriter,
-    throat_axis_cosines,
-    zero_based_conns,
-)
-from py_pore_flow.output.diagnostics_aggregate import (
+from py_pore_flow.output.diagnostics.diagnostics import Diagnostics, DiagnosticsWriter
+from py_pore_flow.output.diagnostics.diagnostics_aggregate import (
     AGG_SUM,
     AggregateDiagnosticsWriter,
     DiagnosticsAggregates,
+)
+from py_pore_flow.output.diagnostics.utils.aggregate import (
+    DIRECTION_AXES,
+    _zero_based_conns,
+    throat_axis_cosines,
 )
 from py_pore_flow.parameters.parameter_manager import ParameterManager
 from py_pore_flow.simulation.simulation import calculate_initial_values
@@ -74,17 +72,17 @@ class ConnsConventionTests(unittest.TestCase):
 
     def test_zero_based_conns_are_passed_through(self):
         conns = np.array([[0, 1], [1, 2], [2, 3]])
-        assert_allclose(zero_based_conns(conns, n_pores=4), conns)
+        assert_allclose(_zero_based_conns(conns, n_pores=4), conns)
 
     def test_one_based_labels_are_shifted(self):
         conns = np.array([[1, 2], [2, 3], [3, 4]])
-        assert_allclose(zero_based_conns(conns, n_pores=4), conns - 1)
+        assert_allclose(_zero_based_conns(conns, n_pores=4), conns - 1)
 
     def test_out_of_range_connections_are_refused(self):
         # better no direction at all than every throat attached to the wrong pore
-        self.assertIsNone(zero_based_conns(np.array([[0, 9]]), n_pores=4))
-        self.assertIsNone(zero_based_conns(np.array([[-2, 1]]), n_pores=4))
-        self.assertIsNone(zero_based_conns(np.array([]), n_pores=4))
+        self.assertIsNone(_zero_based_conns(np.array([[0, 9]]), n_pores=4))
+        self.assertIsNone(_zero_based_conns(np.array([[-2, 1]]), n_pores=4))
+        self.assertIsNone(_zero_based_conns(np.array([]), n_pores=4))
 
     def test_the_real_network_is_zero_based(self):
         # the decisive check: read with the right convention, the distance between the two

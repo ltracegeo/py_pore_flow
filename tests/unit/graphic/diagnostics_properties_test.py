@@ -6,7 +6,7 @@ import numpy as np
 
 from py_pore_flow.graphic.diagnostics.diagnostics_properties import DiagnosticsProperties
 from py_pore_flow.network.network import initialize_pn, NetworkManager, PoreNetwork
-from py_pore_flow.output.diagnostics import Diagnostics, DiagnosticsWriter
+from py_pore_flow.output.diagnostics.diagnostics import Diagnostics, DiagnosticsWriter
 from py_pore_flow.parameters.parameter_manager import ParameterManager
 from py_pore_flow.simulation.simulation import calculate_initial_values
 

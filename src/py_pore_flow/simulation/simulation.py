@@ -37,8 +37,8 @@ from py_pore_flow.equations.entry_pressure import (
     calculate_imbibition_piston_like_displacement_pc_network,
 )
 from py_pore_flow.network.network import initialize_pn, NetworkManager, PoreNetwork
-from py_pore_flow.output.diagnostics import DiagnosticsWriter
-from py_pore_flow.output.diagnostics_aggregate import (
+from py_pore_flow.output.diagnostics.diagnostics import DiagnosticsWriter
+from py_pore_flow.output.diagnostics.diagnostics_aggregate import (
     AggregateDiagnosticsWriter,
     LEVEL_BASIC,
     LEVEL_COMPLETE,

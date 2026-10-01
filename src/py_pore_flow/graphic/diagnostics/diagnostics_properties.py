@@ -1,10 +1,6 @@
 import numpy as np
 
-from py_pore_flow.output.diagnostics import (
-    DIRECTIONAL_SPECS,
-    throat_axis_angles,
-    throat_axis_cosines,
-)
+from py_pore_flow.output.diagnostics.utils.aggregate import DIRECTIONAL_SPECS, throat_axis_angles, throat_axis_cosines
 
 # attributes a step/cycle loader sets on itself that are not per-element property data
 _LOADER_ATTRS = {"path", "step", "n_elements", "_cache"}

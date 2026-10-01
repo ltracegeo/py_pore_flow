@@ -23,8 +23,8 @@ from py_pore_flow.graphic.diagnostics.diagnostics_heatmap_widget import (
 )
 from py_pore_flow.graphic.diagnostics.diagnostics_widget import DiagnosticsWidget
 from py_pore_flow.network.network import initialize_pn, NetworkManager, PoreNetwork
-from py_pore_flow.output.diagnostics import STEP_SCALARS_NAME, Diagnostics, DiagnosticsWriter
-from py_pore_flow.output.diagnostics_aggregate import AggregateDiagnosticsWriter, DiagnosticsAggregates
+from py_pore_flow.output.diagnostics.diagnostics import Diagnostics, DiagnosticsWriter
+from py_pore_flow.output.diagnostics.diagnostics_aggregate import AggregateDiagnosticsWriter, DiagnosticsAggregates
 from py_pore_flow.parameters.parameter_manager import ParameterManager
 from py_pore_flow.simulation.simulation import calculate_initial_values
 

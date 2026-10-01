@@ -12,7 +12,7 @@ import openpnm
 
 import py_pore_flow as ppf
 from py_pore_flow.network.network import PoreNetwork
-from py_pore_flow.output.diagnostics_aggregate import LEVEL_COMPLETE, LEVELS
+from py_pore_flow.output.diagnostics.diagnostics_aggregate import LEVEL_COMPLETE, LEVELS
 from py_pore_flow.simulation.simulation import StepSimulation
 
 
