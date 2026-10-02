@@ -164,8 +164,17 @@ class KrelWidget(QtWidgets.QWidget):
         self._krw_highlight = None
         self._kro_highlight = None
 
+        self.log_y_check = QtWidgets.QCheckBox("Log")
+        self.log_y_check.setToolTip("Space the Krel axis logarithmically (positive values only)")
+        self.log_y_check.toggled.connect(self._on_log_y_toggled)
+
+        controls = QtWidgets.QHBoxLayout()
+        controls.addStretch(1)
+        controls.addWidget(self.log_y_check)
+
         self._layout = QtWidgets.QVBoxLayout(self)
         self._layout.setContentsMargins(0, 0, 0, 0)
+        self._layout.addLayout(controls)
 
     def set_cycle(self, cycle_id):
         self.cycle_id = cycle_id
@@ -186,14 +195,15 @@ class KrelWidget(QtWidgets.QWidget):
         self._graphics = pg.GraphicsLayoutWidget()
         self._plot = self._graphics.addPlot(left="Krel", bottom="Sw")
         self._plot.showGrid(x=True, y=True, alpha=0.3)
-        self._plot.addLegend(offset=(-10, 10))
+        self._plot.addLegend(offset=(-10, 10), brush=pg.mkBrush(255, 255, 255, 220), pen=pg.mkPen(200, 200, 200))
 
         self._krw_curve = self._add_curve(KRW_COLOR, "Krw")
         self._kro_curve = self._add_curve(KRO_COLOR, "Kro")
         self._krw_highlight = self._add_highlight(KRW_COLOR)
         self._kro_highlight = self._add_highlight(KRO_COLOR)
+        self._plot.setLogMode(y=self.log_y_check.isChecked())
 
-        self._layout.addWidget(self._graphics)
+        self._layout.addWidget(self._graphics, 1)
         self.plot_initialized = True
 
         self._update_curves(self.cycle_id)
@@ -223,12 +233,18 @@ class KrelWidget(QtWidgets.QWidget):
         return curve
 
     def _add_highlight(self, color):
-        highlight = pg.ScatterPlotItem(
-            pxMode=True, symbol="o", size=11, brush=pg.mkBrush(color), pen=pg.mkPen("w", width=2)
+        highlight = self._plot.plot(
+            pen=None, symbol="o", symbolSize=11, symbolBrush=pg.mkBrush(color), symbolPen=pg.mkPen("w", width=2)
         )
         highlight.setZValue(10)
-        self._plot.addItem(highlight)
         return highlight
+
+    def _on_log_y_toggled(self, checked):
+        if not self.plot_initialized:
+            return
+
+        self._plot.setLogMode(y=bool(checked))
+        self._plot.enableAutoRange()
 
     def _update_curves(self, cycle_id):
         if not self.plot_initialized:
