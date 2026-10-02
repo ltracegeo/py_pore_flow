@@ -259,7 +259,7 @@ class DiagnosticsTab(QWidget):
         self.step_spinbox.blockSignals(False)
 
 
-class ElementGeometryTab(QWidget):
+class NetworkTab(QWidget):
     def __init__(self, diagnostics=None, parent=None):
         super().__init__(parent)
 

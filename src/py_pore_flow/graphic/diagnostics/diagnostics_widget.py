@@ -9,8 +9,8 @@ from PySide2.QtWidgets import (
 from py_pore_flow.graphic.diagnostics.diagnostics_tabs import (
     CrossPlotTab,
     DiagnosticsTab,
-    ElementGeometryTab,
     HeatmapTab,
+    NetworkTab,
 )
 from py_pore_flow.output.diagnostics.diagnostics import Diagnostics
 from py_pore_flow.output.diagnostics.diagnostics_aggregate import DiagnosticsAggregates, LEVEL_BASIC, diagnostics_level
@@ -74,19 +74,19 @@ class DiagnosticsWidget(QFrame):
 
         self.pores_tab = DiagnosticsTab()
         self.throats_tab = DiagnosticsTab()
-        self.element_tab = ElementGeometryTab()
+        self.network_tab = NetworkTab()
         self.crossplot_tab = CrossPlotTab()
         self.heatmap_tab = HeatmapTab()
 
         self.pores_tab.set_diagnostics(self._diagnostics, "pore")
         self.throats_tab.set_diagnostics(self._diagnostics, "throat")
-        self.element_tab.set_diagnostics(self._diagnostics)
+        self.network_tab.set_diagnostics(self._diagnostics)
         self.crossplot_tab.set_diagnostics(self._diagnostics)
         self.heatmap_tab.set_diagnostics(self._diagnostics)
 
         self.tabs.addTab(self.pores_tab, "Pores")
         self.tabs.addTab(self.throats_tab, "Throats")
-        self.tabs.addTab(self.element_tab, "Element")
+        self.tabs.addTab(self.network_tab, "Network")
         self.tabs.addTab(self.crossplot_tab, "Cross Plot")
         self.tabs.addTab(self.heatmap_tab, "Heatmap")
 
