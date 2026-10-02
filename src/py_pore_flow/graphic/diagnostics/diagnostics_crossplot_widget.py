@@ -3,9 +3,9 @@ import pyqtgraph as pg
 from PySide2 import QtWidgets
 
 from py_pore_flow.graphic.diagnostics.diagnostics_properties import DiagnosticsProperties
+from py_pore_flow.graphic.diagnostics.step_controller import StepController
 
 ELEMENT_TYPES = ["Pore", "Throat"]
-CYCLE_NAMES = ["drainage", "imbibition", "2nd_drainage"]
 NONE_LABEL = "(none)"
 COLORMAP_NAME = "viridis"
 # one brush per colour level instead of one per point
@@ -123,9 +123,10 @@ class CrossPlotWidget(QtWidgets.QWidget):
         self._diagnostics = diagnostics
         self._properties = DiagnosticsProperties(diagnostics)
 
-        self.cycle_combo = QtWidgets.QComboBox()
-        self.cycle_combo.addItems(CYCLE_NAMES)
-        self.step_spinbox = QtWidgets.QSpinBox()
+        self.step_controller = StepController(self._diagnostics)
+        self.step_controller.cycleChanged.connect(self._on_cycle_changed)
+        self.step_controller.stepChanged.connect(self._replot)
+
         self.element_type_combo = QtWidgets.QComboBox()
         self.element_type_combo.addItems(ELEMENT_TYPES)
         self.x_combo = QtWidgets.QComboBox()
@@ -133,8 +134,8 @@ class CrossPlotWidget(QtWidgets.QWidget):
         self.z_combo = QtWidgets.QComboBox()
 
         controls = QtWidgets.QFormLayout()
-        controls.addRow("Cycle", self.cycle_combo)
-        controls.addRow("Step", self.step_spinbox)
+        controls.addRow("Cycle", self.step_controller.get_cycle_widget())
+        controls.addRow("Step", self.step_controller.get_step_widget())
         controls.addRow("Element", self.element_type_combo)
         controls.addRow("X-axis", self.x_combo)
         controls.addRow("Y-axis", self.y_combo)
@@ -145,12 +146,10 @@ class CrossPlotWidget(QtWidgets.QWidget):
         layout = QtWidgets.QVBoxLayout(self)
         layout.addLayout(controls)
         layout.addWidget(self.view)
+        layout.addWidget(self.step_controller.get_status_widget())
 
         self._populate_axis_combos()
-        self._update_step_range()
 
-        self.cycle_combo.currentIndexChanged.connect(self._on_cycle_changed)
-        self.step_spinbox.valueChanged.connect(self._replot)
         self.element_type_combo.currentTextChanged.connect(self._on_element_type_changed)
         self.x_combo.currentTextChanged.connect(self._replot)
         self.y_combo.currentTextChanged.connect(self._replot)
@@ -183,23 +182,11 @@ class CrossPlotWidget(QtWidgets.QWidget):
         self._replot()
 
     def _on_cycle_changed(self, _index):
-        self._update_step_range()
         self._replot()
 
-    def _update_step_range(self):
-        cycle_id = self.cycle_combo.currentIndex()
-        self.step_spinbox.blockSignals(True)
-        self.step_spinbox.setMinimum(0)
-        if cycle_id >= self._diagnostics.info.n_cycles:
-            self.step_spinbox.setMaximum(0)
-        else:
-            n_steps = self._diagnostics.info.cycle_n_steps[cycle_id]
-            self.step_spinbox.setMaximum(max(0, n_steps - 1))
-        self.step_spinbox.blockSignals(False)
-
     def _property_values(self, property_name):
-        cycle_id = self.cycle_combo.currentIndex()
-        step = self.step_spinbox.value()
+        cycle_id = self.step_controller.get_cycle()
+        step = self.step_controller.get_step()
         if self.element_type_combo.currentText() == "Pore":
             return self._properties.get_pore_values_in_step(property_name, cycle_id=cycle_id, step=step)
         return self._properties.get_throat_values_in_step(property_name, cycle_id=cycle_id, step=step)

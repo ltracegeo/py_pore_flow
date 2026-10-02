@@ -7,7 +7,6 @@ from PySide2.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
     QLabel,
-    QSpinBox,
     QSplitter,
     QTableView,
     QVBoxLayout,
@@ -19,8 +18,7 @@ from py_pore_flow.graphic.diagnostics.diagnostics_element_widget import Diagnost
 from py_pore_flow.graphic.diagnostics.diagnostics_heatmap_widget import HeatmapWidget
 from py_pore_flow.graphic.diagnostics.diagnostics_network_widget import DiagnosticsNetworkWidget
 from py_pore_flow.graphic.diagnostics.diagnostics_properties import DiagnosticsProperties
-
-CYCLE_NAMES = ["Drainage", "Imbibition", "2nd Drainage"]
+from py_pore_flow.graphic.diagnostics.step_controller import StepController
 
 
 class CheckableComboBox(QComboBox):
@@ -196,24 +194,24 @@ class DiagnosticsTab(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        self.cycle_combo = QComboBox()
-        self.cycle_combo.addItems(CYCLE_NAMES)
-
-        self.step_spinbox = QSpinBox()
+        self.step_controller = StepController()
+        self.step_controller.cycleChanged.connect(self._on_cycle_changed)
+        self.step_controller.stepChanged.connect(self._on_step_changed)
 
         self.table = DiagnosticsTableWidget()
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
 
         top_bar = QHBoxLayout()
-        top_bar.addWidget(self.cycle_combo)
+        top_bar.addWidget(self.step_controller.get_cycle_widget())
         top_bar.addWidget(QLabel("Step:"))
-        top_bar.addWidget(self.step_spinbox)
+        top_bar.addWidget(self.step_controller.get_step_widget())
         top_bar.addStretch()
         top_bar.addWidget(self.table.column_selector)
 
         layout = QVBoxLayout()
         layout.addLayout(top_bar)
         layout.addWidget(self.table)
+        layout.addWidget(self.step_controller.get_status_widget())
         self.setLayout(layout)
 
     def set_diagnostics(self, diagnostics, element_type):
@@ -226,37 +224,23 @@ class DiagnosticsTab(QWidget):
             n_elements = diagnostics.info.n_throats
             default_columns = self.THROAT_COLUMNS
 
+        self.step_controller.set_diagnostics(self._diagnostics)
+
         self.table.set_source(
             properties,
             element_type,
             n_elements,
             default_columns,
-            lambda: (self.cycle_combo.currentIndex(), self.step_spinbox.value()),
+            lambda: (self.step_controller.get_cycle(), self.step_controller.get_step()),
         )
 
-        self.cycle_combo.currentIndexChanged.connect(self._on_cycle_changed)
-        self.step_spinbox.valueChanged.connect(self._on_step_changed)
-
-        self._update_step_range()
         self.table.refresh()
 
     def _on_cycle_changed(self, _):
-        self._update_step_range()
         self.table.refresh()
 
     def _on_step_changed(self, _):
         self.table.refresh()
-
-    def _update_step_range(self):
-        cycle_id = self.cycle_combo.currentIndex()
-        self.step_spinbox.blockSignals(True)
-        self.step_spinbox.setMinimum(0)
-        if cycle_id >= self._diagnostics.info.n_cycles:
-            self.step_spinbox.setMaximum(0)
-        else:
-            n_steps = self._diagnostics.info.cycle_n_steps[cycle_id]
-            self.step_spinbox.setMaximum(max(0, n_steps - 1))
-        self.step_spinbox.blockSignals(False)
 
 
 class NetworkTab(QWidget):

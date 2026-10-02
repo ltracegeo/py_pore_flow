@@ -6,9 +6,9 @@ import pandas as pd
 import pyqtgraph as pg
 from PySide2 import QtCore, QtGui, QtWidgets
 
+from py_pore_flow.graphic.diagnostics.step_controller import StepController
 from py_pore_flow.graphic.element_graphic import ElementPlotter
 from py_pore_flow.graphic.network_plot import ElementNotFoundException, PorePlot, ThroatPlot
-
 
 # attributes DiagnosticsStateLoader sets on itself that are not per-element step data
 _LOADER_ATTRS = {"path", "step", "n_elements"}
@@ -54,30 +54,20 @@ class DiagnosticsElementWidget(QtWidgets.QFrame):
         plots_tab.currentChanged.connect(self._on_tab_changed)
 
         # Step control
-        self.cycle_combobox = QtWidgets.QComboBox()
-        for name in CYCLE_NAMES:
-            self.cycle_combobox.addItem(name)
-        self.cycle_combobox.currentIndexChanged.connect(self._on_cycle_changed)
-
-        self.step_input = QtWidgets.QSpinBox()
-        self.step_input.valueChanged.connect(self._on_step_changed)
-
-        self.status_label = QtWidgets.QLabel()
-        font = QtGui.QFont("Courier New")
-        font.setStyleHint(QtGui.QFont.Monospace)
-        self.status_label.setFont(font)
+        self.step_controller = StepController(self._diagnostics)
+        self.step_controller.cycleChanged.connect(self._on_cycle_changed)
+        self.step_controller.stepChanged.connect(self._on_step_changed)
 
         step_control_layout = QtWidgets.QFormLayout()
-        step_control_layout.addRow("Cycle:", self.cycle_combobox)
-        step_control_layout.addRow("Step:", self.step_input)
-        step_control_layout.addRow("", self.status_label)
+        step_control_layout.addRow("Cycle:", self.step_controller.get_cycle_widget())
+        step_control_layout.addRow("Step:", self.step_controller.get_step_widget())
+        step_control_layout.addRow("", self.step_controller.get_status_widget())
 
         # Layout
         layout = QtWidgets.QVBoxLayout(self)
         layout.addWidget(plots_tab)
         layout.addLayout(step_control_layout)
 
-        self._update_step_range()
         self._refresh()
 
     def select_pore(self, pore_id):
@@ -87,49 +77,19 @@ class DiagnosticsElementWidget(QtWidgets.QFrame):
         self.element_widget.select_throat(throat_id)
 
     def _on_cycle_changed(self, cycle_id):
-        self._update_step_range()
         self._refresh()
         self.krel_widget.set_cycle(cycle_id)
         self.pressure_widget.set_cycle(cycle_id)
 
-    def _on_step_changed(self, value):
+    def _on_step_changed(self, step):
         self._refresh()
-        self.krel_widget.set_step(value)
-        self.pressure_widget.set_step(value)
-
-    def _update_step_range(self):
-        cycle_id = self.cycle_combobox.currentIndex()
-        self.step_input.blockSignals(True)
-        self.step_input.setMinimum(0)
-        if cycle_id >= self._diagnostics.info.n_cycles:
-            self.step_input.setMaximum(0)
-        else:
-            n_steps = self._diagnostics.info.cycle_n_steps[cycle_id]
-            self.step_input.setMaximum(max(0, n_steps - 1))
-        self.step_input.blockSignals(False)
+        self.krel_widget.set_step(step)
+        self.pressure_widget.set_step(step)
 
     def _refresh(self):
-        cycle_id = self.cycle_combobox.currentIndex()
-        info = self._diagnostics.info
-        if cycle_id >= info.n_cycles:
-            self.status_label.setText("No data for this cycle.")
-            return
-
-        n_steps = info.cycle_n_steps[cycle_id]
-        step = self.step_input.value()
-
-        self._diagnostics_properties.set_cycle(cycle_id)
-        if n_steps > 0:
-            self._diagnostics_properties.set_step(step)
-
-        pc = self._diagnostics.cycle[cycle_id][step].pc
-        sw = self._diagnostics.cycle[cycle_id][step].sw
-        krw = self._diagnostics.cycle[cycle_id][step].krw
-        kro = self._diagnostics.cycle[cycle_id][step].kro
+        self._diagnostics_properties.set_cycle(self.step_controller.get_cycle())
+        self._diagnostics_properties.set_step(self.step_controller.get_step())
         self.element_widget.update()
-        self.status_label.setText(
-            f"{self.cycle_combobox.currentText()}: step {step:3} / {max(0, n_steps - 1)} - Pc: {pc:.2f}, Sw: {sw:.2f}, Krw: {krw:.2f}, Kro: {kro:.2f}"
-        )
         self.networkChanged.emit()
 
     def _on_tab_changed(self, tab_index):
