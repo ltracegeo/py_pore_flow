@@ -19,6 +19,9 @@ CYCLE_NAMES = ["drainage", "imbibition", "2nd_drainage"]
 KRW_COLOR = "#1565C0"
 KRO_COLOR = "#8B1A1A"
 
+# capillary pressure belongs to neither phase, so it stays a neutral slate gray
+PC_COLOR = "#455A64"
+
 
 class DiagnosticsElementWidget(QtWidgets.QFrame):
     networkChanged = QtCore.Signal()
@@ -35,6 +38,9 @@ class DiagnosticsElementWidget(QtWidgets.QFrame):
         # Krel
         self.krel_widget = KrelWidget(self._diagnostics)
 
+        # Pressure curve
+        self.pressure_widget = PressureCurveWidget(self._diagnostics)
+
         # Element geometry
         self.element_widget = ElementWidget(self._diagnostics_properties)
         self.element_widget.poreSelected.connect(lambda id: self.poreSelected.emit(id))
@@ -44,6 +50,7 @@ class DiagnosticsElementWidget(QtWidgets.QFrame):
         plots_tab = QtWidgets.QTabWidget()
         plots_tab.addTab(self.element_widget, "Element")
         plots_tab.addTab(self.krel_widget, "Krel")
+        plots_tab.addTab(self.pressure_widget, "Pressure curve")
         plots_tab.currentChanged.connect(self._on_tab_changed)
 
         # Step control
@@ -83,10 +90,12 @@ class DiagnosticsElementWidget(QtWidgets.QFrame):
         self._update_step_range()
         self._refresh()
         self.krel_widget.set_cycle(cycle_id)
+        self.pressure_widget.set_cycle(cycle_id)
 
     def _on_step_changed(self, value):
         self._refresh()
         self.krel_widget.set_step(value)
+        self.pressure_widget.set_step(value)
 
     def _update_step_range(self):
         cycle_id = self.cycle_combobox.currentIndex()
@@ -128,6 +137,11 @@ class DiagnosticsElementWidget(QtWidgets.QFrame):
             self.krel_widget.initialize_plot()
         else:
             self.krel_widget.delete_plot()
+
+        if tab_index == 2:
+            self.pressure_widget.initialize_plot()
+        else:
+            self.pressure_widget.delete_plot()
 
 
 class KrelWidget(QtWidgets.QWidget):
@@ -270,6 +284,122 @@ class KrelWidget(QtWidgets.QWidget):
             highlight.setData(np.empty(0), np.empty(0))
             return
         highlight.setData(np.array([float(x)]), np.array([float(y)]))
+
+
+class PressureCurveWidget(QtWidgets.QWidget):
+    """Capillary pressure of one cycle, with the current step marked on the curve.
+
+    Built when the tab is first shown and thrown away when it is left.
+    """
+
+    def __init__(self, diagnostics):
+        super().__init__()
+        self._diagnostics = diagnostics
+        self.cycle_id = 0
+        self.step = 0
+        self.plot_initialized = False
+
+        self._graphics = None
+        self._plot = None
+        self._pc_curve = None
+        self._pc_highlight = None
+
+        self._layout = QtWidgets.QVBoxLayout(self)
+        self._layout.setContentsMargins(0, 0, 0, 0)
+
+    def set_cycle(self, cycle_id):
+        self.cycle_id = cycle_id
+        self._update_curve(self.cycle_id)
+        self._update_highlight(self.step)
+
+    def set_step(self, step):
+        self.step = step
+        self._update_highlight(self.step)
+
+    def initialize_plot(self):
+        if self.plot_initialized:
+            return
+
+        pg.setConfigOption("background", "w")
+        pg.setConfigOption("foreground", "k")
+
+        self._graphics = pg.GraphicsLayoutWidget()
+        self._plot = self._graphics.addPlot(left="Pc", bottom="Sw")
+        self._plot.showGrid(x=True, y=True, alpha=0.3)
+
+        self._pc_curve = self._add_curve(PC_COLOR)
+        self._pc_highlight = self._add_highlight(PC_COLOR)
+
+        self._layout.addWidget(self._graphics)
+        self.plot_initialized = True
+
+        self._update_curve(self.cycle_id)
+        self._update_highlight(self.step)
+
+    def delete_plot(self):
+        if not self.plot_initialized:
+            return
+
+        self.plot_initialized = False
+
+        self._layout.removeWidget(self._graphics)
+        self._graphics.clear()
+        self._graphics.setParent(None)
+        self._graphics.deleteLater()
+
+        self._graphics = None
+        self._plot = None
+        self._pc_curve = None
+        self._pc_highlight = None
+
+    def _add_curve(self, color):
+        curve = self._plot.plot(pen=pg.mkPen(color, width=2))
+        curve.curve.setSegmentedLineMode("off")
+        return curve
+
+    def _add_highlight(self, color):
+        highlight = pg.ScatterPlotItem(
+            pxMode=True, symbol="o", size=11, brush=pg.mkBrush(color), pen=pg.mkPen("w", width=2)
+        )
+        highlight.setZValue(10)
+        self._plot.addItem(highlight)
+        return highlight
+
+    def _update_curve(self, cycle_id):
+        if not self.plot_initialized:
+            return
+
+        x = self._diagnostics.cycle[cycle_id].sw
+        y = self._diagnostics.cycle[cycle_id].pc
+
+        self._plot_pc(x, y)
+
+    def _update_highlight(self, step):
+        if not self.plot_initialized:
+            return
+
+        sw = self._diagnostics.cycle[self.cycle_id].sw
+        if not 0 <= step < len(sw):
+            self._highlight_pc(np.nan, np.nan)
+            return
+
+        x = sw[step]
+        y = self._diagnostics.cycle[self.cycle_id].pc[step]
+
+        self._highlight_pc(x, y)
+
+    def _plot_pc(self, x, y):
+        x = np.asarray(x, dtype=float).ravel()
+        y = np.asarray(y, dtype=float).ravel()
+
+        finite = np.isfinite(x) & np.isfinite(y)
+        self._pc_curve.setData(x[finite], y[finite])
+
+    def _highlight_pc(self, x, y):
+        if not (np.isfinite(x) and np.isfinite(y)):
+            self._pc_highlight.setData(np.empty(0), np.empty(0))
+            return
+        self._pc_highlight.setData(np.array([float(x)]), np.array([float(y)]))
 
 
 class ElementWidget(QtWidgets.QWidget):
