@@ -375,6 +375,7 @@ class ReductiveClusterTracker(AdditiveClusterTracker):
     def _delete_connections(self, pores_changed: NDArray[np.intp], throats_changed: NDArray[np.intp]) -> None:
         """Re-cluster after elements were removed from this phase."""
         pore_conn_in, pore_conn_out, throat_conn_in, throat_conn_out = self._connection_arrays()
+        pore_has_phase, throat_has_phase = self._phase_masks()
 
         self.max_cluster_id = self._njit_delete_connections(
             pores_changed,
@@ -393,6 +394,8 @@ class ReductiveClusterTracker(AdditiveClusterTracker):
             self.throat_cluster_next,
             self.cluster_pore_head,
             self.cluster_throat_head,
+            pore_has_phase,
+            throat_has_phase,
             self._work_pore_scan,
             self._work_throat_scan,
             self._work_pore_ids,
@@ -422,6 +425,8 @@ class ReductiveClusterTracker(AdditiveClusterTracker):
         throat_cluster_next: NDArray[np.int64],
         cluster_pore_head: NDArray[np.int64],
         cluster_throat_head: NDArray[np.int64],
+        pore_has_phase: NDArray[np.bool_],
+        throat_has_phase: NDArray[np.bool_],
         pore_to_scan: NDArray[np.bool_],
         throat_to_scan: NDArray[np.bool_],
         pore_to_scan_buf: NDArray[np.int64],
@@ -493,8 +498,8 @@ class ReductiveClusterTracker(AdditiveClusterTracker):
             pore_connected_to_outlet,
             throat_connected_to_inlet,
             throat_connected_to_outlet,
-            pore_to_scan,
-            throat_to_scan,
+            pore_has_phase,
+            throat_has_phase,
             throat_conns,
             pore_cluster_temp,
             throat_cluster_temp,
