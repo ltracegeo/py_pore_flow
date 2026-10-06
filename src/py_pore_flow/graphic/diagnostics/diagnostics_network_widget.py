@@ -24,15 +24,18 @@ THROAT_IDS = "ThroatIds"
 PORE_COLOR = (0.60, 0.72, 1.00)
 THROAT_COLOR = (0.55, 0.55, 0.55)
 HIGHLIGHT_COLOR = (1.00, 0.35, 0.25)
+TRAPPED_COLOR = (128, 128, 128)
 
 COLOR_MODE_NONE = "None"
 COLOR_MODE_FILLING = "Filling"
+COLOR_MODE_TRAPPED = "Trapped"
 COLOR_MODE_WATER_CONDUCTIVITY = "Water Conductivity"
 COLOR_MODE_OIL_CONDUCTIVITY = "Oil Conductivity"
 COLOR_MODE_INVASION_METHOD = "Invasion Method"
 COLOR_MODES = [
     COLOR_MODE_NONE,
     COLOR_MODE_FILLING,
+    COLOR_MODE_TRAPPED,
     COLOR_MODE_WATER_CONDUCTIVITY,
     COLOR_MODE_OIL_CONDUCTIVITY,
     COLOR_MODE_INVASION_METHOD,
@@ -340,6 +343,8 @@ class DiagnosticsNetworkWidget(QtWidgets.QWidget):
         self._invasion_legend.setVisible(mode == COLOR_MODE_INVASION_METHOD)
         if mode == COLOR_MODE_FILLING:
             self._apply_element_colors(self._fill_colors)
+        elif mode == COLOR_MODE_TRAPPED:
+            self._apply_element_colors(self.trapped_colors)
         elif mode == COLOR_MODE_WATER_CONDUCTIVITY:
             self._apply_element_colors(self._water_conductivity_colors)
         elif mode == COLOR_MODE_OIL_CONDUCTIVITY:
@@ -375,6 +380,14 @@ class DiagnosticsNetworkWidget(QtWidgets.QWidget):
         colors[filled, 2] = (255 * ws[filled]).astype(np.uint8)  # blue channel
         not_filled = ~filled
         colors[not_filled, 0] = (255 * (1.0 - ws[not_filled])).astype(np.uint8)  # red channel
+        return colors
+
+    @classmethod
+    def trapped_colors(cls, network, element_type):
+        """Same as :meth:`_fill_colors`, but trapped elements are painted gray."""
+        colors = cls._fill_colors(network, element_type)
+        trapped = np.asarray(network[f"{element_type}.trapped"], dtype=bool).ravel()
+        colors[trapped] = TRAPPED_COLOR
         return colors
 
     @classmethod
